@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SqAN Test</string>
+    <string name="channel_name">SqAN</string>
+    <string name="channel_description">SqAN Notifications</string>
+</resources>
