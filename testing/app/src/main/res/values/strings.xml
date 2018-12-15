@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">SqAN Test</string>
+    <string name="channel_name">SqAN Test</string>
+    <string name="settings">Settings</string>
+    <string name="channel_description">SqAN Test Notifications</string>
+    <string name="does_not_support_battery_optimization">This device does not support battery optimization.</string>
+    <string name="enable_battery_optimization">Settings adjustment recommended</string>
+    <string name="battery_optimizations_narrative">Can I turn off battery optimization for SqAN Test? This will allow for more reliable testing of SqAN.</string>
+    <string name="legal">Legal</string>
+    <string name="acknowledgements">Acknowledgements</string>
+    <string name="licenses">Licenses</string>
+    <string name="copyright">©2018 SOFWERX, all rights reserved</string>
+    <string name="about_narrative">SqAN Test provides performance testing to support the ongoing evolution of SqAN.</string>
+    <string name="about_title">SqAN Test Suite</string>
+</resources>

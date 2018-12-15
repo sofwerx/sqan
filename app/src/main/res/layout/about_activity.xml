@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="org.sofwerx.sqan.ui.AboutActivity"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/aboutVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/about_title"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="18sp" />
+
+        <TextView
+            android:id="@+id/aboutDetails"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/about_narrative"
+            android:textColor="@color/white_hint_green"
+            android:layout_marginBottom="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fadingEdgeLength="40dp"
+        android:requiresFadingEdge="vertical"
+        tools:layout_editor_absoluteX="8dp">
+        <!--         app:layout_constraintTop_toBottomOf="@id/aboutAugLogo"
+        app:layout_constraintBottom_toTopOf="@id/aboutCopyright"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" -->
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:animateLayoutChanges="true"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/legal"
+                android:textColor="@color/white"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/demo_only"
+                android:textColor="@color/white_hint_green"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:id="@+id/legalAckTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableStart="@drawable/icon_expanded_white"
+                android:text="@string/acknowledgements"
+                android:textColor="@color/white_hint_green" />
+
+            <TextView
+                android:id="@+id/legalAck"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="@string/acknowledgements"
+                android:textColor="@color/white"
+                android:textColorLink="@android:color/white"
+                android:visibility="gone" />
+            <!-- android:background="@drawable/bg2" -->
+
+            <TextView
+                android:id="@+id/legalLicenseTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableStart="@drawable/icon_expanded_white"
+                android:text="@string/licenses"
+                android:textColor="@color/white_hint_green" />
+
+            <TextView
+                android:id="@+id/legalLicense"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="@string/acknowledgements"
+                android:textColor="@color/white"
+                android:textColorLink="@android:color/white"
+                android:visibility="gone" />
+            <!-- android:background="@drawable/bg2" -->
+
+            <!--<TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/itar_warning"
+                android:textColor="@color/white"
+                android:layout_marginTop="8dp"/>-->
+
+        </LinearLayout>
+    </ScrollView>
+
+    <ImageView
+        android:id="@+id/aboutAugLogo"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:padding="8dp"
+        android:src="@drawable/sofwerx_logo_white" />
+        <!--app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />-->
+
+    <TextView
+        android:id="@+id/aboutCopyright"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_gravity="center"
+        android:text="@string/copyright"
+        android:textColor="@color/white"
+        android:textSize="10sp" />
+        <!-- app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" -->
+
+    </LinearLayout>
+</FrameLayout>
