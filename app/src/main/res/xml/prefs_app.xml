@@ -9,4 +9,14 @@
             android:defaultValue="false"/>
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="Testing">
+
+        <CheckBoxPreference
+            android:key="debugmode"
+            android:title="Debug mode"
+            android:summary="SqAN provides additional reporting data for testing purposes"
+            android:defaultValue="true"/>
+    </PreferenceCategory>
+
 </PreferenceScreen>

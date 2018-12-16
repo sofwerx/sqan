@@ -17,6 +17,8 @@ import android.os.PowerManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.Status;
+import org.sofwerx.sqan.manet.StatusHelper;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
@@ -42,17 +44,21 @@ public class SqAnService extends Service {
     private static SqAnService thisService = null;
     private SqAnStatusListener listener = null;
     private NotificationChannel channel = null;
+    private ManetOps manet;
+    private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
 
     @Override
     public void onCreate() {
         super.onCreate();
+        Config.init(this);
+        manet = new ManetOps(this);
         ExceptionHelper.set(getApplicationContext());
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
-
+        notifyStatusChange(Status.OFF); //TODO
     }
 
     @Override
@@ -98,7 +104,7 @@ public class SqAnService extends Service {
         return START_STICKY;
     }
 
-    private void acquireWakeLock() {
+    public void acquireWakeLock() {
         try {
             wakeLock.acquire(2500l);
         } catch (RuntimeException e) {
@@ -106,7 +112,7 @@ public class SqAnService extends Service {
         }
     }
 
-    private void releaseWakeLock() {
+    public void releaseWakeLock() {
         if (wakeLock == null)
             return;
         try {
@@ -137,6 +143,7 @@ public class SqAnService extends Service {
     }
 
     private void shutdown() {
+        manet.shutdown();
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null)
             notificationManager.cancelAll();
@@ -169,30 +176,33 @@ public class SqAnService extends Service {
         thisService = null;
     }
 
-    public void notifyStatusChange() {
-        createNotificationChannel();
-        PendingIntent pendingIntent = null;
-        try {
-            Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqan.ui.MainActivity"));
-            pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+    public void notifyStatusChange(Status status) {
+        if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
+            lastNotifiedStatus = status;
+            createNotificationChannel();
+            PendingIntent pendingIntent = null;
+            try {
+                Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqan.ui.MainActivity"));
+                pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            Notification.Builder builder;
+            builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
+            builder.setContentIntent(pendingIntent);
+            builder.setContentTitle(getString(R.string.notify_status_title,StatusHelper.getName(status)));
+            builder.setTicker("Test notification"); //TODO
+            builder.setSmallIcon(R.drawable.ic_notification);
+            //builder.setPriority(Notification.PRIORITY_HIGH);
+            builder.setAutoCancel(true);
+
+            Intent intentAction = new Intent(this, SqAnService.class);
+            intentAction.setAction(ACTION_STOP);
+            PendingIntent pIntentShutdown = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);
+            builder.addAction(R.drawable.icon_nofity_power_off, getString(R.string.turn_off), pIntentShutdown);
+
+            startForeground(SQAN_NOTIFICATION_ID,builder.build());
         }
-        Notification.Builder builder;
-        builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
-        builder.setContentIntent(pendingIntent);
-        builder.setContentTitle("Test notification");
-        builder.setTicker("Test notification");
-        builder.setSmallIcon(R.drawable.ic_notification);
-        //builder.setPriority(Notification.PRIORITY_HIGH);
-        builder.setAutoCancel(true);
-
-        Intent intentAction = new Intent(this, SqAnService.class);
-        intentAction.setAction(ACTION_STOP);
-        PendingIntent pIntentShutdown = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);
-        builder.addAction(R.drawable.icon_nofity_power_off, getString(R.string.turn_off), pIntentShutdown);
-
-        startForeground(SQAN_NOTIFICATION_ID,builder.build());
     }
 
     private void createNotificationChannel() {

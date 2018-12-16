@@ -25,6 +25,7 @@ import org.sofwerx.sqan.ExceptionHelper;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.util.PermissionsHelper;
 
 public class MainActivity extends AppCompatActivity implements SqAnStatusListener {
@@ -38,8 +39,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     protected void onStart() {
         super.onStart();
         connectToBackend();
-        if (serviceBound)
-            sqAnService.notifyStatusChange();
     }
 
     protected boolean isOptimizingBattery() {
@@ -122,7 +121,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             sqAnService = binder.getService();
             serviceBound = true;
             registerListeners();
-            sqAnService.notifyStatusChange();
         }
 
         @Override
