@@ -10,6 +10,13 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:title="Mesh">
+        <EditTextPreference
+            android:key="callsign"
+            android:title="Callsign" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:title="Testing">
 
         <CheckBoxPreference

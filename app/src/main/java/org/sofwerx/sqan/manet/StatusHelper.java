@@ -14,6 +14,9 @@ public class StatusHelper {
      */
     public static boolean isActive(Status status) {
         switch (status) {
+            case ADVERTISING_AND_DISCOVERING:
+            case CONNECTED:
+                return true;
             //TODO put in other cases here
 
             default:
@@ -43,8 +46,22 @@ public class StatusHelper {
             case ERROR:
                 return "Error";
 
+            case ADVERTISING:
+                return "Advertising";
+
+            case DISCOVERING:
+                return "Discovering";
+
+            case ADVERTISING_AND_DISCOVERING:
+                return "Advertising and Discovering";
+
+            case CONNECTED:
+                return "Connected";
+
             //TODO other cases as added
+
+            default:
+                return "Unknown";
         }
-        return "Ubnknown";
     }
 }

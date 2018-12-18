@@ -16,6 +16,11 @@ import android.app.NotificationManager;
 import android.os.PowerManager;
 import android.util.Log;
 
+import com.google.android.gms.nearby.connection.ConnectionInfo;
+import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
+import com.google.android.gms.nearby.connection.ConnectionResolution;
+import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
+
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.StatusHelper;
@@ -29,6 +34,7 @@ import org.sofwerx.sqan.util.NetworkUtil;
  */
 public class SqAnService extends Service {
     public final static String ACTION_STOP = "STOP";
+    public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
     private long HELPER_INTERVAL = 1000l * 30l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
@@ -42,7 +48,7 @@ public class SqAnService extends Service {
     private PowerReceiver powerReceiver = null;
     private Handler handler = null;
     private static SqAnService thisService = null;
-    private SqAnStatusListener listener = null;
+    protected SqAnStatusListener listener = null;
     private NotificationChannel channel = null;
     private ManetOps manet;
     private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
@@ -58,7 +64,7 @@ public class SqAnService extends Service {
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
-        notifyStatusChange(Status.OFF); //TODO
+        startManet();
     }
 
     @Override
@@ -79,6 +85,10 @@ public class SqAnService extends Service {
         }
     };
 
+    private void startManet() {
+        manet.start();
+    }
+
     @Override
     public int onStartCommand(final Intent intent, int flags, int startId) {
         if (intent != null) {
@@ -87,7 +97,7 @@ public class SqAnService extends Service {
                 if (action != null) {
                     if (action.equalsIgnoreCase(ACTION_STOP)) {
                         Log.d(Config.TAG, "Shutting down the SqANService");
-                        requestShutdown();
+                        requestShutdown(intent.getBooleanExtra(EXTRA_KEEP_ACTIVITY,false));
                         return START_NOT_STICKY;
                     } else if (action.equalsIgnoreCase(NetworkUtil.INTENT_CONNECTIVITY_CHANGED) || action.equalsIgnoreCase(NetworkUtil.INTENT_WIFI_CHANGED)) {
                         Log.d(Config.TAG, "Connectivity changed");
@@ -123,9 +133,9 @@ public class SqAnService extends Service {
         }
     }
 
-    public void requestShutdown() {
+    public void requestShutdown(boolean keepActivity) {
         releaseWakeLock();
-        if ((listener != null) && (listener instanceof Activity)) {
+        if (!keepActivity && (listener != null) && (listener instanceof Activity)) {
             try {
                 ((Activity)listener).finish();
             } catch (Exception e) {
@@ -144,9 +154,15 @@ public class SqAnService extends Service {
 
     private void shutdown() {
         manet.shutdown();
+        try {
+            stopForeground(true);
+        } catch (Exception ignore) {
+        }
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null)
+        if (notificationManager != null) {
+            //notificationManager.cancel(SQAN_NOTIFICATION_ID);
             notificationManager.cancelAll();
+        }
         if (handler != null) {
             Log.d(Config.TAG,"SqAnService removing periodicHelper callback");
             handler.removeCallbacks(periodicHelper);
@@ -176,7 +192,13 @@ public class SqAnService extends Service {
         thisService = null;
     }
 
-    public void notifyStatusChange(Status status) {
+    public void onStatusChange(Status status, String error) {
+        handler.post(() -> {
+            notifyStatusChange(status,error);
+        });
+    }
+
+    public void notifyStatusChange(Status status, String message) {
         if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
             lastNotifiedStatus = status;
             createNotificationChannel();
@@ -191,7 +213,10 @@ public class SqAnService extends Service {
             builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
             builder.setContentIntent(pendingIntent);
             builder.setContentTitle(getString(R.string.notify_status_title,StatusHelper.getName(status)));
-            builder.setTicker("Test notification"); //TODO
+            if (message == null)
+                builder.setTicker("Test notification"); //TODO
+            else
+                builder.setTicker(message);
             builder.setSmallIcon(R.drawable.ic_notification);
             //builder.setPriority(Notification.PRIORITY_HIGH);
             builder.setAutoCancel(true);

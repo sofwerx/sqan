@@ -18,6 +18,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.CompoundButton;
+import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
@@ -25,8 +28,12 @@ import org.sofwerx.sqan.ExceptionHelper;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
+import org.sofwerx.sqan.manet.StatusHelper;
 import org.sofwerx.sqan.util.PermissionsHelper;
+
+import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
 public class MainActivity extends AppCompatActivity implements SqAnStatusListener {
     protected static final int REQUEST_DISABLE_BATTERY_OPTIMIZATION = 401;
@@ -34,11 +41,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     protected boolean serviceBound = false;
     protected SqAnService sqAnService = null;
+    private Switch switchActive;
+    private boolean isSystemChangingSwitchActive = false;
+    private TextView textResults;
 
     @Override
     protected void onStart() {
         super.onStart();
-        connectToBackend();
     }
 
     protected boolean isOptimizingBattery() {
@@ -60,15 +69,33 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     @Override
     public void onResume() {
         super.onResume();
-        if (serviceBound && (sqAnService != null))
-            registerListeners();
-        else
-            connectToBackend();
+        registerListeners();
         if (!permissionsNagFired) {
             permissionsNagFired = true;
             openBatteryOptimizationDialogIfNeeded();
             PermissionsHelper.checkForPermissions(this);
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        unregisterListeners();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (serviceBound) {
+            unregisterListeners();
+            unbindService(mConnection);
+            serviceBound = false;
+        }
+        super.onDestroy();
     }
 
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -97,20 +124,41 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ExceptionHelper.set(getApplicationContext());
-        startService(new Intent(this,SqAnService.class));//TODO temp
+        switchActive = findViewById(R.id.switchActive);
+        if (Config.isAutoStart(this)) {
+            switchActive.setChecked(true);
+            connectToBackend();
+        } else
+            switchActive.setChecked(false);
+        textResults = findViewById(R.id.textTemp); //TODO temp
+        switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!isSystemChangingSwitchActive) {
+                Config.setAutoStart(MainActivity.this,isChecked);
+                if (isChecked)
+                    connectToBackend();
+                else
+                    disconnectBackend();
+            }
+        });
     }
 
     @Override
     public void onBackPressed() {
-        new AlertDialog.Builder(this)
-             .setTitle(R.string.quit)
-             .setMessage(R.string.quit_narrative)
-             .setNegativeButton(R.string.quit_yes, (dialog, which) -> {
-                 if (serviceBound && (sqAnService != null))
-                     sqAnService.requestShutdown();
-                 MainActivity.this.finish();
-             })
-             .setPositiveButton(R.string.quit_run_in_background, (arg0, arg1) -> MainActivity.this.finish()).create().show();
+        if (serviceBound) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.quit)
+                    .setMessage(R.string.quit_narrative)
+                    .setNegativeButton(R.string.quit_yes, (dialog, which) -> {
+                        if (serviceBound && (sqAnService != null))
+                            sqAnService.requestShutdown(false);
+                        else {
+                            disconnectBackend();
+                            MainActivity.this.finish();
+                        }
+                    })
+                    .setPositiveButton(R.string.quit_run_in_background, (arg0, arg1) -> MainActivity.this.finish()).create().show();
+        } else
+            finish();
     }
 
     protected ServiceConnection mConnection = new ServiceConnection() {
@@ -129,29 +177,26 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
     };
 
-    public void startMdxServiceIfNeeded() {
+    public void startSqAnServiceIfNeeded() {
         startService(new Intent(this, SqAnService.class));
     }
 
     public void connectToBackend() {
-        startMdxServiceIfNeeded();
+        startSqAnServiceIfNeeded();
         Intent intent = new Intent(this, SqAnService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        unregisterListeners();
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
+    private void disconnectBackend() {
         if (serviceBound) {
-            unregisterListeners();
-            unbindService(mConnection);
+            if (mConnection != null)
+                unbindService(mConnection);
+            Intent intentAction = new Intent(this, SqAnService.class);
+            intentAction.setAction(ACTION_STOP);
+            intentAction.putExtra(SqAnService.EXTRA_KEEP_ACTIVITY, true);
+            startService(intentAction);
             serviceBound = false;
+            sqAnService = null;
         }
     }
 
@@ -163,11 +208,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private void registerListeners() {
         if (serviceBound && (sqAnService != null))
             sqAnService.setListener(this);
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
     }
 
     private void openBatteryOptimizationDialogIfNeeded() {
@@ -200,5 +240,17 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 Config.setNeverAskBatteryOptimize(this);
                 break;
         }
+    }
+
+    @Override
+    public void onStatus(final Status status) {
+        runOnUiThread(() -> {
+            textResults.setText("Status is: "+StatusHelper.getName(status));
+        });
+    }
+
+    @Override
+    public void onNodesChanged(SqAnDevice device) {
+        //TODO do something to show the other nodes
     }
 }

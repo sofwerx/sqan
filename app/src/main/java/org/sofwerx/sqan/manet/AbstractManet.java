@@ -1,19 +1,48 @@
 package org.sofwerx.sqan.manet;
 
+import android.content.Context;
+
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
+import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 
 /**
  * Abstract class that handles all broad MANET activity. This abstracts away any MANET specific
  * implementation issues and lets SqAN deal with all MANETs in a uniform manner.
  */
 public abstract class AbstractManet {
-    private Status status = Status.OFF;
-    private ManetListener listener = null;
+    protected Status status = Status.OFF;
+    protected ManetListener listener;
+    protected boolean isRunning = false;
+    protected final Context context;
 
-    public AbstractManet() {}
+    public AbstractManet(Context context, ManetListener listener) {
+        this.context = context;
+        this.listener = listener;
+    }
+
+    public abstract ManetType getType();
+
+    public final static AbstractManet newFromType(Context context, ManetListener listener, ManetType type) {
+        switch (type) {
+            case NEARBY_CONNECTION:
+                return new NearbyConnectionsManet(context, listener);
+
+            case WIFI_AWARE:
+                return new WiFiAwareManet(context, listener);
+
+            case WIFI_DIRECT:
+                return new WiFiDirectManet(context, listener);
+
+            default:
+                return null;
+        }
+    }
 
     public abstract String getName();
+    public boolean isRunning() { return isRunning; }
 
     public void setListener(ManetListener listener) { this.listener = listener; }
 
@@ -22,6 +51,27 @@ public abstract class AbstractManet {
      * interactions with other nodes in the network.
      */
     public abstract void init() throws ManetException;
+
+    protected void setStatus(Status status) {
+        switch (status) {
+            case ADVERTISING:
+                if ((this.status == Status.DISCOVERING) || (this.status == Status.ADVERTISING_AND_DISCOVERING))
+                    this.status = Status.ADVERTISING_AND_DISCOVERING;
+                else
+                    this.status = Status.ADVERTISING;
+                break;
+
+            case DISCOVERING:
+                if ((this.status == Status.ADVERTISING) || (this.status == Status.ADVERTISING_AND_DISCOVERING))
+                    this.status = Status.ADVERTISING_AND_DISCOVERING;
+                else
+                    this.status = Status.DISCOVERING;
+                break;
+
+            default:
+                this.status = status;
+        }
+    }
 
     /**
      * Send a pack over the MANET

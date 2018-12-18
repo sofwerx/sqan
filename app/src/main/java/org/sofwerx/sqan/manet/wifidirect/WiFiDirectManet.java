@@ -1,7 +1,11 @@
 package org.sofwerx.sqan.manet.wifidirect;
 
+import android.content.Context;
+
+import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.ManetException;
+import org.sofwerx.sqan.manet.ManetType;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
 
 /**
@@ -9,6 +13,11 @@ import org.sofwerx.sqan.manet.packet.AbstractPacket;
  *  (https://developer.android.com/training/connect-devices-wirelessly/wifi-direct)
  */
 public class WiFiDirectManet extends AbstractManet {
+    public WiFiDirectManet(Context context, ManetListener listener) { super(context,listener); }
+
+    @Override
+    public ManetType getType() { return ManetType.WIFI_DIRECT; }
+
     @Override
     public String getName() { return "WiFi Direct™"; }
 
