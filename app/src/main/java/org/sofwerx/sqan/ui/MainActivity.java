@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private Switch switchActive;
     private boolean isSystemChangingSwitchActive = false;
     private TextView textResults;
+    private DevicesList devicesList;
 
     @Override
     protected void onStart() {
@@ -64,6 +65,30 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             return cm != null && cm.isActiveNetworkMetered() && cm.getRestrictBackgroundStatus() == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED;
         } else
             return false;
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        ExceptionHelper.set(getApplicationContext());
+        switchActive = findViewById(R.id.mainSwitchActive);
+        if (Config.isAutoStart(this)) {
+            switchActive.setChecked(true);
+            connectToBackend();
+        } else
+            switchActive.setChecked(false);
+        textResults = findViewById(R.id.mainTextTemp); //TODO temp
+        switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!isSystemChangingSwitchActive) {
+                Config.setAutoStart(MainActivity.this,isChecked);
+                if (isChecked)
+                    connectToBackend();
+                else
+                    disconnectBackend();
+            }
+        });
+        devicesList = findViewById(R.id.mainDevicesList);
     }
 
     @Override
@@ -120,29 +145,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        ExceptionHelper.set(getApplicationContext());
-        switchActive = findViewById(R.id.switchActive);
-        if (Config.isAutoStart(this)) {
-            switchActive.setChecked(true);
-            connectToBackend();
-        } else
-            switchActive.setChecked(false);
-        textResults = findViewById(R.id.textTemp); //TODO temp
-        switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!isSystemChangingSwitchActive) {
-                Config.setAutoStart(MainActivity.this,isChecked);
-                if (isChecked)
-                    connectToBackend();
-                else
-                    disconnectBackend();
-            }
-        });
-    }
-
-    @Override
     public void onBackPressed() {
         if (serviceBound) {
             new AlertDialog.Builder(this)
@@ -164,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     protected ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(Config.TAG,"MdxService bound to this activity");
+            Log.d(Config.TAG,"SqAnService bound to this activity");
             SqAnService.SqAnServiceBinder binder = (SqAnService.SqAnServiceBinder) service;
             sqAnService = binder.getService();
             serviceBound = true;
@@ -251,6 +253,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     @Override
     public void onNodesChanged(SqAnDevice device) {
-        //TODO do something to show the other nodes
+        devicesList.update(device);
     }
 }

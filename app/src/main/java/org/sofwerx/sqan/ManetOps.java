@@ -5,6 +5,7 @@ import android.util.Log;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.ManetException;
+import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
@@ -39,6 +40,7 @@ public class ManetOps implements ManetListener {
     public void start() {
         if ((manet != null) && !manet.isRunning()) {
             try {
+                sqAnService.onStatusChange(Status.OFF,null);
                 manet.init();
             } catch (ManetException e) {
                 sqAnService.onStatusChange(Status.ERROR,e.getMessage());
@@ -48,12 +50,23 @@ public class ManetOps implements ManetListener {
 
     @Override
     public void onStatus(Status status) {
-        if (sqAnService.listener != null)
-            sqAnService.listener.onStatus(status);
+        sqAnService.onStatusChange(status,null);
     }
 
     @Override
     public void onRx(AbstractPacket packet) {
 
+    }
+
+    @Override
+    public void onDevicesChanged(SqAnDevice device) {
+        if (sqAnService.listener != null)
+            sqAnService.listener.onNodesChanged(device);
+    }
+
+    public Status getStatus() {
+        if (manet == null)
+            return Status.OFF;
+        return manet.getStatus();
     }
 }

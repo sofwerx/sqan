@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="78dp"
+    android:orientation="horizontal">
+    <ImageView
+        android:id="@+id/deviceLink"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/icon_link"
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/deviceConnectivity"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/icon_signal_3"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBattery"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/deviceBattery"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/icon_battery_50_charging"
+        android:layout_gravity="center_vertical"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toStartOf="@+id/deviceLocation"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_vertical"
+        android:src="@drawable/icon_location_off"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/deviceLocation"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_vertical"
+        android:src="@drawable/icon_location"
+        android:visibility="invisible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/deviceDetails"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:textColor="@color/white_hint_green"
+        android:textSize="10sp"
+        android:paddingStart="2dp"
+        app:layout_constraintStart_toEndOf="@+id/deviceLink"
+        app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+    <TextView
+        android:id="@+id/deviceCallsign"
+        android:layout_width="0dp"
+        android:layout_height="30dp"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:padding="2dp"
+        android:text="@string/callsign"
+        android:textColor="@color/white"
+        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintStart_toEndOf="@+id/deviceLink"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</android.support.constraint.ConstraintLayout>

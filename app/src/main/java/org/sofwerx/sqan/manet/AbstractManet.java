@@ -5,6 +5,7 @@ import android.content.Context;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.packet.SegmentTool;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 
@@ -21,9 +22,12 @@ public abstract class AbstractManet {
     public AbstractManet(Context context, ManetListener listener) {
         this.context = context;
         this.listener = listener;
+        SegmentTool.setMaxPacketSize(getMaximumPacketSize());
     }
 
     public abstract ManetType getType();
+
+    public abstract int getMaximumPacketSize();
 
     public final static AbstractManet newFromType(Context context, ManetListener listener, ManetType type) {
         switch (type) {
@@ -105,4 +109,6 @@ public abstract class AbstractManet {
         if (packet == null)
             throw new ManetException("Empty packet received over "+getClass());
     }
+
+    public Status getStatus() { return status; }
 }

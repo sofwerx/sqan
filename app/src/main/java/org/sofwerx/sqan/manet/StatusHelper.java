@@ -16,6 +16,7 @@ public class StatusHelper {
         switch (status) {
             case ADVERTISING_AND_DISCOVERING:
             case CONNECTED:
+            case CHANGING_MEMBERSHIP:
                 return true;
             //TODO put in other cases here
 
@@ -33,6 +34,8 @@ public class StatusHelper {
     public static boolean isNotificationWarranted(Status lastNotifiedStatus, Status status) {
         if (status == lastNotifiedStatus)
             return (status == ERROR); //always notify about errors
+        if (status == CHANGING_MEMBERSHIP)
+            return true;
         if (isActive(status))
             return !isActive(lastNotifiedStatus);
         return true;
@@ -48,6 +51,9 @@ public class StatusHelper {
 
             case ADVERTISING:
                 return "Advertising";
+
+            case CHANGING_MEMBERSHIP:
+                return "Adjusting Mesh";
 
             case DISCOVERING:
                 return "Discovering";

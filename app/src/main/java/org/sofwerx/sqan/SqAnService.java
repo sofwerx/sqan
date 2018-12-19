@@ -16,12 +16,8 @@ import android.app.NotificationManager;
 import android.os.PowerManager;
 import android.util.Log;
 
-import com.google.android.gms.nearby.connection.ConnectionInfo;
-import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
-import com.google.android.gms.nearby.connection.ConnectionResolution;
-import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
-
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.StatusHelper;
 import org.sofwerx.sqan.receivers.BootReceiver;
@@ -52,6 +48,8 @@ public class SqAnService extends Service {
     private NotificationChannel channel = null;
     private ManetOps manet;
     private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
+    //private boolean foregroundLaunched = false;
+    private int numDevicesInLastNotification = 0;
 
     @Override
     public void onCreate() {
@@ -79,11 +77,21 @@ public class SqAnService extends Service {
     private final Runnable periodicHelper = new Runnable() {
         @Override
         public void run() {
+            checkForStaleDevices();
             //TODO anything periodic can be done here
             if (handler != null)
                 handler.postDelayed(this, HELPER_INTERVAL);
         }
     };
+
+    private void checkForStaleDevices() {
+        if (StatusHelper.isActive(manet.getStatus()) && (SqAnDevice.getActiveConnections() != numDevicesInLastNotification))
+            notifyStatusChange(Status.CHANGING_MEMBERSHIP,null);
+
+        //TODO actually do something other than show their stale status
+        if (listener != null)
+            listener.onNodesChanged(null);
+    }
 
     private void startManet() {
         manet.start();
@@ -158,6 +166,7 @@ public class SqAnService extends Service {
             stopForeground(true);
         } catch (Exception ignore) {
         }
+        //foregroundLaunched = false;
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
             //notificationManager.cancel(SQAN_NOTIFICATION_ID);
@@ -192,13 +201,16 @@ public class SqAnService extends Service {
         thisService = null;
     }
 
-    public void onStatusChange(Status status, String error) {
+    public void onStatusChange(final Status status, final String error) {
         handler.post(() -> {
             notifyStatusChange(status,error);
         });
+        if (listener != null)
+            listener.onStatus(status);
     }
 
     public void notifyStatusChange(Status status, String message) {
+        //if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status) || ((status != Status.OFF) && !foregroundLaunched)) {
         if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
             lastNotifiedStatus = status;
             createNotificationChannel();
@@ -212,12 +224,19 @@ public class SqAnService extends Service {
             Notification.Builder builder;
             builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
             builder.setContentIntent(pendingIntent);
-            builder.setContentTitle(getString(R.string.notify_status_title,StatusHelper.getName(status)));
-            if (message == null)
-                builder.setTicker("Test notification"); //TODO
-            else
-                builder.setTicker(message);
-            builder.setSmallIcon(R.drawable.ic_notification);
+            if (StatusHelper.isActive(status)) {
+                builder.setContentTitle("SqAN is Active");
+                builder.setSmallIcon(R.drawable.ic_notification);
+                numDevicesInLastNotification = SqAnDevice.getActiveConnections();
+                builder.setContentText("Connected to "+numDevicesInLastNotification+((numDevicesInLastNotification == 1)?" device":" devices"));
+            } else {
+                builder.setContentTitle(getString(R.string.notify_status_title, StatusHelper.getName(status)));
+                builder.setSmallIcon(R.drawable.ic_notification_down);
+                if (message == null)
+                    builder.setTicker("Squad Area Network");
+                else
+                    builder.setTicker(message);
+            }
             //builder.setPriority(Notification.PRIORITY_HIGH);
             builder.setAutoCancel(true);
 
@@ -226,6 +245,7 @@ public class SqAnService extends Service {
             PendingIntent pIntentShutdown = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);
             builder.addAction(R.drawable.icon_nofity_power_off, getString(R.string.turn_off), pIntentShutdown);
 
+            //foregroundLaunched = true;
             startForeground(SQAN_NOTIFICATION_ID,builder.build());
         }
     }

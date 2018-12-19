@@ -22,4 +22,5 @@
     <string name="battery_optimize_yes">Allow</string>
     <string name="turn_off">Shutdown</string>
     <string name="notify_status_title">SqAN %1$s</string>
+    <string name="callsign">Callsign</string>
 </resources>

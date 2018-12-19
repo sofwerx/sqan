@@ -8,16 +8,21 @@
     android:orientation="vertical">
 
     <Switch
-        android:id="@+id/switchActive"
+        android:id="@+id/mainSwitchActive"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Active" />
 
     <TextView
-        android:id="@+id/textTemp"
+        android:id="@+id/mainTextTemp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="TextView" />
+
+    <org.sofwerx.sqan.ui.DevicesList
+        android:id="@+id/mainDevicesList"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="TextView" />
+        android:layout_weight="1"/>
 
 </LinearLayout>

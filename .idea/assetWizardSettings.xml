@@ -84,8 +84,8 @@
                                   <option name="values">
                                     <map>
                                       <entry key="assetType" value="IMAGE" />
-                                      <entry key="imageAsset" value="C:\Users\Shane\Desktop\logo.png" />
-                                      <entry key="outputName" value="ic_notification" />
+                                      <entry key="imageAsset" value="C:\Users\Shane\Desktop\ic_notify_down.png" />
+                                      <entry key="outputName" value="ic_notification_down" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -95,7 +95,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputIconType" value="ACTIONBAR" />
+                            <entry key="outputIconType" value="NOTIFICATION" />
                           </map>
                         </option>
                       </PersistentState>
