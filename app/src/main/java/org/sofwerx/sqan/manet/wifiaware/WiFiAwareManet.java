@@ -20,6 +20,11 @@ public class WiFiAwareManet extends AbstractManet {
     public ManetType getType() { return ManetType.WIFI_AWARE; }
 
     @Override
+    public int getMaximumPacketSize() {
+        return 64000; //TODO temp maximum
+    }
+
+    @Override
     public String getName() { return "WiFi Aware™"; }
 
     @Override

@@ -10,7 +10,8 @@ import java.nio.ByteBuffer;
  * Contains the header information needed for all packets
  */
 public class PacketHeader {
-    protected final static int PACKET_TYPE_RAW_BYTES = 0;
+    protected final static int PACKET_TYPE_HEARTBEAT = 0;
+    protected final static int PACKET_TYPE_RAW_BYTES = 1;
     private long time; //timestamps are used as a message index as well
     private int packetType;
 
@@ -22,6 +23,8 @@ public class PacketHeader {
 
     public long getTime() { return time; }
     public void setTime(long time) { this.time = time; }
+    public int getType() { return packetType; }
+    public void setType(int packetType) { this.packetType = packetType; }
 
     public byte[] toByteArray() {
         ByteBuffer out = ByteBuffer.allocate(getSize());
@@ -45,6 +48,4 @@ public class PacketHeader {
         packetHeader.time = in.getLong();
         return packetHeader;
     }
-
-    public int getType() { return packetType; }
 }

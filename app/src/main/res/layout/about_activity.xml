@@ -55,6 +55,33 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/commsLogTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableStart="@drawable/icon_expanded_white"
+                android:text="@string/commslog"
+                android:textColor="@color/white_hint_green" />
+
+            <TextView
+                android:id="@+id/commsLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="@string/commslog"
+                android:textColor="@color/white"
+                android:textColorLink="@android:color/white"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="@color/white"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"/>
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"

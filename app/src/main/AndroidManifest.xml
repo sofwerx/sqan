@@ -26,7 +26,8 @@
         android:theme="@style/AppTheme">
         <service android:name="org.sofwerx.sqan.SqAnService" />
 
-        <activity android:name=".ui.MainActivity">
+        <activity android:name=".ui.MainActivity"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -34,7 +35,8 @@
         </activity>
         <activity
             android:name=".ui.SettingsActivity"
-            android:label="@string/settings">
+            android:label="@string/settings"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MANAGE_NETWORK_USAGE" />
                 <category android:name="android.intent.category.DEFAULT" />

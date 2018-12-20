@@ -11,12 +11,12 @@ import android.widget.TextView;
 
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.util.Admin;
+import org.sofwerx.sqan.util.CommsLog;
 
 public class AboutActivity extends Activity {
-    private TextView ackTitle;
-    private TextView ack;
-    private TextView licTitle;
-    private TextView lic;
+    private TextView ackTitle, ack;
+    private TextView licTitle, lic;
+    private TextView logTitle, log;
     private TextView version;
 
     @Override
@@ -27,6 +27,8 @@ public class AboutActivity extends Activity {
         ack = findViewById(R.id.legalAck);
         licTitle = findViewById(R.id.legalLicenseTitle);
         lic = findViewById(R.id.legalLicense);
+        logTitle = findViewById(R.id.commsLogTitle);
+        log = findViewById(R.id.commsLog);
         version = findViewById(R.id.aboutVersion);
 
         try {
@@ -37,6 +39,16 @@ public class AboutActivity extends Activity {
             e.printStackTrace();
         }
 
+        logTitle.setOnClickListener(v -> {
+            if (log.getVisibility() == View.VISIBLE) {
+                log.setVisibility(View.GONE);
+                logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expanded_white, 0, 0, 0);
+            } else {
+                log.setText(CommsLog.getEntriesAsString());
+                log.setVisibility(View.VISIBLE);
+                logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expandable_white, 0, 0, 0);
+            }
+        });
         ackTitle.setOnClickListener(v -> {
             if (ack.getVisibility() == View.VISIBLE) {
                 ack.setVisibility(View.GONE);

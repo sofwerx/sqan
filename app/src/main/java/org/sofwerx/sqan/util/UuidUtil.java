@@ -2,6 +2,7 @@ package org.sofwerx.sqan.util;
 
 import java.io.StringWriter;
 import java.util.Random;
+import java.util.UUID;
 
 public class UuidUtil {
     public final static String getRandomCallsign() {
@@ -18,4 +19,11 @@ public class UuidUtil {
             //"Red", "Blue", "Yellow", "Green", "Orange", "Purple", "Brown", "Black"
             "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"
     };
+
+    public static String getNewUUID() {
+        UUID uuid = UUID.randomUUID();
+        String fullUUID = uuid.toString();
+        String subUUID = fullUUID.substring(fullUUID.length()-7,fullUUID.length()-1); //use a smaller UUID to speed up UUID-based searches and to possibly address connection delays in Nearby Connections
+        return subUUID;
+    }
 }

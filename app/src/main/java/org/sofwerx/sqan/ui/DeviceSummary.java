@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.manet.SqAnDevice;
+import org.sofwerx.sqan.util.StringUtil;
 
 public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayInterface*/ {
     private TextView callsign, description;
@@ -49,10 +50,11 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
 
     public void update(SqAnDevice device) {
         if (device != null) {
-            if (device.getCallsign() == null)
-                callsign.setText(device.getUUID()+"(waiting C/S)");
+            if (device.getUUID() == null)
+                callsign.setText(device.getUUID()+"(waiting SqAN ID)");
             else
-                callsign.setText(device.getCallsign());
+                callsign.setText("SqAN ID: "+device.getUUID()+" ("+device.getNetworkId()+")");
+            description.setText("Rx: "+StringUtil.toDataSize(device.getDataTally()));
             //updateBattery(device.getPower());
             //updateConnection(device.getPrimaryConnection());
             //updateSensorActivity(device);
@@ -79,15 +81,34 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
 
     private void updateLinkDisplay(SqAnDevice device) {
         //device.setDisplayInterface(this);
-        if (device.isDisconnected()) {
-            iconLink.setImageResource(R.drawable.icon_off);
-            unavailable = true;
-        } else if (device.isDeviceStale()) {
-            iconLink.setImageResource(R.drawable.icon_link_broken);
-            unavailable = true;
-        } else {
-            iconLink.setImageResource(R.drawable.icon_link);
-            unavailable = false;
+        switch (device.getStatus()) {
+            case ONLINE:
+                iconLink.setVisibility(View.INVISIBLE);
+                unavailable = false;
+                break;
+
+            case CONNECTED:
+                iconLink.setImageResource(R.drawable.icon_link);
+                iconLink.setVisibility(View.VISIBLE);
+                unavailable = false;
+                break;
+
+            case OFFLINE:
+                iconLink.setImageResource(R.drawable.icon_off);
+                iconLink.setVisibility(View.VISIBLE);
+                unavailable = true;
+                break;
+
+            case STALE:
+                iconLink.setImageResource(R.drawable.icon_link_old);
+                iconLink.setVisibility(View.VISIBLE);
+                unavailable = false;
+                break;
+
+            default:
+                iconLink.setImageResource(R.drawable.icon_link_broken);
+                iconLink.setVisibility(View.VISIBLE);
+                unavailable = true;
         }
         if (unavailable) {
             callsign.setTextColor(getContext().getResources().getColor(R.color.light_grey));

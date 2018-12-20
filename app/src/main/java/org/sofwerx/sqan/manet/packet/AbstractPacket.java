@@ -1,8 +1,6 @@
 package org.sofwerx.sqan.manet.packet;
 
-import android.util.Log;
-
-import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.CommsLog;
 
 import java.nio.ByteBuffer;
 
@@ -10,6 +8,8 @@ import java.nio.ByteBuffer;
  * Data bundled for transmission over the MANET
  */
 public abstract class AbstractPacket {
+    //TODO make a PingPacket for testing round-trip timing
+    //TODO make a ChallengePacket for handling sign/countersign
     protected PacketHeader packetHeader;
 
     public AbstractPacket(PacketHeader packetHeader) {
@@ -19,7 +19,7 @@ public abstract class AbstractPacket {
     //creates a new packet from the byte array
     public static AbstractPacket newFromBytes(byte[] bytes) {
         if ((bytes == null) || (bytes.length < PacketHeader.getSize())) {
-            Log.e(Config.TAG,"Unable to generate a packet from the byte array; byte array was not big enough to hold a header");
+            CommsLog.log("Unable to generate a packet from the byte array; byte array was not big enough to hold a header");
         }
         AbstractPacket packet = null;
         ByteBuffer reader = ByteBuffer.wrap(bytes);
@@ -29,13 +29,13 @@ public abstract class AbstractPacket {
         PacketHeader header = PacketHeader.newFromBytes(headerBytes);
 
         if (header == null) {
-            Log.e(Config.TAG,"Unable to generate a packet header from the byte array");
+            CommsLog.log("Unable to generate a packet header from the byte array");
             return null;
         }
 
         packet = AbstractPacket.newFromHeader(header);
         if (packet == null) {
-            Log.e(Config.TAG,"Unable to generate a packet from the packet header");
+            CommsLog.log("Unable to generate a packet from the packet header");
             return null;
         }
 
@@ -57,7 +57,7 @@ public abstract class AbstractPacket {
 
     public static AbstractPacket newFromHeader(PacketHeader packetHeader) {
         if (packetHeader == null) {
-            Log.e(Config.TAG,"Cannot generate a Packet from an empty packet header");
+            CommsLog.log("Cannot generate a Packet from an empty packet header");
             return null;
         }
 
@@ -67,6 +67,13 @@ public abstract class AbstractPacket {
             case PacketHeader.PACKET_TYPE_RAW_BYTES:
                 packet = new RawBytesPacket(packetHeader);
                 break;
+
+            case PacketHeader.PACKET_TYPE_HEARTBEAT:
+                packet = new HeartbeatPacket(packetHeader);
+                break;
+
+            //TODO case PacketHeader.PACKET_TYPE_PING:
+            //TODO case PacketHeader.PACKET_TYPE_CHALLENGE:
         }
 
         return packet;

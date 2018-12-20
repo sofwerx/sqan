@@ -19,6 +19,18 @@ public interface ManetListener {
     void onRx(AbstractPacket packet);
 
     /**
+     * Called when a packet is transmitted over the MANET
+     * @param packet the packet that was transmitted
+     */
+    void onTx(AbstractPacket packet);
+
+    /**
+     * Called when this packet failed to transmit
+     * @param packet
+     */
+    void onTxFailed(AbstractPacket packet);
+
+    /**
      * Called when the devices currently on the MANET change
      * @param device the device that was changed (null == check all devices)
      */

@@ -17,12 +17,16 @@ import android.os.PowerManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.StatusHelper;
+import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.packet.HeartbeatPacket;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetworkUtil;
 
 /**
@@ -77,12 +81,42 @@ public class SqAnService extends Service {
     private final Runnable periodicHelper = new Runnable() {
         @Override
         public void run() {
+            Log.d(Config.TAG,"PeriodicHelper executing");
             checkForStaleDevices();
             //TODO anything periodic can be done here
+            requestHeartbeat();
             if (handler != null)
                 handler.postDelayed(this, HELPER_INTERVAL);
         }
     };
+
+    public void requestHeartbeat() {
+        Log.d(Config.TAG,"SqAnService.requestHeartbeat()");
+        //TODO add more complex heartbeat logic
+        burst(new HeartbeatPacket());
+    }
+
+    /**
+     * Sends a packet over the MANET
+     * @param packet packet to send
+     * @return true == attempting to send; false = unable to send (MANET not ready)
+     */
+    public boolean burst(final AbstractPacket packet) {
+        if ((packet == null) || !StatusHelper.isActive(manet.getStatus())) {
+            Log.i(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
+            return false;
+        }
+        if (handler == null) {
+            Log.d(Config.TAG, "Sending burst directly to ManetOps (bypassing SqAnService handler)");
+            manet.burst(packet);
+        } else {
+            handler.post(() -> {
+                Log.d(Config.TAG, "Sending burst to ManetOps");
+                manet.burst(packet);
+            });
+        }
+        return true;
+    }
 
     private void checkForStaleDevices() {
         if (StatusHelper.isActive(manet.getStatus()) && (SqAnDevice.getActiveConnections() != numDevicesInLastNotification))
@@ -152,12 +186,15 @@ public class SqAnService extends Service {
         if (handler == null) {
             shutdown();
             stopSelf();
+            SqAnDevice.clearAllDevices(null);
         } else {
             handler.post(() -> {
                 shutdown();
                 stopSelf();
+                SqAnDevice.clearAllDevices(null);
             });
         }
+        CommsLog.clear();
     }
 
     private void shutdown() {
@@ -202,11 +239,13 @@ public class SqAnService extends Service {
     }
 
     public void onStatusChange(final Status status, final String error) {
-        handler.post(() -> {
-            notifyStatusChange(status,error);
-        });
-        if (listener != null)
-            listener.onStatus(status);
+        if (handler != null) {
+            handler.post(() -> {
+                notifyStatusChange(status, error);
+            });
+            if (listener != null)
+                listener.onStatus(status);
+        }
     }
 
     public void notifyStatusChange(Status status, String message) {
@@ -273,4 +312,6 @@ public class SqAnService extends Service {
             return SqAnService.this;
         }
     }
+
+    public ManetOps getManetOps() { return manet; }
 }

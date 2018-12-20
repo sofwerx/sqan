@@ -13,19 +13,21 @@ public class Config {
     private final static String PREFS_ALLOW_ASK_BATTERY_OPTIMIZATION = "allowbatask";
     private final static String PREFS_DEBUG_MODE = "debugmode";
     private final static String PREFS_DEBUG_CONNECTION_MODE = "debugmx";
-    private final static String PREFS_CALLSIGN = "callsign";
+    private final static String PREFS_UUID = "uuid";
     private static boolean debugMode = false;
     private static boolean includeConnections = false;
-    private static String callsign = null;
+    private static String uuid = null;
 
     public static void init(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
-        callsign = prefs.getString(PREFS_CALLSIGN,null);
-        if (callsign == null) {
-            callsign = UuidUtil.getRandomCallsign();
-            setCallsign(context,callsign);
+        uuid = prefs.getString(PREFS_UUID,null);
+        if (uuid == null) {
+            uuid = UuidUtil.getNewUUID();
+            SharedPreferences.Editor edit = prefs.edit();
+            edit.putString(PREFS_UUID,uuid);
+            edit.apply();
         }
     }
 
@@ -57,14 +59,6 @@ public class Config {
         prefs.edit().putBoolean(PREFS_ALLOW_ASK_BATTERY_OPTIMIZATION,false).apply();
     }
 
-    public static void setCallsign(Context context, String callsign) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        if (callsign == null)
-            prefs.edit().remove(PREFS_CALLSIGN).apply();
-        else
-            prefs.edit().putString(PREFS_CALLSIGN,callsign).apply();
-    }
-
     public static void setDebugConnectionMode(Context context, boolean active) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
@@ -73,7 +67,7 @@ public class Config {
         edit.putBoolean(PREFS_DEBUG_CONNECTION_MODE,active);
     }
 
-    public static String getCallsign() {
-        return callsign;
+    public static String getUUID() {
+        return uuid;
     }
 }

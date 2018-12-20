@@ -17,4 +17,9 @@ public interface SqAnStatusListener {
      * @param device the node that changed (null ==  there was some change that may effect all nodes)
      */
     void onNodesChanged(SqAnDevice device);
+
+    /**
+     * Called when data has been transmitted. Primarily used to update GUI to show transmission activity
+     */
+    void onDataTransmitted();
 }

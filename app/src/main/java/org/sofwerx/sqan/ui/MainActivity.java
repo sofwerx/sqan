@@ -18,6 +18,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -25,13 +26,16 @@ import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ExceptionHelper;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.StatusHelper;
 import org.sofwerx.sqan.util.PermissionsHelper;
+import org.sofwerx.sqan.util.StringUtil;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
@@ -44,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private Switch switchActive;
     private boolean isSystemChangingSwitchActive = false;
     private TextView textResults;
+    private TextView textTxTally, textNetType, textOffline;
     private DevicesList devicesList;
 
     @Override
@@ -79,6 +84,10 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         } else
             switchActive.setChecked(false);
         textResults = findViewById(R.id.mainTextTemp); //TODO temp
+        textTxTally = findViewById(R.id.mainTxBytes);
+        textOffline = findViewById(R.id.mainOfflineLabel);
+        textNetType = findViewById(R.id.mainNetType);
+        textNetType.setText(null);
         switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!isSystemChangingSwitchActive) {
                 Config.setAutoStart(MainActivity.this,isChecked);
@@ -91,15 +100,21 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         devicesList = findViewById(R.id.mainDevicesList);
     }
 
+    private void updateTransmitText() {
+        textTxTally.setText("Tx: "+StringUtil.toDataSize(ManetOps.getTransmittedByteTally()));
+    }
+
     @Override
     public void onResume() {
         super.onResume();
         registerListeners();
+        updateManetTypeDisplay();
         if (!permissionsNagFired) {
             permissionsNagFired = true;
             openBatteryOptimizationDialogIfNeeded();
             PermissionsHelper.checkForPermissions(this);
         }
+        updateTransmitText();
     }
 
     @Override
@@ -144,6 +159,16 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         return super.onOptionsItemSelected(item);
     }
 
+    private void updateManetTypeDisplay() {
+        if (textNetType.getText().toString() == null) {
+            if (serviceBound && (sqAnService != null)) {
+                AbstractManet manet = sqAnService.getManetOps().getManet();
+                if (manet != null)
+                    textNetType.setText(manet.getName());
+            }
+        }
+    }
+
     @Override
     public void onBackPressed() {
         if (serviceBound) {
@@ -171,6 +196,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             sqAnService = binder.getService();
             serviceBound = true;
             registerListeners();
+            updateManetTypeDisplay();
         }
 
         @Override
@@ -248,11 +274,18 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onStatus(final Status status) {
         runOnUiThread(() -> {
             textResults.setText("Status is: "+StatusHelper.getName(status));
+            textOffline.setVisibility(switchActive.isChecked()? View.INVISIBLE:View.VISIBLE);
+            updateManetTypeDisplay();
         });
     }
 
     @Override
     public void onNodesChanged(SqAnDevice device) {
         devicesList.update(device);
+    }
+
+    @Override
+    public void onDataTransmitted() {
+        runOnUiThread(() -> updateTransmitText());
     }
 }

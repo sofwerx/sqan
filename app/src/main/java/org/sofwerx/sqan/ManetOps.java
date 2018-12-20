@@ -17,6 +17,7 @@ import org.sofwerx.sqan.manet.packet.AbstractPacket;
 public class ManetOps implements ManetListener {
     private final SqAnService sqAnService;
     private AbstractManet manet;
+    private static long transmittedByteTally = 0l;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
@@ -55,18 +56,58 @@ public class ManetOps implements ManetListener {
 
     @Override
     public void onRx(AbstractPacket packet) {
-
+        //TODO actually do something with the packet
     }
+
+    @Override
+    public void onTx(AbstractPacket packet) {
+        if (sqAnService.listener != null)
+            sqAnService.listener.onDataTransmitted();
+    }
+
+    @Override
+    public void onTxFailed(AbstractPacket packet) {
+        if (packet == null)
+            return;
+        //TODO decide if packet should be dropped or resent; maybe check network health as well
+    }
+
+    /**
+     * Used to keep a running total of transmitted data
+     * @param bytes
+     */
+    public static void addBytesToTransmittedTally(int bytes) { transmittedByteTally += bytes; }
+
+    /**
+     * Gets the total tally of bytes transmitted
+     * @return
+     */
+    public static long getTransmittedByteTally() { return transmittedByteTally; }
 
     @Override
     public void onDevicesChanged(SqAnDevice device) {
         if (sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
+        sqAnService.requestHeartbeat();
     }
 
     public Status getStatus() {
         if (manet == null)
             return Status.OFF;
         return manet.getStatus();
+    }
+
+    public AbstractManet getManet() { return manet; }
+
+    public void burst(AbstractPacket packet) {
+        if ((packet == null) || (manet == null))
+            Log.d(Config.TAG,"ManetOps cannot burst the packet "+((packet==null)?"null packet":"null manet"));
+        else {
+            try {
+                manet.burst(packet);
+            } catch (ManetException e) {
+                Log.e(Config.TAG,"Unable to burst packet: "+e.getMessage());
+            }
+        }
     }
 }

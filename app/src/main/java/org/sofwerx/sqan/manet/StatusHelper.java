@@ -36,6 +36,8 @@ public class StatusHelper {
             return (status == ERROR); //always notify about errors
         if (status == CHANGING_MEMBERSHIP)
             return true;
+        if (lastNotifiedStatus == CHANGING_MEMBERSHIP)
+            return true;
         if (isActive(status))
             return !isActive(lastNotifiedStatus);
         return true;

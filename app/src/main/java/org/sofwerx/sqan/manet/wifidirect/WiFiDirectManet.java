@@ -19,7 +19,12 @@ public class WiFiDirectManet extends AbstractManet {
     public ManetType getType() { return ManetType.WIFI_DIRECT; }
 
     @Override
-    public String getName() { return "WiFi Direct™"; }
+    public String getName() { return "WiFi Direct®"; }
+
+    @Override
+    public int getMaximumPacketSize() {
+        return 64000; //TODO temp maximum
+    }
 
     @Override
     public void init() throws ManetException {

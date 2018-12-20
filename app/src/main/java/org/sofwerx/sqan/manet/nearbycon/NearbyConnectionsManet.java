@@ -18,10 +18,9 @@ import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback;
 import com.google.android.gms.nearby.connection.Payload;
 import com.google.android.gms.nearby.connection.PayloadCallback;
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.ManetException;
@@ -29,7 +28,10 @@ import org.sofwerx.sqan.manet.ManetType;
 import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.StringUtil;
 
+import java.io.StringWriter;
 import java.util.List;
 
 import static com.google.android.gms.nearby.connection.Strategy.P2P_CLUSTER;
@@ -63,26 +65,67 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     @Override
-    public void burst(AbstractPacket packet) {
+    public void burst(final AbstractPacket packet) {
+        Log.d(Config.TAG,"Attempting burst");
         if (packet == null)
             return; //nothing to send
         byte[] bytes = packet.toByteArray();
         if ((bytes == null) || (bytes.length < 2)) {
-            Log.e(Config.TAG,"Unable to send packet; the ByteArray output was too small to be correct");
+            CommsLog.log("Unable to send packet; the ByteArray output was too small to be correct");
             return; //nothing to send but that seems like an error
         }
-        List<String> devices = SqAnDevice.getActiveDevicesUuid();
-        if (devices == null)
+        List<String> devices = SqAnDevice.getActiveDevicesNetworkIds();
+        if (devices == null) {
+            CommsLog.log("Packet intended to be sent, but there is no one else on the network to receive it.");
             return; //no one to send the burst to
+        }
+
+        //temp
+        StringWriter outTemp = new StringWriter();
+        boolean first = true;
+        for (String deviceNetId:devices) {
+            if (first)
+                first = false;
+            else
+                outTemp.append(',');
+            outTemp.append(deviceNetId);
+        }
+        Log.d(Config.TAG,"Sending burst to: "+outTemp.toString());
+        //temp
+
+        final int bytesSent = bytes.length;
+
+        if (bytes.length > getMaximumPacketSize()) { //this packet is too big for Nearby Connnections to send in one piece
+            CommsLog.log("Packet is too big for sending directly; segmenting...");
+            segmentAndBurst(packet);
+            return;
+        }
 
         //This will broadcast to all active devices
+        //TODO add some selective broadcast options later
         Nearby.getConnectionsClient(context).sendPayload(devices,Payload.fromBytes(bytes))
-                .addOnFailureListener(e -> {
-                    Log.e(Config.TAG,"Unable to send payload: "+e.getMessage());
-                    status = Status.ERROR;
-                    if (listener != null)
+                .addOnSuccessListener(aVoid -> {
+                    CommsLog.log(StringUtil.toDataSize(bytesSent)+" sent to "+devices.size()+((devices.size()==1)?" device":" devices"));
+                    setStatus(Status.CONNECTED);
+                    ManetOps.addBytesToTransmittedTally(bytesSent);
+                    if (listener != null) {
                         listener.onStatus(status);
+                        listener.onTx(packet);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    CommsLog.log("Unable to send payload: "+e.getMessage());
+                    //status = Status.ERROR;
+                    if (listener != null) {
+                        listener.onTxFailed(packet);
+                        listener.onStatus(status);
+                    }
                 });
+    }
+
+    private void segmentAndBurst(AbstractPacket packet) {
+        Log.d(Config.TAG,"This packet is too big for Nearby Connections; since there is no segmentation capability yet, this packet is being dropped.");
+        //TODO break up this large packet and send it as smaller packets
     }
 
     @Override
@@ -102,26 +145,21 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void disconnect() throws ManetException {
-        stopAdvertising();
-        stopDiscovery();
-        isRunning = false;
-    }
-
-    private void stopAdvertising() {
         Nearby.getConnectionsClient(context).stopAdvertising();
-    }
-
-    private void stopDiscovery() {
         Nearby.getConnectionsClient(context).stopDiscovery();
+        Nearby.getConnectionsClient(context).stopAllEndpoints();
+        CommsLog.log("MANET disconnected");
+        isRunning = false;
     }
 
     private void startAdvertising() {
         AdvertisingOptions advertisingOptions =
                 new AdvertisingOptions.Builder().setStrategy(P2P_CLUSTER).build();
         Nearby.getConnectionsClient(context)
-                .startAdvertising(Config.getCallsign(), SERVICE_ID, connectionLifecycleCallback, advertisingOptions)
+                .startAdvertising(Config.getUUID(), SERVICE_ID, connectionLifecycleCallback, advertisingOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
+                            CommsLog.log("Advertising");
                             setStatus(Status.ADVERTISING);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -129,6 +167,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
+                            CommsLog.log("Unable to Advertise: "+e.getMessage());
                             setStatus(Status.ERROR);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -147,6 +186,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                 .startDiscovery(SERVICE_ID, endpointDiscoveryCallback, discoveryOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
+                            CommsLog.log("Discovering");
                             setStatus(Status.DISCOVERING);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -154,6 +194,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
+                            CommsLog.log("Unable to start discovery: "+e.getMessage());
                             setStatus(Status.ERROR);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -165,9 +206,13 @@ public class NearbyConnectionsManet extends AbstractManet {
             new ConnectionLifecycleCallback() {
                 @Override
                 public void onConnectionInitiated(String deviceId, ConnectionInfo info) {
-                    SqAnDevice device = SqAnDevice.find(deviceId);
-                    handleDeviceConnection(device);
-                    Log.d(Config.TAG, "Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
+                    Log.d(Config.TAG,"onConnectionInitiated with "+deviceId);
+                    SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
+                    if ((device == null) && (info != null))
+                        device = SqAnDevice.findByUUID(info.getEndpointName());
+                    if (device != null)
+                        device.setConnected();
+                    CommsLog.log("Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
                     setStatus(Status.CONNECTED);
                     //TODO add some security check here
                     Nearby.getConnectionsClient(context).acceptConnection(deviceId, payloadCallback);
@@ -175,32 +220,36 @@ public class NearbyConnectionsManet extends AbstractManet {
 
                 @Override
                 public void onConnectionResult(String deviceId, ConnectionResolution result) {
-                    SqAnDevice device = SqAnDevice.find(deviceId);
+                    Log.d(Config.TAG,"onConnectionResult for "+deviceId);
+                    SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     switch (result.getStatus().getStatusCode()) {
                         case ConnectionsStatusCodes.STATUS_OK:
-                            Log.d(Config.TAG, "Connection with " + deviceId+" result: OK");
+                            CommsLog.log("Connection with " + deviceId+" result: OK");
                             setStatus(Status.CONNECTED);
                             if (listener != null)
                                 listener.onStatus(status);
-                            handleDeviceConnection(device);
+                            if (device != null)
+                                device.setConnected();
+                            else
+                                CommsLog.log("Connection reported for "+deviceId+" but that device is not on my roster.");
                             //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
-                            Log.d(Config.TAG, "Connection with " + deviceId+" result: Rejected");
+                            CommsLog.log("Unable to connection with " + deviceId+" - Rejected");
                             if (device != null)
-                                device.setDisconnected();
+                                device.setStatus(SqAnDevice.Status.ERROR);
                             //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_ERROR:
-                            Log.d(Config.TAG, "Connection with " + deviceId+" result: Error");
+                            CommsLog.log( "Unable to connect with " + deviceId+" - Error");
                             if (device != null)
-                                device.setDisconnected();
+                                device.setStatus(SqAnDevice.Status.ERROR);
                             //TODO
                             break;
                         default:
-                            Log.d(Config.TAG, "Connection with " + deviceId+" result: Unknown");
+                            CommsLog.log("Connection with " + deviceId+" result: Unknown");
                             if (device != null)
-                                device.setDisconnected();
+                                device.setStatus(SqAnDevice.Status.ERROR);
                             //TODO
                             break;
                     }
@@ -208,10 +257,10 @@ public class NearbyConnectionsManet extends AbstractManet {
 
                 @Override
                 public void onDisconnected(String deviceId) {
-                    Log.d(Config.TAG, deviceId+" disconnected");
-                    SqAnDevice device = SqAnDevice.find(deviceId);
+                    CommsLog.log(deviceId+" disconnected");
+                    SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if (device != null)
-                        device.setDisconnected();
+                        device.setStatus(SqAnDevice.Status.OFFLINE);
                     //TODO
                 }
             };
@@ -220,9 +269,12 @@ public class NearbyConnectionsManet extends AbstractManet {
             new EndpointDiscoveryCallback() {
                 @Override
                 public void onEndpointFound(String deviceId, DiscoveredEndpointInfo info) {
-                    Log.d(Config.TAG, "Found " +deviceId + "(" + info.getEndpointName() + ")");
-                    SqAnDevice device = new SqAnDevice(deviceId,info.getEndpointName());
-                    handleDeviceConnection(device);
+                    CommsLog.log("Found " +deviceId + "(" + info.getEndpointName() + ")");
+                    SqAnDevice device = new SqAnDevice(info.getEndpointName(),deviceId);
+                    device.setStatus(SqAnDevice.Status.ONLINE);
+                    Nearby.getConnectionsClient(context)
+                            .requestConnection("test",deviceId,connectionLifecycleCallback);
+                    //TODO        .requestConnection(Config.getUUID(),deviceId,connectionLifecycleCallback);
                     boolean newDevice = SqAnDevice.add(device);
                     if (listener != null) {
                         listener.onStatus(status);
@@ -237,10 +289,10 @@ public class NearbyConnectionsManet extends AbstractManet {
 
                 @Override
                 public void onEndpointLost(String deviceId) {
-                    Log.d(Config.TAG, "Lost " +deviceId);
-                    SqAnDevice device = SqAnDevice.find(deviceId);
+                    CommsLog.log("Lost " +deviceId);
+                    SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if (device != null) {
-                        device.setDisconnected();
+                        device.setStatus(SqAnDevice.Status.OFFLINE);
                         if (listener != null)
                             listener.onDevicesChanged(device);
                     }
@@ -248,33 +300,42 @@ public class NearbyConnectionsManet extends AbstractManet {
                 }
             };
 
-    private void handleDeviceConnection(SqAnDevice device) {
-        if (device != null)
-            device.setConnected();
-    }
-
     private final PayloadCallback payloadCallback = new PayloadCallback() {
         @Override
         public void onPayloadReceived(@NonNull String deviceId, @NonNull Payload payload) {
+            if (payload == null) {
+                CommsLog.log("null payload received from " + deviceId);
+                return;
+            }
+            setStatus(Status.CONNECTED);
+            if (listener != null)
+                listener.onStatus(status);
             switch (payload.getType()) {
                 case Payload.Type.BYTES:
-                    SqAnDevice device = SqAnDevice.find(deviceId);
-                    if (device != null)
-                        device.setConnected();
+                    SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
+                    if (device == null) {
+                        CommsLog.log("Received a packet from "+deviceId+", but that device was not on my roster");
+                        return;
+                    }
+                    device.setConnected();
                     byte[] bytes = payload.asBytes();
                     if (bytes == null) {
-                        Log.e(Config.TAG,"Empty payload received from "+deviceId);
+                        CommsLog.log("Empty payload received from "+deviceId);
                     } else {
+                        device.addToDataTally(bytes.length);
                         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
                         if (packet == null)
-                            Log.e(Config.TAG,"Unable to parse payload from "+deviceId);
+                            CommsLog.log("Unable to parse payload from "+deviceId);
                         else {
+                            CommsLog.log("Received "+StringUtil.toDataSize(bytes.length)+" packet (Byte type payload) from "+deviceId);
                             if (listener != null)
                                 listener.onRx(packet);
                         }
                     }
                     break;
 
+                default:
+                    CommsLog.log("Payload type "+payload.getType()+" received from "+deviceId+" but SqAN is not equipped to process that type yet.");
                     //TODO handle the File and Stream types
             }
         }

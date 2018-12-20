@@ -1,28 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".ui.MainActivity"
-    android:orientation="vertical">
+    android:background="@color/black">
 
-    <Switch
-        android:id="@+id/mainSwitchActive"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Active" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_sqan"
+        android:orientation="vertical">
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Switch
+                android:id="@+id/mainSwitchActive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:showText="true"
+                android:text="MANET"
+                android:textOff="Off"
+                android:textOn="Active" />
+
+            <TextView
+                android:id="@+id/mainNetType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="MANET"
+                android:textColor="@color/white_hint_green" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/mainTxBytes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tx:" />
+
+        <TextView
+            android:id="@+id/mainTextTemp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <org.sofwerx.sqan.ui.DevicesList
+            android:id="@+id/mainDevicesList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/mainTextTemp"
+        android:id="@+id/mainOfflineLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="TextView" />
-
-    <org.sofwerx.sqan.ui.DevicesList
-        android:id="@+id/mainDevicesList"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"/>
-
-</LinearLayout>
+        android:background="@color/trans_black"
+        android:textColor="@color/yellow"
+        android:text="OFFLINE"
+        android:padding="10dp"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:textSize="52sp"/>
+</FrameLayout>
