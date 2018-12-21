@@ -84,6 +84,14 @@ public abstract class AbstractManet {
     public abstract void burst(AbstractPacket packet) throws ManetException;
 
     /**
+     * Send a pack over the MANET to a specific device
+     * @param packet
+     * @param device
+     * @throws ManetException
+     */
+    public abstract void burst(AbstractPacket packet, SqAnDevice device) throws ManetException;
+
+    /**
      * Connect to the MANET (i.e. start communicating with other nodes on the network)
      */
     public abstract void connect() throws ManetException;
@@ -111,4 +119,9 @@ public abstract class AbstractManet {
     }
 
     public Status getStatus() { return status; }
+
+    /**
+     * A periodically executed method to help with any link housekeeping issues
+     */
+    public abstract void executePeriodicTasks();
 }

@@ -30,8 +30,12 @@
 
             <TextView
                 android:id="@+id/mainNetType"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:drawableStart="@drawable/ic_notification"
+                android:paddingStart="12dp"
+                android:gravity="center_vertical"
                 android:text="MANET"
                 android:textColor="@color/white_hint_green" />
 
@@ -60,11 +64,13 @@
         android:id="@+id/mainOfflineLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/trans_black"
-        android:textColor="@color/yellow"
-        android:text="OFFLINE"
-        android:padding="10dp"
         android:layout_gravity="center"
+        android:fontFamily="monospace"
         android:gravity="center"
-        android:textSize="52sp"/>
+        android:padding="10dp"
+        android:rotation="-30"
+        android:text="OFFLINE"
+        android:textColor="@color/yellow"
+        android:textSize="68dp"
+        android:textStyle="bold" />
 </FrameLayout>

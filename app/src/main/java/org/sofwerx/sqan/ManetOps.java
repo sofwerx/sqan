@@ -110,4 +110,12 @@ public class ManetOps implements ManetListener {
             }
         }
     }
+
+    /**
+     * Conduct any periodic housekeeping tasks
+     */
+    public void executePeriodicTasks() {
+        if (manet != null)
+            manet.executePeriodicTasks();
+    }
 }

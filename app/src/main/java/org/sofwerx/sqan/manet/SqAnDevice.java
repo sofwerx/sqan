@@ -1,16 +1,26 @@
 package org.sofwerx.sqan.manet;
 
+import android.util.Log;
+
+import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.CommsLog;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class SqAnDevice {
     private final static long TIME_TO_STALE = 1000l * 60l;
+    private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     private static ArrayList<SqAnDevice> devices;
     private String uuid; //this is the persistent ID for this device
     private String networkId; //this is the transient MANET ID for this device
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
     private Status status = Status.OFFLINE;
+    private ArrayList<Long> latencies;
+    private long discoveryTime = -1l; //used to mark when this device was discovered
+    private long connectTime = -1l; //used to mark when this device was connected
+    private CommsLog.Entry lastEntry = null;
 
     /**
      * SqAnDevice
@@ -32,6 +42,19 @@ public class SqAnDevice {
     }
 
     /**
+     * Gets the last CommsLog entry of interest for this device
+     * @return
+     */
+    public CommsLog.Entry getLastEntry() { return lastEntry; }
+
+    /**
+     * Sets the last CommsLog entry of interest for this device
+     * @param lastEntry
+     */
+    public void setLastEntry(CommsLog.Entry lastEntry) { this.lastEntry = lastEntry; }
+    public void setUUID(String uuid) { this.uuid = uuid; }
+
+    /**
      * ONLINE == device is visible but not ready to receive network packets
      * CONNECTED == device can receive network packets
      * STALE == device should be CONNECTED but has not checked in in a while
@@ -49,7 +72,64 @@ public class SqAnDevice {
         OFFLINE
     }
 
-    public void setStatus(Status status) { this.status = status; }
+    /**
+     * Gets the last measured latency (average one-way)
+     * @return latency in milliseconds (or < 0 if no latency has been recorded)
+     */
+    public long getLastLatency() {
+        if ((latencies == null) || latencies.isEmpty())
+            return -1l;
+        return latencies.get(latencies.size()-1)/2l; //total latency divided by 2 to get average one-way
+    }
+
+    /**
+     * Records a latency measurement
+     * @param latency latency (round trip in milliseconds)
+     */
+    public void addLatencyMeasurement(long latency) {
+        if (latency < 0l) {
+            Log.d(Config.TAG,"A negative latency reported which doesnt make sense. Ignoring");
+            return;
+        }
+        if (latencies == null)
+            latencies = new ArrayList<>();
+        latencies.add(latency);
+        while (latencies.size() > MAX_LATENCY_HISTORY)
+            latencies.remove(0);
+    }
+
+    public long getAverageLatency() {
+        if ((latencies == null) || latencies.isEmpty())
+            return -1l;
+        long sum = 0;
+        long divisor = 0l;
+        for (long entry:latencies) {
+            if (entry > 0l) {
+                sum += entry;
+                divisor++;
+            }
+        }
+        if (divisor > 0l)
+            return sum/(2l*divisor);
+        else
+            return -1l;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+        if ((status == Status.ONLINE) &&  (discoveryTime < 0l))
+            discoveryTime = System.currentTimeMillis();
+    }
+
+    /**
+     * Gets the delay between discovery and connection
+     * @return delay in milliseconds (or -1 if not yet known)
+     */
+    public long getDiscoveryConnectLag() {
+        if ((discoveryTime < 0l) || (connectTime < 0l))
+            return -1l;
+        return connectTime - discoveryTime;
+    }
 
     public Status getStatus() {
         //a stale check is conducted on any CONNECTED device each time this is called
@@ -88,6 +168,8 @@ public class SqAnDevice {
             return;
         if (other.networkId != null)
             networkId = other.networkId;
+        if (uuid == null)
+            uuid = other.uuid;
     }
 
     public static int getActiveConnections() {
@@ -230,6 +312,8 @@ public class SqAnDevice {
     public void setConnected() {
         status = Status.CONNECTED;
         setLastConnect(System.currentTimeMillis());
+        if (connectTime < 0l)
+            connectTime = System.currentTimeMillis();
     }
     public void setLastConnect(long time) {
         lastConnect = time;

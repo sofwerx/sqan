@@ -4,12 +4,14 @@
     tools:context="saveourcar.soc.MainActivity">
     <item
         android:id="@+id/action_settings"
-        android:title="Instructions"
+        android:title="Settings"
         android:icon="@drawable/ic_action_settings"
         app:showAsAction="ifRoom"/>
     <item
         android:id="@+id/action_about"
         android:orderInCategory="100"
-        android:title="About" >
+        android:title="About"
+        android:icon="@drawable/ic_action_info"
+        app:showAsAction="ifRoom" >
     </item>
 </menu>

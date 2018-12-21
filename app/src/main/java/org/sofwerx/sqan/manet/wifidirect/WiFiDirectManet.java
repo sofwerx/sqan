@@ -6,6 +6,7 @@ import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.AbstractManet;
 import org.sofwerx.sqan.manet.ManetException;
 import org.sofwerx.sqan.manet.ManetType;
+import org.sofwerx.sqan.manet.SqAnDevice;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
 
 /**
@@ -37,6 +38,11 @@ public class WiFiDirectManet extends AbstractManet {
     }
 
     @Override
+    public void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
+        //TODO
+    }
+
+    @Override
     public void connect() throws ManetException {
         //TODO
     }
@@ -53,6 +59,11 @@ public class WiFiDirectManet extends AbstractManet {
 
     @Override
     public void disconnect() throws ManetException {
+        //TODO
+    }
+
+    @Override
+    public void executePeriodicTasks() {
         //TODO
     }
 }

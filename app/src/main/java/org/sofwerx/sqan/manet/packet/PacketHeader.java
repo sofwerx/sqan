@@ -11,7 +11,8 @@ import java.nio.ByteBuffer;
  */
 public class PacketHeader {
     protected final static int PACKET_TYPE_HEARTBEAT = 0;
-    protected final static int PACKET_TYPE_RAW_BYTES = 1;
+    protected final static int PACKET_TYPE_PING = 1;
+    protected final static int PACKET_TYPE_RAW_BYTES = 2;
     private long time; //timestamps are used as a message index as well
     private int packetType;
 

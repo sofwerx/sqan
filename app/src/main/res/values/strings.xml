@@ -13,7 +13,7 @@
     <string name="copyright">©2018 SOFWERX, all rights reserved</string>
     <string name="notify_foreground_title">SqAN is active</string>
     <string name="notify_foreground_details">SqAN is active</string>
-    <string name="about_narrative">Squad Area Network (SqAN) is designed to provide a mobile adhoc network (MANET).</string>
+    <string name="about_narrative">Squad Area Network (SqAN) is designed to provide an open source based mobile adhoc network (MANET) to a small dismounted maneuver unit or sensor netowrk.</string>
     <string name="about_title">Squad Area Network (SqAN)</string>
     <string name="quit">Shutdown SqAN</string>
     <string name="quit_narrative">Do you want to shutdown SqAN and end all mesh connections?</string>

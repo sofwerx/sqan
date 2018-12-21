@@ -27,6 +27,18 @@ public class CommsLog {
 
         public long time;
         public String message;
+
+        @Override
+        public String toString() {
+            StringWriter out = new StringWriter();
+            out.append(StringUtil.getFormattedTime(time));
+            out.append(" ");
+            if (message == null)
+                out.append("NSTR");
+            else
+                out.append(message);
+            return out.toString();
+        }
     }
 
     public static void log(String message) {
@@ -52,9 +64,7 @@ public class CommsLog {
                     first = false;
                 else
                     out.append("\r\n");
-                out.append(StringUtil.getFormattedTime(entry.time));
-                out.append(": ");
-                out.append(entry.message);
+                out.append(entry.toString());
             }
         }
 

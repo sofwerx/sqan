@@ -10,7 +10,10 @@ import android.widget.TextView;
 
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.manet.SqAnDevice;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
+
+import java.io.StringWriter;
 
 public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayInterface*/ {
     private TextView callsign, description;
@@ -54,7 +57,24 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                 callsign.setText(device.getUUID()+"(waiting SqAN ID)");
             else
                 callsign.setText("SqAN ID: "+device.getUUID()+" ("+device.getNetworkId()+")");
-            description.setText("Rx: "+StringUtil.toDataSize(device.getDataTally()));
+            StringWriter descOut = new StringWriter();
+            descOut.append("Rx: ");
+            descOut.append(StringUtil.toDataSize(device.getDataTally()));
+            long lastLatency = device.getLastLatency();
+            if (lastLatency > 0l) {
+                descOut.append("; latency ");
+                descOut.append(Long.toString(lastLatency));
+                descOut.append("ms (avg ");
+                descOut.append(Long.toString(device.getAverageLatency()));
+                descOut.append("ms)");
+            }
+            CommsLog.Entry lastEntry = device.getLastEntry();
+            if (lastEntry != null) {
+                descOut.append("\r\n");
+                descOut.append(lastEntry.toString());
+            }
+
+            description.setText(descOut.toString());
             //updateBattery(device.getPower());
             //updateConnection(device.getPrimaryConnection());
             //updateSensorActivity(device);

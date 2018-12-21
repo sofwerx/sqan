@@ -1,6 +1,9 @@
 package org.sofwerx.sqan.ui;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -8,6 +11,7 @@ import android.text.Html;
 import android.text.method.LinkMovementMethod;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.util.Admin;
@@ -48,6 +52,11 @@ public class AboutActivity extends Activity {
                 log.setVisibility(View.VISIBLE);
                 logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expandable_white, 0, 0, 0);
             }
+        });
+        log.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("SqAN log", CommsLog.getEntriesAsString()));
+            Toast.makeText(this,"CommsLog copied",Toast.LENGTH_SHORT).show();
         });
         ackTitle.setOnClickListener(v -> {
             if (ack.getVisibility() == View.VISIBLE) {

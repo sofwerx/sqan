@@ -1,10 +1,12 @@
 package org.sofwerx.sqan.manet.packet;
 
+import org.sofwerx.sqan.manet.pnt.NetworkTime;
+
 public class HeartbeatPacket extends AbstractPacket {
     public HeartbeatPacket() {
         super(new PacketHeader());
         packetHeader.setType(getType());
-        packetHeader.setTime(System.currentTimeMillis());
+        packetHeader.setTime(NetworkTime.getNetworkTimeNow());
     }
 
     public HeartbeatPacket(PacketHeader packetHeader) {

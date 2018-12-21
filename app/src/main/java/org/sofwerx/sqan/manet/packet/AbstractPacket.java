@@ -8,7 +8,6 @@ import java.nio.ByteBuffer;
  * Data bundled for transmission over the MANET
  */
 public abstract class AbstractPacket {
-    //TODO make a PingPacket for testing round-trip timing
     //TODO make a ChallengePacket for handling sign/countersign
     protected PacketHeader packetHeader;
 
@@ -72,7 +71,10 @@ public abstract class AbstractPacket {
                 packet = new HeartbeatPacket(packetHeader);
                 break;
 
-            //TODO case PacketHeader.PACKET_TYPE_PING:
+            case PacketHeader.PACKET_TYPE_PING:
+                packet = new PingPacket(packetHeader);
+                break;
+
             //TODO case PacketHeader.PACKET_TYPE_CHALLENGE:
         }
 

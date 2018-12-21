@@ -81,11 +81,25 @@
                             <entry key="notification">
                               <value>
                                 <PersistentState>
+                                  <option name="children">
+                                    <map>
+                                      <entry key="clipartAsset">
+                                        <value>
+                                          <PersistentState>
+                                            <option name="values">
+                                              <map>
+                                                <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/action/ic_info_outline_black_24dp.xml" />
+                                              </map>
+                                            </option>
+                                          </PersistentState>
+                                        </value>
+                                      </entry>
+                                    </map>
+                                  </option>
                                   <option name="values">
                                     <map>
-                                      <entry key="assetType" value="IMAGE" />
                                       <entry key="imageAsset" value="C:\Users\Shane\Desktop\ic_notify_down.png" />
-                                      <entry key="outputName" value="ic_notification_down" />
+                                      <entry key="outputName" value="ic_action_info" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -114,10 +128,25 @@
                   <entry key="vectorAssetStep">
                     <value>
                       <PersistentState>
+                        <option name="children">
+                          <map>
+                            <entry key="clipartAsset">
+                              <value>
+                                <PersistentState>
+                                  <option name="values">
+                                    <map>
+                                      <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/action/ic_info_outline_black_24dp.xml" />
+                                    </map>
+                                  </option>
+                                </PersistentState>
+                              </value>
+                            </entry>
+                          </map>
+                        </option>
                         <option name="values">
                           <map>
-                            <entry key="assetSourceType" value="FILE" />
-                            <entry key="outputName" value="ic_hexagonal_tiling" />
+                            <entry key="color" value="ffffff" />
+                            <entry key="outputName" value="ic_info" />
                             <entry key="sourceFile" value="C:\Users\Shane\OneDrive\Documents\Augmented\Projects\SqAN\art\Hexagonal_tiling.svg" />
                           </map>
                         </option>

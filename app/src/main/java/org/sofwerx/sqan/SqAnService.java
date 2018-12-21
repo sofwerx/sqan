@@ -23,6 +23,7 @@ import org.sofwerx.sqan.manet.Status;
 import org.sofwerx.sqan.manet.StatusHelper;
 import org.sofwerx.sqan.manet.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.packet.PingPacket;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
@@ -83,6 +84,7 @@ public class SqAnService extends Service {
         public void run() {
             Log.d(Config.TAG,"PeriodicHelper executing");
             checkForStaleDevices();
+            manet.executePeriodicTasks();
             //TODO anything periodic can be done here
             requestHeartbeat();
             if (handler != null)
@@ -92,8 +94,9 @@ public class SqAnService extends Service {
 
     public void requestHeartbeat() {
         Log.d(Config.TAG,"SqAnService.requestHeartbeat()");
-        //TODO add more complex heartbeat logic
-        burst(new HeartbeatPacket());
+        //TODO temporarily using the ping request instead of a proper heartbeat
+        //TODO burst(new HeartbeatPacket());
+        burst(new PingPacket());
     }
 
     /**
@@ -296,7 +299,7 @@ public class SqAnService extends Service {
             int importance;
             name = getString(R.string.channel_name);
             description = getString(R.string.channel_description);
-            importance = NotificationManager.IMPORTANCE_DEFAULT;
+            importance = NotificationManager.IMPORTANCE_LOW;
 
             channel = new NotificationChannel(NOTIFICATION_CHANNEL, name, importance);
             channel.setDescription(description);

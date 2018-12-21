@@ -19,7 +19,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,7 +47,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private Switch switchActive;
     private boolean isSystemChangingSwitchActive = false;
     private TextView textResults;
-    private TextView textTxTally, textNetType, textOffline;
+    private TextView textTxTally, textNetType;
+    private View offlineStamp;
     private DevicesList devicesList;
 
     @Override
@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             switchActive.setChecked(false);
         textResults = findViewById(R.id.mainTextTemp); //TODO temp
         textTxTally = findViewById(R.id.mainTxBytes);
-        textOffline = findViewById(R.id.mainOfflineLabel);
+        offlineStamp = findViewById(R.id.mainOfflineLabel);
         textNetType = findViewById(R.id.mainNetType);
         textNetType.setText(null);
         switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -96,6 +96,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 else
                     disconnectBackend();
             }
+            updateManetTypeDisplay();
         });
         devicesList = findViewById(R.id.mainDevicesList);
     }
@@ -160,13 +161,14 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void updateManetTypeDisplay() {
-        if (textNetType.getText().toString() == null) {
+        if ((textNetType.getText().toString() == null) || (textNetType.getText().toString().length() < 3)) {
             if (serviceBound && (sqAnService != null)) {
                 AbstractManet manet = sqAnService.getManetOps().getManet();
                 if (manet != null)
-                    textNetType.setText(manet.getName());
+                     textNetType.setText(" Core: "+manet.getName());
             }
         }
+        offlineStamp.setVisibility(switchActive.isChecked()? View.INVISIBLE:View.VISIBLE);
     }
 
     @Override
@@ -274,7 +276,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onStatus(final Status status) {
         runOnUiThread(() -> {
             textResults.setText("Status is: "+StatusHelper.getName(status));
-            textOffline.setVisibility(switchActive.isChecked()? View.INVISIBLE:View.VISIBLE);
             updateManetTypeDisplay();
         });
     }
