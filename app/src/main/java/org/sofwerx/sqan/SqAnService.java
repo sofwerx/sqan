@@ -56,6 +56,8 @@ public class SqAnService extends Service {
     //private boolean foregroundLaunched = false;
     private int numDevicesInLastNotification = 0;
 
+    //FIXME build an intent receiver to send/receiove ChannelBytePackets as a way to use SqAN over IPC
+
     @Override
     public void onCreate() {
         super.onCreate();

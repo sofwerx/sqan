@@ -75,6 +75,10 @@ public abstract class AbstractPacket {
                 packet = new PingPacket(packetHeader);
                 break;
 
+            case PacketHeader.PACKET_TYPE_CHANNEL_BYTES:
+                packet = new ChannelBytesPacket(packetHeader);
+                break;
+
             //TODO case PacketHeader.PACKET_TYPE_CHALLENGE:
         }
 
