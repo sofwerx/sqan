@@ -29,10 +29,10 @@ import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
-import org.sofwerx.sqan.manet.AbstractManet;
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.Status;
-import org.sofwerx.sqan.manet.StatusHelper;
+import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
 

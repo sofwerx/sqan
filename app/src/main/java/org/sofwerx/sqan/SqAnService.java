@@ -17,13 +17,11 @@ import android.os.PowerManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
-import org.sofwerx.sqan.manet.AbstractManet;
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.Status;
-import org.sofwerx.sqan.manet.StatusHelper;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.packet.HeartbeatPacket;
-import org.sofwerx.sqan.manet.packet.PingPacket;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.StatusHelper;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;

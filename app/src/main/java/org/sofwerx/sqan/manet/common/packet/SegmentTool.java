@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.packet;
+package org.sofwerx.sqan.manet.common.packet;
 
 /**
  * Used to break up and re-assemble packets that are larger than the max throughput size for the MANET

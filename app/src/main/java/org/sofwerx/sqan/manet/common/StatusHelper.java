@@ -1,6 +1,6 @@
-package org.sofwerx.sqan.manet;
+package org.sofwerx.sqan.manet.common;
 
-import static org.sofwerx.sqan.manet.Status.*;
+import static org.sofwerx.sqan.manet.common.Status.*;
 
 /**
  * A helper class to for MANET Status

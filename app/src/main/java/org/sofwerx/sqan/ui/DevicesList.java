@@ -11,7 +11,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import org.sofwerx.sqan.R;
-import org.sofwerx.sqan.manet.SqAnDevice;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 
 import java.util.ArrayList;
 

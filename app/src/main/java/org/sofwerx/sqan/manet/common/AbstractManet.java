@@ -1,11 +1,11 @@
-package org.sofwerx.sqan.manet;
+package org.sofwerx.sqan.manet.common;
 
 import android.content.Context;
 
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.packet.SegmentTool;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.SegmentTool;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 
@@ -19,15 +19,43 @@ public abstract class AbstractManet {
     protected boolean isRunning = false;
     protected final Context context;
 
+    //TODO look to add support for the WiFi Round Trip Timing API for spacing
+    //https://developer.android.com/guide/topics/connectivity/wifi-rtt
+
     public AbstractManet(Context context, ManetListener listener) {
         this.context = context;
         this.listener = listener;
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
     }
 
+    /**
+     * Gets they type of MANET in use (i.e. Nearby Connections, WiFi Aware, WiFi Direct
+     * @return
+     */
     public abstract ManetType getType();
 
+    /**
+     * Is this type of MANET supported on this device
+     * @return
+     */
+    public abstract boolean isSupported(Context context);
+
     public abstract int getMaximumPacketSize();
+
+    /**
+     * Intended to support more efficient radio operations by allowing devices to stop
+     * advertising/discovering one the group has been adequately formed.
+     * @param newNodesAllowed
+     */
+    public abstract void setNewNodesAllowed(boolean newNodesAllowed);
+
+    /**
+     * Intended to allow the network to reconfigure (i.e. start advertising/discovering again
+     * or maybe reallocate topology) in the event that a device is lost (i.e. fails to meet
+     * health check requirements)
+     * @param node
+     */
+    public abstract void onNodeLost(SqAnDevice node);
 
     public final static AbstractManet newFromType(Context context, ManetListener listener, ManetType type) {
         switch (type) {

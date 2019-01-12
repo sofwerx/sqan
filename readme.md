@@ -1,9 +1,9 @@
 ### Squad Area Network (SqAN)
 
-SqAN is an experimental effort to provide a Mobile Adhoc NETwork (MANET) is support of small, dismounted maneuver units based solely on open source available techniques. This repository includes:
+SqAN is an experimental effort to provide a Mobile Adhoc NETwork (MANET) is support of small, dismounted maneuver units based solely on open source available techniques and pre-existing on-device hardware. This repository includes:
 
 - SqAN itself
-- SqAN Test, a tool for conducting load testing on SqAN
+- SqAN Test (in the "testing" directory), a tool for conducting load testing on SqAN
 
 SqAN is an evaluation of three possible ways to do a MANET using API level access to Android hardware:
 

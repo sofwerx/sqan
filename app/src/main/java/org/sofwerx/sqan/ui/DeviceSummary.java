@@ -9,7 +9,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import org.sofwerx.sqan.R;
-import org.sofwerx.sqan.manet.SqAnDevice;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 

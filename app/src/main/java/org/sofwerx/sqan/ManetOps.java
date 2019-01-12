@@ -3,12 +3,12 @@ package org.sofwerx.sqan;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.AbstractManet;
-import org.sofwerx.sqan.manet.ManetException;
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.Status;
+import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.ManetException;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists

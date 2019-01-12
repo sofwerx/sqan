@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet;
+package org.sofwerx.sqan.manet.common;
 
 import android.util.Log;
 

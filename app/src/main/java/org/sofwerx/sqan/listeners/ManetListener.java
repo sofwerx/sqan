@@ -1,8 +1,8 @@
 package org.sofwerx.sqan.listeners;
 
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.Status;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
 public interface ManetListener {
     /**

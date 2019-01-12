@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.pnt;
+package org.sofwerx.sqan.manet.common.pnt;
 
 /**
  * Used to translate small deviations between devices into a universally agreed upon MANET time

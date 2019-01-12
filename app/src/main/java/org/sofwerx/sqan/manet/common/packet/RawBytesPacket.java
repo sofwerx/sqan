@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.packet;
+package org.sofwerx.sqan.manet.common.packet;
 
 import java.nio.ByteBuffer;
 

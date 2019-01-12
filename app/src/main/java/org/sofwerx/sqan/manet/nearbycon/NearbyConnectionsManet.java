@@ -21,13 +21,13 @@ import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.AbstractManet;
-import org.sofwerx.sqan.manet.ManetException;
-import org.sofwerx.sqan.manet.ManetType;
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.Status;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.packet.PingPacket;
+import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.ManetException;
+import org.sofwerx.sqan.manet.common.ManetType;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
@@ -58,14 +58,27 @@ public class NearbyConnectionsManet extends AbstractManet {
     private final static DiscoveryOptions DISCOVERY_OPTIONS =
             new DiscoveryOptions.Builder().setStrategy(P2P_CLUSTER).build();
 
-
-
     @Override
     public ManetType getType() { return ManetType.NEARBY_CONNECTION; }
 
     @Override
+    public boolean isSupported(Context context) {
+        return true; //TODO add prerequisits
+    }
+
+    @Override
     public int getMaximumPacketSize() {
         return ConnectionsClient.MAX_BYTES_DATA_SIZE;
+    }
+
+    @Override
+    public void setNewNodesAllowed(boolean newNodesAllowed) {
+        //TODO toggle advertise/discovery
+    }
+
+    @Override
+    public void onNodeLost(SqAnDevice node) {
+        setNewNodesAllowed(true); //TODO make this a more sophisticated strategy than just "turn discovery back on"
     }
 
     @Override

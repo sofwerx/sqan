@@ -1,6 +1,6 @@
-package org.sofwerx.sqan.manet.packet;
+package org.sofwerx.sqan.manet.common.packet;
 
-import org.sofwerx.sqan.manet.pnt.NetworkTime;
+import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 
 public class HeartbeatPacket extends AbstractPacket {
     public HeartbeatPacket() {

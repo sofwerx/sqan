@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet;
+package org.sofwerx.sqan.manet.common;
 
 public enum ManetType {
     NEARBY_CONNECTION,

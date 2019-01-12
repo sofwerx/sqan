@@ -1,13 +1,14 @@
 package org.sofwerx.sqan.manet.wifidirect;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.AbstractManet;
-import org.sofwerx.sqan.manet.ManetException;
-import org.sofwerx.sqan.manet.ManetType;
-import org.sofwerx.sqan.manet.SqAnDevice;
-import org.sofwerx.sqan.manet.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.ManetException;
+import org.sofwerx.sqan.manet.common.ManetType;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
 /**
  * MANET built over Android's WiFi P2P framework which complies with WiFi Direct™
@@ -20,11 +21,27 @@ public class WiFiDirectManet extends AbstractManet {
     public ManetType getType() { return ManetType.WIFI_DIRECT; }
 
     @Override
+    public boolean isSupported(Context context) {
+        boolean hasWiFi = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
+        return hasWiFi; //TODO check for prereqs if any
+    }
+
+    @Override
     public String getName() { return "WiFi Direct®"; }
 
     @Override
     public int getMaximumPacketSize() {
         return 64000; //TODO temp maximum
+    }
+
+    @Override
+    public void setNewNodesAllowed(boolean newNodesAllowed) {
+        //TODO
+    }
+
+    @Override
+    public void onNodeLost(SqAnDevice node) {
+        //TODO
     }
 
     @Override
