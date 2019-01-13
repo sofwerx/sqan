@@ -2,8 +2,10 @@
 <android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="78dp"
-    android:orientation="horizontal">
+    android:layout_height="92dp"
+    android:orientation="horizontal"
+    android:background="@drawable/bg_item_2">
+
     <ImageView
         android:id="@+id/deviceLink"
         android:layout_width="30dp"
@@ -12,6 +14,17 @@
         android:paddingStart="2dp"
         android:paddingEnd="2dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/deviceTypeIcon"
+        android:layout_width="42dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/ic_android"
+        android:tint="@color/white_hint_green"
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
+        app:layout_constraintStart_toEndOf="@id/deviceLink"
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
@@ -60,7 +73,7 @@
         android:textColor="@color/white_hint_green"
         android:textSize="10sp"
         android:paddingStart="2dp"
-        app:layout_constraintStart_toEndOf="@+id/deviceLink"
+        app:layout_constraintStart_toEndOf="@id/deviceTypeIcon"
         app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
         app:layout_constraintBottom_toBottomOf="parent"/>
 
@@ -74,7 +87,7 @@
         android:text="@string/callsign"
         android:textColor="@color/white"
         app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
-        app:layout_constraintStart_toEndOf="@+id/deviceLink"
+        app:layout_constraintStart_toEndOf="@id/deviceTypeIcon"
         app:layout_constraintTop_toTopOf="parent" />
 
 </android.support.constraint.ConstraintLayout>
