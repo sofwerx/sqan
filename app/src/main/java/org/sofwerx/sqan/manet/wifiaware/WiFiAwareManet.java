@@ -5,8 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.wifi.aware.AttachCallback;
+import android.net.wifi.aware.IdentityChangedListener;
 import android.net.wifi.aware.WifiAwareManager;
 import android.os.Build;
+import android.os.Handler;
 
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
@@ -19,15 +22,24 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
  * MANET built over the Wi-Fi Aware™ (Neighbor Awareness Networking) capabilities
  * found on Android 8.0 (API level 26) and higher
  *  (https://developer.android.com/guide/topics/connectivity/wifi-aware)
+ *
+ *  TODO add support for Out of Band (OOB) discovery
  */
 public class WiFiAwareManet extends AbstractManet {
     private WifiAwareManager wifiAwareManager;
     private BroadcastReceiver hardwareStatusReceiver;
+    private AttachCallback attachCallback;
+    final private IdentityChangedListener identityChangedListener;
 
-    public WiFiAwareManet(Context context, ManetListener listener) {
-        super(context,listener);
+    public WiFiAwareManet(Handler handler, Context context, ManetListener listener) {
+        super(handler, context,listener);
         wifiAwareManager = (WifiAwareManager)context.getSystemService(Context.WIFI_AWARE_SERVICE);
         hardwareStatusReceiver = null;
+        attachCallback = null;
+        identityChangedListener = new IdentityChangedListener() {
+            @Override
+            public void onIdentityChanged(byte[] mac) { onMacChanged(mac); }
+        };
     }
 
     @Override
@@ -73,7 +85,6 @@ public class WiFiAwareManet extends AbstractManet {
 
     @Override
     public void connect() throws ManetException {
-        //TODO
         if (hardwareStatusReceiver == null) {
             hardwareStatusReceiver = new BroadcastReceiver() {
                 @Override
@@ -84,6 +95,18 @@ public class WiFiAwareManet extends AbstractManet {
             IntentFilter filter = new IntentFilter(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED);
             context.registerReceiver(hardwareStatusReceiver, filter);
         }
+        if (wifiAwareManager == null) {
+            wifiAwareManager = (WifiAwareManager) context.getSystemService(Context.WIFI_AWARE_SERVICE);
+            attachCallback = null;
+        }
+        if (attachCallback == null) {
+            attachCallback = new AttachCallback() {
+                //TODO
+                //hey dummy! you stopped here
+            };
+            wifiAwareManager.attach(attachCallback,identityChangedListener,handler);
+        }
+        //TODO
     }
 
     @Override
@@ -114,6 +137,14 @@ public class WiFiAwareManet extends AbstractManet {
      * Entry point when a change in the availability of WiFiAware is detected
      */
     private void onWiFiAwareStatusChanged() {
+        //TODO
+    }
+
+    /**
+     * Called based on the frequently (30min or less) randomization of MACs assigned for WiFiAware
+     * @param mac the new MAC assigned to this device for WiFiAware use
+     */
+    public void onMacChanged (byte[] mac) {
         //TODO
     }
 }

@@ -1,5 +1,8 @@
 package org.sofwerx.sqan;
 
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.ManetListener;
@@ -18,14 +21,25 @@ public class ManetOps implements ManetListener {
     private final SqAnService sqAnService;
     private AbstractManet manet;
     private static long transmittedByteTally = 0l;
+    private HandlerThread manetThread; //the MANET itself runs on this thread where possible
+    private Handler handler;
+    private ManetOps manetOps;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
-        manet = new NearbyConnectionsManet(sqAnService,this); //TODO temporary for testing
+        this.manetOps = this;
+        manetThread = new HandlerThread("Manet") {
+            @Override
+            protected void onLooperPrepared() {
+                handler = new Handler(manetThread.getLooper());
+                manet = new NearbyConnectionsManet(handler,sqAnService,manetOps); //TODO temporary for testing
+            }
+        };
+        manetThread.start();
     }
 
     /**
-     * Shutdown the MANET
+     * Shutdown the MANET and frees all resources
      */
     public void shutdown() {
         if (manet != null) {
@@ -36,16 +50,25 @@ public class ManetOps implements ManetListener {
                 Log.e(Config.TAG,"ManetOps is unable to shutdown MANET: "+e.getMessage());
             }
         }
+        if (manetThread != null) {
+            manetThread.quitSafely();
+            manetThread = null;
+            handler = null;
+        }
     }
 
     public void start() {
-        if ((manet != null) && !manet.isRunning()) {
-            try {
-                sqAnService.onStatusChange(Status.OFF,null);
-                manet.init();
-            } catch (ManetException e) {
-                sqAnService.onStatusChange(Status.ERROR,e.getMessage());
-            }
+        if (handler != null) {
+            handler.post(() -> {
+                if ((manet != null) && !manet.isRunning()) {
+                    try {
+                        sqAnService.onStatusChange(Status.OFF, null);
+                        manet.init();
+                    } catch (ManetException e) {
+                        sqAnService.onStatusChange(Status.ERROR, e.getMessage());
+                    }
+                }
+            });
         }
     }
 

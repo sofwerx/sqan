@@ -1,6 +1,7 @@
 package org.sofwerx.sqan.manet.nearbycon;
 
 import android.content.Context;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
@@ -45,7 +46,7 @@ import static com.google.android.gms.nearby.connection.Strategy.P2P_CLUSTER;
  */
 public class NearbyConnectionsManet extends AbstractManet {
     private static final String SERVICE_ID = "sqan";
-    public NearbyConnectionsManet(Context context, ManetListener listener) { super(context,listener); }
+    public NearbyConnectionsManet(Handler handler, Context context, ManetListener listener) { super(handler,context,listener); }
     private HashMap<String,Long> connectionQueue = new HashMap<>(); //attempted work-around for problems Nearby Connections seems to have in connecting
 
     //Experimental strategies to try to enhance MANET stability

@@ -1,6 +1,7 @@
 package org.sofwerx.sqan.manet.common;
 
 import android.content.Context;
+import android.os.Handler;
 
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
@@ -18,11 +19,19 @@ public abstract class AbstractManet {
     protected ManetListener listener;
     protected boolean isRunning = false;
     protected final Context context;
+    protected final Handler handler;
 
     //TODO look to add support for the WiFi Round Trip Timing API for spacing
     //https://developer.android.com/guide/topics/connectivity/wifi-rtt
 
-    public AbstractManet(Context context, ManetListener listener) {
+    /**
+     * Constructor for MANET
+     * @param handler the handler for the thread where this MANET should run be default or null for the main thread (not advised)
+     * @param context
+     * @param listener
+     */
+    public AbstractManet(Handler handler, Context context, ManetListener listener) {
+        this.handler = handler;
         this.context = context;
         this.listener = listener;
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
@@ -57,16 +66,16 @@ public abstract class AbstractManet {
      */
     public abstract void onNodeLost(SqAnDevice node);
 
-    public final static AbstractManet newFromType(Context context, ManetListener listener, ManetType type) {
+    public final static AbstractManet newFromType(Handler handler, Context context, ManetListener listener, ManetType type) {
         switch (type) {
             case NEARBY_CONNECTION:
-                return new NearbyConnectionsManet(context, listener);
+                return new NearbyConnectionsManet(handler, context, listener);
 
             case WIFI_AWARE:
-                return new WiFiAwareManet(context, listener);
+                return new WiFiAwareManet(handler, context, listener);
 
             case WIFI_DIRECT:
-                return new WiFiDirectManet(context, listener);
+                return new WiFiDirectManet(handler, context, listener);
 
             default:
                 return null;
