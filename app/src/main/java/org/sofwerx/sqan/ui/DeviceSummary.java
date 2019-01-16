@@ -22,6 +22,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
     private ImageView iconPower;
     private ImageView iconLink;
     private ImageView iconLoc;
+    private ImageView iconType;
     private boolean unavailable = false;
     private boolean significant = false;
 
@@ -49,6 +50,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         iconPower = view.findViewById(R.id.deviceBattery);
         iconLink = view.findViewById(R.id.deviceLink);
         iconLoc = view.findViewById(R.id.deviceLocation);
+        iconType = view.findViewById(R.id.deviceTypeIcon);
     }
 
     public void update(SqAnDevice device) {
@@ -81,6 +83,8 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             //updateLocation(device);
             updateLinkDisplay(device);
             //device.setDisplayInterface(this);
+            if (iconType != null)
+                iconType.setVisibility(VISIBLE);
         } else {
             callsign.setText("No sensor");
             description.setVisibility(View.INVISIBLE);
@@ -88,6 +92,8 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
             iconLoc.setVisibility(View.INVISIBLE);
+            if (iconType != null)
+                iconType.setVisibility(INVISIBLE);
         }
     }
 
@@ -133,9 +139,13 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         if (unavailable) {
             callsign.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             description.setTextColor(getContext().getResources().getColor(R.color.light_grey));
+            if (iconType != null)
+                iconType.setColorFilter(getResources().getColor(R.color.light_grey));
         } else {
             callsign.setTextColor(getContext().getResources().getColor(R.color.white));
             description.setTextColor(getContext().getResources().getColor(significant ? R.color.yellow : R.color.white_hint_green));
+            if (iconType != null)
+                iconType.setColorFilter(getResources().getColor(R.color.white_hint_green));
         }
     }
 

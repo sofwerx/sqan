@@ -22,9 +22,9 @@ public class WiFiDirectManet extends AbstractManet {
     public ManetType getType() { return ManetType.WIFI_DIRECT; }
 
     @Override
-    public boolean isSupported(Context context) {
-        boolean hasWiFi = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
-        return hasWiFi; //TODO check for prereqs if any
+    public boolean checkForSystemIssues() {
+        super.checkForSystemIssues();
+        return false; //TODO
     }
 
     @Override

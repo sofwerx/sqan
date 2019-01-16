@@ -20,6 +20,8 @@ import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
+import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
+import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.receivers.BootReceiver;
@@ -27,6 +29,8 @@ import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetworkUtil;
+
+import java.util.ArrayList;
 
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
@@ -49,25 +53,33 @@ public class SqAnService extends Service {
     private static SqAnService thisService = null;
     protected SqAnStatusListener listener = null;
     private NotificationChannel channel = null;
-    private ManetOps manet;
+    private ManetOps manetOps;
     private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
     //private boolean foregroundLaunched = false;
     private int numDevicesInLastNotification = 0;
 
-    //FIXME build an intent receiver to send/receiove ChannelBytePackets as a way to use SqAN over IPC
+    private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
+
+    public static ArrayList<AbstractManetIssue> getIssues() {
+        return issues;
+    }
+
+    //FIXME build an intent receiver to send/receive ChannelBytePackets as a way to use SqAN over IPC
 
     @Override
     public void onCreate() {
         super.onCreate();
+        thisService = this;
         Config.init(this);
-        manet = new ManetOps(this);
+        manetOps = new ManetOps(this);
         ExceptionHelper.set(getApplicationContext());
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
-        startManet();
+        //checkSystemReadiness(null,null);
+        //startManet();
     }
 
     @Override
@@ -84,7 +96,7 @@ public class SqAnService extends Service {
         public void run() {
             Log.d(Config.TAG,"PeriodicHelper executing");
             checkForStaleDevices();
-            manet.executePeriodicTasks();
+            manetOps.executePeriodicTasks();
             //TODO anything periodic can be done here
             requestHeartbeat();
             if (handler != null)
@@ -99,30 +111,105 @@ public class SqAnService extends Service {
         burst(new PingPacket());
     }
 
+    public static void onIssueDetected(AbstractManetIssue issue) {
+        if (issue != null) {
+            if (issues == null)
+                issues = new ArrayList<>();
+            issues.add(issue);
+            if (issue.isBlocker())
+                Log.e(Config.TAG,"New issue blocking MANET: "+issue.toString());
+            else
+                Log.w(Config.TAG,"New issue degrading MANET: "+issue.toString());
+        }
+    }
+
+    /**
+     * Is there a system issue currently effecting the performance of the MANET
+     * (i.e. like the device memory is low)
+     * @return true == issue present
+     */
+    public static boolean hasSystemIssues() {
+        return (issues != null) && !issues.isEmpty();
+    }
+
+    /**
+     * Is there a system issue currently preventing the MANET from operating at all
+     * (i.e. like there is no WiFi capability)
+     * @return true == the MANET cannot function
+     */
+    public static boolean hasBlockerSystemIssues() {
+        if ((issues != null) && !issues.isEmpty()) {
+            for (AbstractManetIssue issue:issues) {
+                if (issue.isBlocker())
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks the system to see if all required settings are in place to operate the MANET
+     */
+    public static void checkSystemReadiness(Runnable onCheckPassed, Runnable onCheckFailed) {
+        boolean passed = true;
+        issues = null;
+
+        ManetOps manetOps;
+        if (thisService == null)
+            manetOps = null;
+        else
+            manetOps = thisService.manetOps;
+
+        if (manetOps == null) {
+            onIssueDetected(new SqAnAppIssue(true,"ManetOps is null"));
+            passed = false;
+        } else {
+            if (manetOps.getManet() == null) {
+                onIssueDetected(new SqAnAppIssue(true, "No MANET selected"));
+                passed = false;
+            } else
+                passed = manetOps.getManet().checkForSystemIssues();
+        }
+
+        if (thisService != null) {
+            if (thisService.handler != null) {
+                if (passed) {
+                    if (onCheckPassed != null)
+                        thisService.handler.post(onCheckPassed);
+                } else {
+                    if (onCheckFailed != null)
+                        thisService.handler.post(onCheckFailed);
+                }
+            }
+            if (thisService.listener != null)
+                thisService.listener.onSystemReady(passed);
+        }
+    }
+
     /**
      * Sends a packet over the MANET
      * @param packet packet to send
      * @return true == attempting to send; false = unable to send (MANET not ready)
      */
     public boolean burst(final AbstractPacket packet) {
-        if ((packet == null) || !StatusHelper.isActive(manet.getStatus())) {
+        if ((packet == null) || !StatusHelper.isActive(manetOps.getStatus())) {
             Log.i(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
             return false;
         }
         if (handler == null) {
             Log.d(Config.TAG, "Sending burst directly to ManetOps (bypassing SqAnService handler)");
-            manet.burst(packet);
+            manetOps.burst(packet);
         } else {
             handler.post(() -> {
                 Log.d(Config.TAG, "Sending burst to ManetOps");
-                manet.burst(packet);
+                manetOps.burst(packet);
             });
         }
         return true;
     }
 
     private void checkForStaleDevices() {
-        if (StatusHelper.isActive(manet.getStatus()) && (SqAnDevice.getActiveConnections() != numDevicesInLastNotification))
+        if (StatusHelper.isActive(manetOps.getStatus()) && (SqAnDevice.getActiveConnections() != numDevicesInLastNotification))
             notifyStatusChange(Status.CHANGING_MEMBERSHIP,null);
 
         //TODO actually do something other than show their stale status
@@ -131,7 +218,7 @@ public class SqAnService extends Service {
     }
 
     private void startManet() {
-        manet.start();
+        manetOps.start();
     }
 
     @Override
@@ -201,7 +288,7 @@ public class SqAnService extends Service {
     }
 
     private void shutdown() {
-        manet.shutdown();
+        manetOps.shutdown();
         try {
             stopForeground(true);
         } catch (Exception ignore) {
@@ -316,5 +403,5 @@ public class SqAnService extends Service {
         }
     }
 
-    public ManetOps getManetOps() { return manet; }
+    public ManetOps getManetOps() { return manetOps; }
 }

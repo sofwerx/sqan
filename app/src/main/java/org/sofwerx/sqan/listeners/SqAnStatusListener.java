@@ -1,7 +1,11 @@
 package org.sofwerx.sqan.listeners;
 
+import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
+
+import java.util.ArrayList;
 
 public interface SqAnStatusListener {
     /**
@@ -22,4 +26,10 @@ public interface SqAnStatusListener {
      * Called when data has been transmitted. Primarily used to update GUI to show transmission activity
      */
     void onDataTransmitted();
+
+    /**
+     * Called when a pre-requisite check completed
+     * @param isReady true == the system is ready for the selected MANET
+     */
+    void onSystemReady(boolean isReady);
 }

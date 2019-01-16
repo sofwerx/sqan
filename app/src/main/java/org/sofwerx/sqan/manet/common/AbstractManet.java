@@ -1,14 +1,25 @@
 package org.sofwerx.sqan.manet.common;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.util.Log;
 
+import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
+import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
+
+import java.util.ArrayList;
 
 /**
  * Abstract class that handles all broad MANET activity. This abstracts away any MANET specific
@@ -44,10 +55,21 @@ public abstract class AbstractManet {
     public abstract ManetType getType();
 
     /**
-     * Is this type of MANET supported on this device
-     * @return
+     * Checks for any issues blocking or impeding MANET
+     * @return true == some issue exists effecting the MANET
      */
-    public abstract boolean isSupported(Context context);
+    public boolean checkForSystemIssues() {
+        boolean passed = true;
+        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            SqAnService.onIssueDetected(new WiFiIssue(true,"WiFi absent"));
+            passed = false;
+        }
+        if (NetUtil.isWiFiConnected(context)) {
+            SqAnService.onIssueDetected(new WiFiIssue(false,"WiFi is connected to another network"));
+            passed = false;
+        }
+        return passed;
+    }
 
     public abstract int getMaximumPacketSize();
 
@@ -94,24 +116,32 @@ public abstract class AbstractManet {
     public abstract void init() throws ManetException;
 
     protected void setStatus(Status status) {
+        boolean changed = false;
         switch (status) {
             case ADVERTISING:
                 if ((this.status == Status.DISCOVERING) || (this.status == Status.ADVERTISING_AND_DISCOVERING))
                     this.status = Status.ADVERTISING_AND_DISCOVERING;
-                else
+                else {
                     this.status = Status.ADVERTISING;
+                    changed = true;
+                }
                 break;
 
             case DISCOVERING:
                 if ((this.status == Status.ADVERTISING) || (this.status == Status.ADVERTISING_AND_DISCOVERING))
                     this.status = Status.ADVERTISING_AND_DISCOVERING;
-                else
+                else {
                     this.status = Status.DISCOVERING;
+                    changed = true;
+                }
                 break;
 
             default:
+                changed = (this.status != status);
                 this.status = status;
         }
+        if (changed && (listener != null))
+            listener.onStatus(this.status);
     }
 
     /**

@@ -63,8 +63,9 @@ public class NearbyConnectionsManet extends AbstractManet {
     public ManetType getType() { return ManetType.NEARBY_CONNECTION; }
 
     @Override
-    public boolean isSupported(Context context) {
-        return true; //TODO add prerequisits
+    public boolean checkForSystemIssues() {
+        super.checkForSystemIssues();
+        return false;
     }
 
     @Override
@@ -136,7 +137,7 @@ public class NearbyConnectionsManet extends AbstractManet {
 
         final int bytesSent = bytes.length;
 
-        if (bytes.length > getMaximumPacketSize()) { //this packet is too big for Nearby Connnections to send in one piece
+        if (bytes.length > getMaximumPacketSize()) { //this packet is too big for Nearby Connections to send in one piece
             CommsLog.log("Packet is too big for sending directly; segmenting...");
             segmentAndBurst(packet);
             return;
@@ -149,10 +150,8 @@ public class NearbyConnectionsManet extends AbstractManet {
                         CommsLog.log(StringUtil.toDataSize(bytesSent) + " sent to " + devices.size() + ((devices.size() == 1) ? " device" : " devices"));
                         setStatus(Status.CONNECTED);
                         ManetOps.addBytesToTransmittedTally(bytesSent);
-                        if (listener != null) {
-                            listener.onStatus(status);
+                        if (listener != null)
                             listener.onTx(packet);
-                        }
                     })
                     .addOnFailureListener(e -> {
                         CommsLog.log("Unable to send payload: " + e.getMessage());
@@ -169,10 +168,8 @@ public class NearbyConnectionsManet extends AbstractManet {
                         CommsLog.log(StringUtil.toDataSize(bytesSent) + " sent to " + device.getNetworkId());
                         setStatus(Status.CONNECTED);
                         ManetOps.addBytesToTransmittedTally(bytesSent);
-                        if (listener != null) {
-                            listener.onStatus(status);
+                        if (listener != null)
                             listener.onTx(packet);
-                        }
                     })
                     .addOnFailureListener(e -> {
                         CommsLog.log("Unable to send payload: " + e.getMessage());

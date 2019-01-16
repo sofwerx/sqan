@@ -12,6 +12,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists
@@ -24,15 +25,21 @@ public class ManetOps implements ManetListener {
     private HandlerThread manetThread; //the MANET itself runs on this thread where possible
     private Handler handler;
     private ManetOps manetOps;
+    private boolean shouldBeActive = false;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
         this.manetOps = this;
-        manetThread = new HandlerThread("Manet") {
+        manetThread = new HandlerThread("ManetOps") {
             @Override
             protected void onLooperPrepared() {
                 handler = new Handler(manetThread.getLooper());
-                manet = new NearbyConnectionsManet(handler,sqAnService,manetOps); //TODO temporary for testing
+                manet = new WiFiAwareManet(handler,sqAnService,manetOps); //TODO temporary for testing
+                //manet = new NearbyConnectionsManet(handler,sqAnService,manetOps);
+                SqAnService.checkSystemReadiness(() -> {
+                    if (shouldBeActive)
+                        manetOps.start();
+                },null);
             }
         };
         manetThread.start();
@@ -42,6 +49,7 @@ public class ManetOps implements ManetListener {
      * Shutdown the MANET and frees all resources
      */
     public void shutdown() {
+        shouldBeActive = false;
         if (manet != null) {
             try {
                 manet.disconnect();
@@ -58,6 +66,7 @@ public class ManetOps implements ManetListener {
     }
 
     public void start() {
+        shouldBeActive = true;
         if (handler != null) {
             handler.post(() -> {
                 if ((manet != null) && !manet.isRunning()) {

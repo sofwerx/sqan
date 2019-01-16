@@ -13,57 +13,95 @@
         android:background="@drawable/bg_sqan"
         android:orientation="vertical">
 
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:background="@drawable/bg_item_3"
+            android:orientation="vertical">
 
-            <Switch
-                android:id="@+id/mainSwitchActive"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:showText="true"
-                android:text="MANET"
-                android:textOff="Off"
-                android:textOn="Active" />
+                android:orientation="horizontal">
+
+                <Switch
+                    android:id="@+id/mainSwitchActive"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:showText="true"
+                    android:text="MANET"
+                    android:textOff="Off"
+                    android:textOn="Active" />
+
+                <TextView
+                    android:id="@+id/mainNetType"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:drawableStart="@drawable/ic_notification"
+                    android:gravity="center_vertical"
+                    android:paddingStart="12dp"
+                    android:text="MANET"
+                    android:textColor="@color/white_hint_green" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="System status: " />
+
+                <ImageView
+                    android:id="@+id/mainSysStatusIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_arrow_right" />
+
+                <TextView
+                    android:id="@+id/mainTextSysStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pending" />
+
+                <ImageView
+                    android:id="@+id/mainSysStatusInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_action_info" />
+
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/mainNetType"
-                android:layout_width="0dp"
+                android:id="@+id/mainTxBytes"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:drawableStart="@drawable/ic_notification"
-                android:paddingStart="12dp"
-                android:gravity="center_vertical"
-                android:text="MANET"
-                android:textColor="@color/white_hint_green" />
+                android:text="Tx:" />
+
+            <TextView
+                android:id="@+id/mainTextTemp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
 
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/mainTxBytes"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Tx:" />
-
-        <TextView
-            android:id="@+id/mainTextTemp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_margin="8dp"
-            android:background="@color/white_hint_green"/>
+            android:background="@color/white_hint_green" />
 
         <org.sofwerx.sqan.ui.DevicesList
             android:id="@+id/mainDevicesList"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:background="@color/trans_black"/>
+            android:background="@color/trans_black" />
 
     </LinearLayout>
 

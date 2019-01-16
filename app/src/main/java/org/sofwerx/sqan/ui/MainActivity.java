@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
@@ -19,6 +20,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,8 +35,12 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
+import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
+
+import java.io.StringWriter;
+import java.util.ArrayList;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
@@ -48,8 +54,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private boolean isSystemChangingSwitchActive = false;
     private TextView textResults;
     private TextView textTxTally, textNetType;
+    private TextView textSysStatus;
+    private ImageView iconSysStatus, iconSysInfo;
     private View offlineStamp;
     private DevicesList devicesList;
+
+    private boolean shownFirstSysWarning = false;
 
     @Override
     protected void onStart() {
@@ -85,8 +95,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             switchActive.setChecked(false);
         textResults = findViewById(R.id.mainTextTemp); //TODO temp
         textTxTally = findViewById(R.id.mainTxBytes);
+        textSysStatus = findViewById(R.id.mainTextSysStatus);
         offlineStamp = findViewById(R.id.mainOfflineLabel);
         textNetType = findViewById(R.id.mainNetType);
+        iconSysInfo = findViewById(R.id.mainSysStatusInfo);
+        iconSysStatus = findViewById(R.id.mainSysStatusIcon);
+        if (iconSysInfo != null)
+            iconSysInfo.setOnClickListener(view -> SystemStatusDialog.show(MainActivity.this));
         textNetType.setText(null);
         switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!isSystemChangingSwitchActive) {
@@ -116,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             PermissionsHelper.checkForPermissions(this);
         }
         updateTransmitText();
+        updateSysStatusText();
     }
 
     @Override
@@ -199,6 +215,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             serviceBound = true;
             registerListeners();
             updateManetTypeDisplay();
+            updateSysStatusText();
         }
 
         @Override
@@ -272,6 +289,39 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
     }
 
+    private void updateSysStatusText() {
+        if (textSysStatus != null) {
+            if (SqAnService.hasSystemIssues()) {
+                if (SqAnService.hasBlockerSystemIssues()) {
+                    if (iconSysStatus != null) {
+                        iconSysStatus.setImageResource(R.drawable.ic_arrow_down);
+                        iconSysStatus.setColorFilter(getColor(R.color.bright_red));
+                    }
+                    textSysStatus.setText("Down");
+                    textSysStatus.setTextColor(getColor(R.color.bright_red));
+                } else {
+                    if (iconSysStatus != null) {
+                        iconSysStatus.setImageResource(R.drawable.ic_arrow_right);
+                        iconSysStatus.setColorFilter(getColor(R.color.yellow));
+                    }
+                    textSysStatus.setText("Degrated");
+                    textSysStatus.setTextColor(getColor(R.color.yellow));
+                }
+                if (!shownFirstSysWarning) {
+                    shownFirstSysWarning = true;
+                    SystemStatusDialog.show(MainActivity.this);
+                }
+            } else {
+                if (iconSysStatus != null) {
+                    iconSysStatus.setImageResource(R.drawable.ic_arrow_up);
+                    iconSysStatus.setColorFilter(getColor(R.color.white_hint_green));
+                }
+                textSysStatus.setText("Up");
+                textSysStatus.setTextColor(getColor(R.color.white_hint_green));
+            }
+        }
+    }
+
     @Override
     public void onStatus(final Status status) {
         runOnUiThread(() -> {
@@ -288,5 +338,10 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     @Override
     public void onDataTransmitted() {
         runOnUiThread(() -> updateTransmitText());
+    }
+
+    @Override
+    public void onSystemReady(boolean isReady) {
+        runOnUiThread(() -> updateSysStatusText());
     }
 }
