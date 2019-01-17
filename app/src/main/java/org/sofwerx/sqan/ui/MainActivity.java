@@ -4,7 +4,6 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
@@ -13,7 +12,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.provider.Settings;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -35,12 +34,8 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
-import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
-
-import java.io.StringWriter;
-import java.util.ArrayList;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
@@ -55,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textResults;
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
-    private ImageView iconSysStatus, iconSysInfo;
+    private ImageView iconSysStatus, iconSysInfo, iconMainTx;
     private View offlineStamp;
     private DevicesList devicesList;
 
@@ -88,10 +83,10 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         setContentView(R.layout.activity_main);
         ExceptionHelper.set(getApplicationContext());
         switchActive = findViewById(R.id.mainSwitchActive);
-        if (Config.isAutoStart(this)) {
+        connectToBackend();
+        if (Config.isAutoStart(this))
             switchActive.setChecked(true);
-            connectToBackend();
-        } else
+        else
             switchActive.setChecked(false);
         textResults = findViewById(R.id.mainTextTemp); //TODO temp
         textTxTally = findViewById(R.id.mainTxBytes);
@@ -100,18 +95,18 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         textNetType = findViewById(R.id.mainNetType);
         iconSysInfo = findViewById(R.id.mainSysStatusInfo);
         iconSysStatus = findViewById(R.id.mainSysStatusIcon);
+        iconMainTx = findViewById(R.id.mainIconTxStatus);
         if (iconSysInfo != null)
             iconSysInfo.setOnClickListener(view -> SystemStatusDialog.show(MainActivity.this));
         textNetType.setText(null);
         switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!isSystemChangingSwitchActive) {
                 Config.setAutoStart(MainActivity.this,isChecked);
-                if (isChecked)
-                    connectToBackend();
-                else
-                    disconnectBackend();
+                if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null))
+                    sqAnService.getManetOps().setActive(isChecked);
             }
             updateManetTypeDisplay();
+            updateActiveIndicator();
         });
         devicesList = findViewById(R.id.mainDevicesList);
     }
@@ -161,6 +156,18 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         return true;
     }
 
+    private void updateActiveIndicator() {
+        boolean active = false;
+        if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null) && (sqAnService.getManetOps().getManet() != null)) {
+            active = sqAnService.getManetOps().getManet().isRunning();
+        }
+        isSystemChangingSwitchActive = true;
+        switchActive.setChecked(active);
+        isSystemChangingSwitchActive = false;
+        if (offlineStamp != null)
+            offlineStamp.setVisibility(active?View.INVISIBLE:View.VISIBLE);
+    }
+
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         switch (id) {
@@ -184,7 +191,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                      textNetType.setText(" Core: "+manet.getName());
             }
         }
-        offlineStamp.setVisibility(switchActive.isChecked()? View.INVISIBLE:View.VISIBLE);
     }
 
     @Override
@@ -216,6 +222,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             registerListeners();
             updateManetTypeDisplay();
             updateSysStatusText();
+            updateActiveIndicator();
+            if (sqAnService.getManetOps() != null)
+                updateMainStatus(sqAnService.getManetOps().getStatus());
+            else
+                updateMainStatus(Status.ERROR);
         }
 
         @Override
@@ -304,7 +315,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                         iconSysStatus.setImageResource(R.drawable.ic_arrow_right);
                         iconSysStatus.setColorFilter(getColor(R.color.yellow));
                     }
-                    textSysStatus.setText("Degrated");
+                    textSysStatus.setText("Degraded");
                     textSysStatus.setTextColor(getColor(R.color.yellow));
                 }
                 if (!shownFirstSysWarning) {
@@ -322,11 +333,37 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
     }
 
+    private void updateMainStatus(Status status) {
+        if (iconMainTx != null) {
+            switch (status) {
+                case OFF:
+                    iconMainTx.setImageResource(R.drawable.icon_off);
+                    break;
+
+                case CONNECTED:
+                    iconMainTx.setImageResource(R.drawable.icon_link);
+                    break;
+
+                case ADVERTISING:
+                case DISCOVERING:
+                case CHANGING_MEMBERSHIP:
+                case ADVERTISING_AND_DISCOVERING:
+                    iconMainTx.setImageResource(R.drawable.icon_link_white);
+                    break;
+
+                default:
+                    iconMainTx.setImageResource(R.drawable.icon_link_broken);
+            }
+        }
+    }
+
     @Override
     public void onStatus(final Status status) {
         runOnUiThread(() -> {
             textResults.setText("Status is: "+StatusHelper.getName(status));
             updateManetTypeDisplay();
+            updateActiveIndicator();
+            updateMainStatus(status);
         });
     }
 

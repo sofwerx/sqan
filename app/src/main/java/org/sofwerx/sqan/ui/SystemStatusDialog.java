@@ -11,7 +11,7 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 
 /**
- * Shows the current hardward/system status and any issues impacting the MANET
+ * Shows the current hardware/system status and any issues impacting the MANET
  */
 public class SystemStatusDialog {
     public static void show(Activity context) {

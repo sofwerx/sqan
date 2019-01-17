@@ -83,6 +83,9 @@ public class ChannelBytesPacket extends AbstractPacket {
     }
 
     @Override
+    public boolean isAdminPacket() { return false; }
+
+    @Override
     protected int getType() {
         return PacketHeader.PACKET_TYPE_CHANNEL_BYTES;
     }

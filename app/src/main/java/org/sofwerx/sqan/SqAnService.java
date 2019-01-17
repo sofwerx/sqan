@@ -55,7 +55,6 @@ public class SqAnService extends Service {
     private NotificationChannel channel = null;
     private ManetOps manetOps;
     private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
-    //private boolean foregroundLaunched = false;
     private int numDevicesInLastNotification = 0;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
@@ -78,8 +77,6 @@ public class SqAnService extends Service {
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
-        //checkSystemReadiness(null,null);
-        //startManet();
     }
 
     @Override
@@ -150,8 +147,8 @@ public class SqAnService extends Service {
     /**
      * Checks the system to see if all required settings are in place to operate the MANET
      */
-    public static void checkSystemReadiness(Runnable onCheckPassed, Runnable onCheckFailed) {
-        boolean passed = true;
+    public static boolean checkSystemReadiness() {
+        boolean systemReady = true;
         issues = null;
 
         ManetOps manetOps;
@@ -162,28 +159,21 @@ public class SqAnService extends Service {
 
         if (manetOps == null) {
             onIssueDetected(new SqAnAppIssue(true,"ManetOps is null"));
-            passed = false;
+            systemReady = false;
         } else {
             if (manetOps.getManet() == null) {
                 onIssueDetected(new SqAnAppIssue(true, "No MANET selected"));
-                passed = false;
+                systemReady = false;
             } else
-                passed = manetOps.getManet().checkForSystemIssues();
+                systemReady = manetOps.getManet().checkForSystemIssues();
         }
 
         if (thisService != null) {
-            if (thisService.handler != null) {
-                if (passed) {
-                    if (onCheckPassed != null)
-                        thisService.handler.post(onCheckPassed);
-                } else {
-                    if (onCheckFailed != null)
-                        thisService.handler.post(onCheckFailed);
-                }
-            }
             if (thisService.listener != null)
-                thisService.listener.onSystemReady(passed);
+                thisService.listener.onSystemReady(systemReady);
         }
+
+        return systemReady;
     }
 
     /**
@@ -250,7 +240,7 @@ public class SqAnService extends Service {
         try {
             wakeLock.acquire(2500l);
         } catch (RuntimeException e) {
-            Log.d(Config.TAG, "Cannot aquire wakeLock");
+            Log.d(Config.TAG, "Cannot acquire wakeLock");
         }
     }
 
@@ -293,10 +283,8 @@ public class SqAnService extends Service {
             stopForeground(true);
         } catch (Exception ignore) {
         }
-        //foregroundLaunched = false;
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
-            //notificationManager.cancel(SQAN_NOTIFICATION_ID);
             notificationManager.cancelAll();
         }
         if (handler != null) {
@@ -339,7 +327,6 @@ public class SqAnService extends Service {
     }
 
     public void notifyStatusChange(Status status, String message) {
-        //if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status) || ((status != Status.OFF) && !foregroundLaunched)) {
         if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
             lastNotifiedStatus = status;
             createNotificationChannel();
@@ -366,7 +353,6 @@ public class SqAnService extends Service {
                 else
                     builder.setTicker(message);
             }
-            //builder.setPriority(Notification.PRIORITY_HIGH);
             builder.setAutoCancel(true);
 
             Intent intentAction = new Intent(this, SqAnService.class);
@@ -374,7 +360,6 @@ public class SqAnService extends Service {
             PendingIntent pIntentShutdown = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);
             builder.addAction(R.drawable.icon_nofity_power_off, getString(R.string.turn_off), pIntentShutdown);
 
-            //foregroundLaunched = true;
             startForeground(SQAN_NOTIFICATION_ID,builder.build());
         }
     }

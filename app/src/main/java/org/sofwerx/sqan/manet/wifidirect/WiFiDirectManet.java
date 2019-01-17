@@ -4,11 +4,14 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
+import org.sofwerx.sqan.manet.common.NetUtil;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
 /**
@@ -23,8 +26,11 @@ public class WiFiDirectManet extends AbstractManet {
 
     @Override
     public boolean checkForSystemIssues() {
-        super.checkForSystemIssues();
-        return false; //TODO
+        boolean passed = super.checkForSystemIssues();
+        if (NetUtil.isWiFiConnected(context))
+            SqAnService.onIssueDetected(new WiFiIssue(false,"WiFi is connected to another network"));
+        //TODO
+        return passed;
     }
 
     @Override

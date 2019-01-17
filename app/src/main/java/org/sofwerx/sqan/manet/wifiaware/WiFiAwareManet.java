@@ -115,6 +115,8 @@ public class WiFiAwareManet extends AbstractManet {
                 passed = false;
             }
         }
+        if (NetUtil.isWiFiConnected(context))
+            SqAnService.onIssueDetected(new WiFiIssue(false,"WiFi is connected to another network"));
         return passed;
     }
 

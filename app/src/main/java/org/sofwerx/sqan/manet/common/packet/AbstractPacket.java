@@ -12,6 +12,8 @@ public abstract class AbstractPacket {
     protected PacketHeader packetHeader;
 
     public AbstractPacket(PacketHeader packetHeader) {
+        if (packetHeader != null)
+            packetHeader.setType(getType());
         this.packetHeader = packetHeader;
     }
 
@@ -85,6 +87,12 @@ public abstract class AbstractPacket {
         return packet;
     }
 
+    /**
+     * Admin packets (such as a ping or heartbeat) are used to help maintain the network
+     * and do not carry significant data (but can have some data)
+     * @return true == this is an admin packet
+     */
+    public abstract boolean isAdminPacket();
     public abstract void parse(byte[] bytes);
     protected abstract int getType();
 }

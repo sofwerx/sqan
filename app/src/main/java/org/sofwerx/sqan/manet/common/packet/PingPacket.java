@@ -98,4 +98,7 @@ public class PingPacket extends AbstractPacket {
         else
             return latency;
     }
+
+    @Override
+    public boolean isAdminPacket() { return true; }
 }

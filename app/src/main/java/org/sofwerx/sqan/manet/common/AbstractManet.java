@@ -64,10 +64,6 @@ public abstract class AbstractManet {
             SqAnService.onIssueDetected(new WiFiIssue(true,"WiFi absent"));
             passed = false;
         }
-        if (NetUtil.isWiFiConnected(context)) {
-            SqAnService.onIssueDetected(new WiFiIssue(false,"WiFi is connected to another network"));
-            passed = false;
-        }
         return passed;
     }
 

@@ -2,7 +2,7 @@ package org.sofwerx.sqan.manet.nearbycon;
 
 import android.content.Context;
 import android.os.Handler;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 import com.google.android.gms.nearby.Nearby;
@@ -64,8 +64,8 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public boolean checkForSystemIssues() {
-        super.checkForSystemIssues();
-        return false;
+        boolean passed = super.checkForSystemIssues();
+        return passed;
     }
 
     @Override
@@ -194,7 +194,7 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void pause() throws ManetException {
-        //TODO
+        disconnect(); //TODO possibly implement a warm solution rather than disconnecting
     }
 
     @Override
@@ -208,6 +208,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         Nearby.getConnectionsClient(context).stopDiscovery();
         Nearby.getConnectionsClient(context).stopAllEndpoints();
         CommsLog.log("MANET disconnected");
+        setStatus(Status.OFF);
         isRunning = false;
     }
 

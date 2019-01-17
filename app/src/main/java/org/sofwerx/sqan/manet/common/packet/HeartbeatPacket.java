@@ -30,4 +30,7 @@ public class HeartbeatPacket extends AbstractPacket {
     protected int getType() {
         return PacketHeader.PACKET_TYPE_HEARTBEAT;
     }
+
+    @Override
+    public boolean isAdminPacket() { return true; }
 }

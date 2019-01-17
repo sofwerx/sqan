@@ -5,6 +5,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
 
+import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
@@ -13,19 +14,20 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
+import org.sofwerx.sqan.util.StringUtil;
 
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists
  * to bring the MANET code out of the SqAnService to improve readability.
  */
-public class ManetOps implements ManetListener {
+public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroadcastListener {
     private final SqAnService sqAnService;
     private AbstractManet manet;
     private static long transmittedByteTally = 0l;
     private HandlerThread manetThread; //the MANET itself runs on this thread where possible
     private Handler handler;
     private ManetOps manetOps;
-    private boolean shouldBeActive = false;
+    private boolean shouldBeActive = true;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
@@ -34,21 +36,35 @@ public class ManetOps implements ManetListener {
             @Override
             protected void onLooperPrepared() {
                 handler = new Handler(manetThread.getLooper());
-                manet = new WiFiAwareManet(handler,sqAnService,manetOps); //TODO temporary for testing
-                //manet = new NearbyConnectionsManet(handler,sqAnService,manetOps);
-                SqAnService.checkSystemReadiness(() -> {
-                    if (shouldBeActive)
-                        manetOps.start();
-                },null);
+                //manet = new WiFiAwareManet(handler,sqAnService,manetOps);
+                manet = new NearbyConnectionsManet(handler,sqAnService,manetOps); //TODO temporary for testing
+                if (SqAnService.checkSystemReadiness() && shouldBeActive)
+                    manetOps.start();
+                if (Config.isAllowIpcComms())
+                    IpcBroadcastTransceiver.registerAsSqAn(sqAnService,manetOps);
             }
         };
         manetThread.start();
     }
 
     /**
+     * Used to toggle this MANET on/off
+     * @param active
+     */
+    public void setActive(boolean active) {
+        if (active != shouldBeActive) {
+            if (active)
+                start();
+            else
+                pause();
+        }
+    }
+
+    /**
      * Shutdown the MANET and frees all resources
      */
     public void shutdown() {
+        IpcBroadcastTransceiver.unregister(sqAnService);
         shouldBeActive = false;
         if (manet != null) {
             try {
@@ -62,6 +78,19 @@ public class ManetOps implements ManetListener {
             manetThread.quitSafely();
             manetThread = null;
             handler = null;
+        }
+    }
+
+    public void pause() {
+        shouldBeActive = false;
+        if (handler != null)
+            handler.removeCallbacks(null);
+        if (manet != null) {
+            try {
+                manet.pause();
+            } catch (ManetException e) {
+                Log.e(Config.TAG,"Unable to pause MANET: "+e.getMessage());
+            }
         }
     }
 
@@ -88,7 +117,16 @@ public class ManetOps implements ManetListener {
 
     @Override
     public void onRx(AbstractPacket packet) {
-        //TODO actually do something with the packet
+        if (packet != null) {
+            if (Config.isAllowIpcComms() && !packet.isAdminPacket()) {
+                byte[] data = packet.toByteArray();
+                if (data != null) {
+                    Log.d(Config.TAG,"Broadcasting "+ StringUtil.toDataSize((long)data.length)+" over IPC");
+                    IpcBroadcastTransceiver.broadcast(sqAnService, data);
+                }
+            }
+            //TODO actually do something with the packet
+        }
     }
 
     @Override
@@ -149,5 +187,17 @@ public class ManetOps implements ManetListener {
     public void executePeriodicTasks() {
         if (manet != null)
             manet.executePeriodicTasks();
+    }
+
+    /**
+     * Request received over IPC to transmit data
+     * @param packet
+     */
+    @Override
+    public void onPacketReceived(byte[] packet) {
+        Log.d(Config.TAG,"Received a request for a burst via IPC");
+        AbstractPacket abstractPacket = AbstractPacket.newFromBytes(packet);
+        if ((abstractPacket != null) && !abstractPacket.isAdminPacket()) //other apps are not allowed to send Admin packets
+            burst(abstractPacket);
     }
 }

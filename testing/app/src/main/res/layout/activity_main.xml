@@ -4,6 +4,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.MainActivity">
+    tools:context=".ui.MainActivity"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/mainButtonTest"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send test packet" />
 
 </LinearLayout>

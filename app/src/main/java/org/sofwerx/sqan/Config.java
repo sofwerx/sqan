@@ -13,14 +13,17 @@ public class Config {
     private final static String PREFS_ALLOW_ASK_BATTERY_OPTIMIZATION = "allowbatask";
     private final static String PREFS_DEBUG_MODE = "debugmode";
     private final static String PREFS_DEBUG_CONNECTION_MODE = "debugmx";
+    private final static String PREFS_ALLOW_IPC_COMMS = "ipccomms";
     private final static String PREFS_UUID = "uuid";
     private static boolean debugMode = false;
+    private static boolean allowIpcComms = true;
     private static boolean includeConnections = false;
     private static String uuid = null;
 
     public static void init(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
+        allowIpcComms = prefs.getBoolean(PREFS_ALLOW_IPC_COMMS,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
         uuid = prefs.getString(PREFS_UUID,null);
         if (uuid == null) {
@@ -31,6 +34,7 @@ public class Config {
         }
     }
 
+    public static boolean isAllowIpcComms() { return allowIpcComms; }
     public static boolean isDebugMode() { return debugMode; }
     public static boolean isDebugConnections() { return includeConnections; }
 
