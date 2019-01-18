@@ -7,10 +7,34 @@
     tools:context=".ui.MainActivity"
     android:orientation="vertical">
 
+    <ScrollView
+        android:id="@+id/mainScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/mainConvo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+    </ScrollView>
+
+    <EditText
+        android:id="@+id/mainText"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:hint="Message to send"/>
+
     <Button
         android:id="@+id/mainButtonTest"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Send test packet" />
+        android:layout_gravity="center_horizontal"
+        android:text="Send message" />
 
 </LinearLayout>

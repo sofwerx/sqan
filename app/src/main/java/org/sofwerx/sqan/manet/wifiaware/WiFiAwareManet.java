@@ -198,7 +198,12 @@ public class WiFiAwareManet extends AbstractManet {
         if (old == null) {
             if (nodes == null)
                 nodes = new HashMap<>();
-            SqAnDevice.add(new SqAnDevice(Integer.toString(peerHandle.hashCode())));
+            SqAnDevice device = SqAnDevice.findByNetworkID(Integer.toString(peerHandle.hashCode()));
+            if (device == null) {
+                device = new SqAnDevice();
+                device.setNetworkId(Integer.toString(peerHandle.hashCode()));
+            }
+            device.setConnected();
         }
         nodes.put(peerHandle,System.currentTimeMillis());
     }
@@ -306,7 +311,7 @@ public class WiFiAwareManet extends AbstractManet {
         if (device == null)
             burst(packet);
         else {
-            PeerHandle peerHandle = findPeer(device.getUUID());
+            PeerHandle peerHandle = findPeer(device.getNetworkId());
             if (peerHandle != null)
                 burst(packet,peerHandle);
         }
@@ -367,7 +372,7 @@ public class WiFiAwareManet extends AbstractManet {
             awareSession = null;
         }
         setStatus(Status.OFF);
-        CommsLog.log("MANET disconnected");
+        CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         isRunning = false;
     }
 

@@ -42,7 +42,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".ui.AboutActivity"/>
+        <activity android:name=".ui.AboutActivity"
+            android:launchMode="singleTask"/>
 
         <receiver android:name="org.sofwerx.sqan.receivers.BootReceiver">
             <intent-filter>

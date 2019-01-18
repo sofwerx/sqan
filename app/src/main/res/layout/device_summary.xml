@@ -2,9 +2,10 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="92dp"
+    android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:background="@drawable/bg_item_2">
+    <!--android:layout_height="92dp"-->
 
     <ImageView
         android:id="@+id/deviceLink"
@@ -14,7 +15,8 @@
         android:paddingStart="2dp"
         android:paddingEnd="2dp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <ImageView
         android:id="@+id/deviceTypeIcon"
@@ -66,18 +68,6 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:id="@+id/deviceDetails"
-        android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:gravity="center_vertical"
-        android:textColor="@color/white_hint_green"
-        android:textSize="10sp"
-        android:paddingStart="2dp"
-        app:layout_constraintStart_toEndOf="@id/deviceTypeIcon"
-        app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
-        app:layout_constraintBottom_toBottomOf="parent"/>
-
-    <TextView
         android:id="@+id/deviceCallsign"
         android:layout_width="0dp"
         android:layout_height="30dp"
@@ -85,9 +75,34 @@
         android:gravity="center_vertical"
         android:padding="2dp"
         android:text="@string/callsign"
-        android:textColor="@color/white"
+        android:textColor="@color/yellow"
         app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
         app:layout_constraintStart_toEndOf="@id/deviceTypeIcon"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/deviceUUID"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:padding="2dp"
+        android:text="@string/callsign"
+        android:textColor="@color/white"
+        android:textSize="10sp"
+        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintStart_toStartOf="@id/deviceTypeIcon"
+        app:layout_constraintTop_toBottomOf="@id/deviceCallsign"/>
+
+    <TextView
+        android:id="@+id/deviceDetails"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:textColor="@color/white_hint_green"
+        android:textSize="10sp"
+        android:paddingStart="2dp"
+        app:layout_constraintStart_toStartOf="@id/deviceTypeIcon"
+        app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
+        app:layout_constraintTop_toBottomOf="@id/deviceUUID"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

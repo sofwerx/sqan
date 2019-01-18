@@ -7,6 +7,9 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.sofwerx.sqantest.R;
@@ -16,9 +19,15 @@ import org.sofwerx.sqantest.packet.PacketHeader;
 import org.sofwerx.sqantest.packet.RawBytesPacket;
 import org.sofwerx.sqantest.util.PackageUtil;
 
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 
 public class MainActivity extends AppCompatActivity implements IpcBroadcastTransceiver.IpcBroadcastListener {
+    private StringWriter convo = new StringWriter();
+    private boolean first = true;
+    private ScrollView scrollContainer;
+    private TextView convoText;
+
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_main, menu);
@@ -45,15 +54,34 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         View buttonTest = findViewById(R.id.mainButtonTest);
+        EditText editText = findViewById(R.id.mainText);
+        scrollContainer = findViewById(R.id.mainScrollView);
+        convoText = findViewById(R.id.mainConvo);
         if (buttonTest != null) {
             buttonTest.setOnClickListener(view -> {
-                RawBytesPacket packet = new RawBytesPacket(new PacketHeader());
-                try {
-                    packet.setData("Mr. Watson — Come here — I want to see you".getBytes("UTF-8"));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
+                String message = editText.getText().toString();
+                if ((message != null) && (message.length() == 0))
+                    message = null;
+                if (message == null)
+                    Toast.makeText(MainActivity.this,"No message to send",Toast.LENGTH_LONG).show();
+                else {
+                    RawBytesPacket packet = new RawBytesPacket(new PacketHeader());
+                    try {
+                        packet.setData(message.getBytes("UTF-8"));
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
+                    IpcBroadcastTransceiver.broadcast(this, packet.toByteArray());
+                    editText.setText(null);
+                    if (first)
+                        first = false;
+                    else
+                        convo.append("\r\n");
+                    convo.append("you: ");
+                    convo.append(message);
+                    convoText.setText(convo.toString());
+                    scrollContainer.post(() -> scrollContainer.fullScroll(View.FOCUS_DOWN));
                 }
-                IpcBroadcastTransceiver.broadcast(this,packet.toByteArray());
             });
         }
         if (!PackageUtil.doesSqAnExist(this)) {
@@ -87,7 +115,17 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 Toast.makeText(this,packet.length+"b packet received over SqAn",Toast.LENGTH_LONG).show();
             else {
                 try {
-                    Toast.makeText(this,"Received: "+new String(data,"UTF-8"),Toast.LENGTH_LONG).show();
+                    String message = new String(data,"UTF-8");
+                    //Toast.makeText(this,"Received: "+new String(data,"UTF-8"),Toast.LENGTH_LONG).show();
+                    if (first)
+                        first = false;
+                    else
+                        convo.append("\r\n");
+                    convo.append(Integer.toString(abstractPacket.getPacketHeader().getOrigin()));
+                    convo.append(": ");
+                    convo.append(message);
+                    convoText.setText(convo.toString());
+                    scrollContainer.post(() -> scrollContainer.fullScroll(View.FOCUS_DOWN));
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 }

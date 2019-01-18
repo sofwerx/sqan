@@ -21,6 +21,7 @@ import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
@@ -107,7 +108,7 @@ public class NearbyConnectionsManet extends AbstractManet {
             return; //nothing to send
         byte[] bytes = packet.toByteArray();
         if ((bytes == null) || (bytes.length < 2)) {
-            CommsLog.log("Unable to send packet; the ByteArray output was too small to be correct");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to send packet; the ByteArray output was too small to be correct");
             return; //nothing to send but that seems like an error
         }
         final List<String> devices;
@@ -116,7 +117,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         else
             devices = null;
         if (((device == null) || (device.getNetworkId() == null)) && (devices == null)) {
-            CommsLog.log("Packet intended to be sent, but there is no one else on the network to receive it.");
+            CommsLog.log(CommsLog.Entry.Category.COMMS, "Packet intended to be sent, but I am not connected to any devices yet.");
             return; //no one to send the burst to
         }
 
@@ -138,7 +139,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         final int bytesSent = bytes.length;
 
         if (bytes.length > getMaximumPacketSize()) { //this packet is too big for Nearby Connections to send in one piece
-            CommsLog.log("Packet is too big for sending directly; segmenting...");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Packet is too big for sending directly; segmenting...");
             segmentAndBurst(packet);
             return;
         }
@@ -147,14 +148,14 @@ public class NearbyConnectionsManet extends AbstractManet {
             //This will broadcast to all active devices
             Nearby.getConnectionsClient(context).sendPayload(devices, Payload.fromBytes(bytes))
                     .addOnSuccessListener(aVoid -> {
-                        CommsLog.log(StringUtil.toDataSize(bytesSent) + " sent to " + devices.size() + ((devices.size() == 1) ? " device" : " devices"));
+                        CommsLog.log(CommsLog.Entry.Category.COMMS, StringUtil.toDataSize(bytesSent) + " sent to " + devices.size() + ((devices.size() == 1) ? " device" : " devices"));
                         setStatus(Status.CONNECTED);
                         ManetOps.addBytesToTransmittedTally(bytesSent);
                         if (listener != null)
                             listener.onTx(packet);
                     })
                     .addOnFailureListener(e -> {
-                        CommsLog.log("Unable to send payload: " + e.getMessage());
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to send payload: " + e.getMessage());
                         //status = Status.ERROR;
                         if (listener != null) {
                             listener.onTxFailed(packet);
@@ -165,14 +166,14 @@ public class NearbyConnectionsManet extends AbstractManet {
             //This will broadcast to one device
             Nearby.getConnectionsClient(context).sendPayload(device.getNetworkId(), Payload.fromBytes(bytes))
                     .addOnSuccessListener(aVoid -> {
-                        CommsLog.log(StringUtil.toDataSize(bytesSent) + " sent to " + device.getNetworkId());
+                        CommsLog.log(CommsLog.Entry.Category.COMMS, StringUtil.toDataSize(bytesSent) + " sent to " + device.getNetworkId());
                         setStatus(Status.CONNECTED);
                         ManetOps.addBytesToTransmittedTally(bytesSent);
                         if (listener != null)
                             listener.onTx(packet);
                     })
                     .addOnFailureListener(e -> {
-                        CommsLog.log("Unable to send payload: " + e.getMessage());
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to send payload: " + e.getMessage());
                         //status = Status.ERROR;
                         if (listener != null) {
                             listener.onTxFailed(packet);
@@ -207,7 +208,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         Nearby.getConnectionsClient(context).stopAdvertising();
         Nearby.getConnectionsClient(context).stopDiscovery();
         Nearby.getConnectionsClient(context).stopAllEndpoints();
-        CommsLog.log("MANET disconnected");
+        CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         setStatus(Status.OFF);
         isRunning = false;
     }
@@ -223,9 +224,9 @@ public class NearbyConnectionsManet extends AbstractManet {
                     if (deviceId == null)
                         it.remove();
                     else {
-                        CommsLog.log("Attempting to connect to "+deviceId+" again");
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Attempting to connect to "+deviceId+" again");
                         Nearby.getConnectionsClient(context)
-                                .requestConnection(Config.getUUID(), deviceId, connectionLifecycleCallback);
+                                .requestConnection(Integer.toString(Config.getThisDevice().getUUID()), deviceId, connectionLifecycleCallback);
                         connectionQueue.put(deviceId, System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                     }
                 }
@@ -235,17 +236,17 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     private void startAdvertising() {
         Nearby.getConnectionsClient(context)
-                .startAdvertising(Config.getUUID(), SERVICE_ID, connectionLifecycleCallback, ADVERTISING_OPTIONS)
+                .startAdvertising(Integer.toString(Config.getThisDevice().getUUID()), SERVICE_ID, connectionLifecycleCallback, ADVERTISING_OPTIONS)
                 .addOnSuccessListener(
                         (Void unused) -> {
-                            CommsLog.log("Advertising");
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Advertising");
                             setStatus(Status.ADVERTISING);
                             if (listener != null)
                                 listener.onStatus(status);
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
-                            CommsLog.log("Unable to Advertise: "+e.getMessage());
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to Advertise: "+e.getMessage());
                             setStatus(Status.ERROR);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -262,7 +263,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                 .startDiscovery(SERVICE_ID, endpointDiscoveryCallback, DISCOVERY_OPTIONS)
                 .addOnSuccessListener(
                         (Void unused) -> {
-                            CommsLog.log("Discovering");
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Discovering");
                             setStatus(Status.DISCOVERING);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -270,7 +271,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
-                            CommsLog.log("Unable to start discovery: "+e.getMessage());
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to start discovery: "+e.getMessage());
                             setStatus(Status.ERROR);
                             if (listener != null)
                                 listener.onStatus(status);
@@ -285,16 +286,16 @@ public class NearbyConnectionsManet extends AbstractManet {
                     Log.d(Config.TAG,"onConnectionInitiated with "+deviceId);
                     SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if ((device == null) && (info != null))
-                        device = SqAnDevice.findByUUID(info.getEndpointName());
+                        device = SqAnDevice.findByNetworkID(info.getEndpointName());
                     else {
-                        if (device.getUUID() == null)
-                            device.setUUID(info.getEndpointName());
+                        if (device.getNetworkId() == null)
+                            device.setNetworkId(info.getEndpointName());
                     }
                     if (device != null) {
                         device.setConnected();
-                        device.setLastEntry(new CommsLog.Entry("Connection initiated"));
+                        device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Connection initiated"));
                     }
-                    CommsLog.log("Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
+                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
                     setStatus(Status.CONNECTED);
                     //TODO add some security check here
                     Nearby.getConnectionsClient(context).acceptConnection(deviceId, payloadCallback);
@@ -314,32 +315,32 @@ public class NearbyConnectionsManet extends AbstractManet {
                             if (device != null) {
                                 device.setConnected();
                                 String lagString = "discovery to connection "+StringUtil.toDuration(device.getDiscoveryConnectLag());
-                                device.setLastEntry(new CommsLog.Entry(lagString));
-                                CommsLog.log("Connection established with " + deviceId+", "+lagString);
+                                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, lagString));
+                                CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection established with " + deviceId+", "+lagString);
                             } else
-                                CommsLog.log("Connection reported for "+deviceId+" but that device is not on my roster.");
+                                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Connection reported for "+deviceId+" but that device is not on my roster.");
                             if (TACTIC_REPEATED_CONNETION_TRIES)
                                 connectionQueue.remove(deviceId);
                             //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
-                            CommsLog.log("Unable to connection with " + deviceId+" - Rejected");
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to connection with " + deviceId+" - Rejected");
                             if (device != null) {
                                 device.setStatus(SqAnDevice.Status.ERROR);
-                                device.setLastEntry(new CommsLog.Entry("Connection rejected"));
+                                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Connection rejected"));
                             }
                             if (TACTIC_REPEATED_CONNETION_TRIES)
                                 connectionQueue.remove(deviceId);
                             //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_ERROR:
-                            CommsLog.log( "Unable to connect with " + deviceId+" - Error");
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM,  "Unable to connect with " + deviceId+" - Error");
                             if (device != null) {
                                 device.setStatus(SqAnDevice.Status.ERROR);
-                                device.setLastEntry(new CommsLog.Entry("Error connecting (NFI)"));
+                                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Error connecting (NFI)"));
                             }
                             if (TACTIC_REPEATED_CONNETION_TRIES) {
-                                CommsLog.log( "Trying to resent connection by disconnecting from " + deviceId);
+                                CommsLog.log(CommsLog.Entry.Category.PROBLEM,  "Trying to resent connection by disconnecting from " + deviceId);
                                 Nearby.getConnectionsClient(context).disconnectFromEndpoint(deviceId);
                                 connectionQueue.put(deviceId,System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                             }
@@ -347,10 +348,10 @@ public class NearbyConnectionsManet extends AbstractManet {
                             break;
                         default:
                             String resultText = ConnectionsStatusCodes.getStatusCodeString(result.getStatus().getStatusCode());
-                            CommsLog.log("Connection with " + deviceId+" result code: "+resultText);
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Connection with " + deviceId+" result code: "+resultText);
                             if (device != null) {
                                 device.setStatus(SqAnDevice.Status.ERROR);
-                                device.setLastEntry(new CommsLog.Entry("Error: "+resultText));
+                                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Error: "+resultText));
                             }
                             //TODO
                             break;
@@ -359,13 +360,13 @@ public class NearbyConnectionsManet extends AbstractManet {
 
                 @Override
                 public void onDisconnected(String deviceId) {
-                    CommsLog.log(deviceId+" disconnected");
+                    CommsLog.log(CommsLog.Entry.Category.STATUS, deviceId+" disconnected");
                     SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if (device != null) {
                         device.setStatus(SqAnDevice.Status.OFFLINE);
-                        device.setLastEntry(new CommsLog.Entry("Disconnected"));
+                        device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Disconnected"));
+                        listener.onDevicesChanged(device);
                     }
-                    //TODO
                 }
             };
 
@@ -377,13 +378,20 @@ public class NearbyConnectionsManet extends AbstractManet {
                         Log.d(Config.TAG,"null endpoint found by Nearby Connections; that does not make any sense so ignoring this deviceId");
                         return;
                     }
-                    CommsLog.log("Found " +deviceId + "(" + info.getEndpointName() + ")");
-                    SqAnDevice device = new SqAnDevice(info.getEndpointName(),deviceId);
+                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Found " +deviceId + "(" + info.getEndpointName() + ")");
+                    int uuid = SqAnDevice.UNASSIGNED_UUID;
+                    try {
+                        if (info.getEndpointName() != null)
+                            uuid = Integer.parseInt(info.getEndpointName());
+                    } catch (NumberFormatException e) {
+                    }
+                    SqAnDevice device = new SqAnDevice(uuid);
+                    device.setNetworkId(deviceId);
                     device.setStatus(SqAnDevice.Status.ONLINE);
-                    device.setLastEntry(new CommsLog.Entry("Device found"));
+                    device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Device found"));
 
                     Nearby.getConnectionsClient(context)
-                            .requestConnection(Config.getUUID(),deviceId,connectionLifecycleCallback);
+                            .requestConnection(Integer.toString(Config.getThisDevice().getUUID()),deviceId,connectionLifecycleCallback);
                     if (TACTIC_REPEATED_CONNETION_TRIES)
                         connectionQueue.put(deviceId,System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                     SqAnDevice.add(device);
@@ -403,13 +411,13 @@ public class NearbyConnectionsManet extends AbstractManet {
                         Log.d(Config.TAG,"null endpoint lost by Nearby Connections; that does not make any sense so ignoring this deviceId");
                         return;
                     }
-                    CommsLog.log("Lost " +deviceId);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Lost " +deviceId);
                     if (TACTIC_REPEATED_CONNETION_TRIES)
                         connectionQueue.remove(deviceId);
                     SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if (device != null) {
                         device.setStatus(SqAnDevice.Status.OFFLINE);
-                        device.setLastEntry(new CommsLog.Entry("Connection lost"));
+                        device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Connection lost"));
                         if (listener != null)
                             listener.onDevicesChanged(device);
                     }
@@ -421,7 +429,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         @Override
         public void onPayloadReceived(@NonNull String deviceId, @NonNull Payload payload) {
             if (payload == null) {
-                CommsLog.log("null payload received from " + deviceId);
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "null payload received from " + deviceId);
                 return;
             }
             setStatus(Status.CONNECTED);
@@ -431,34 +439,35 @@ public class NearbyConnectionsManet extends AbstractManet {
                 case Payload.Type.BYTES:
                     SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
                     if (device == null) {
-                        CommsLog.log("Received a packet from "+deviceId+", but that device was not on my roster so I added it");
-                        device = new SqAnDevice(null,deviceId);
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Received a packet from "+deviceId+", but that device was not on my roster so I added it");
+                        device = new SqAnDevice();
+                        device.setNetworkId(deviceId);
                     }
                     device.setConnected();
                     byte[] bytes = payload.asBytes();
                     if (bytes == null) {
-                        device.setLastEntry(new CommsLog.Entry("Empty payload received"));
-                        CommsLog.log("Empty payload received from "+deviceId);
+                        device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Empty payload received"));
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Empty payload received from "+deviceId);
                     } else {
                         device.addToDataTally(bytes.length);
                         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
                         if (packet == null) {
-                            device.setLastEntry(new CommsLog.Entry("Unable to parse last payload"));
-                            CommsLog.log("Unable to parse payload from " + deviceId);
+                            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Unable to parse last payload"));
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to parse payload from " + deviceId);
                         } else {
                             if (packet instanceof PingPacket) {
                                 PingPacket pingPacket = (PingPacket)packet;
                                 if (pingPacket.isAPingRequest()) {
-                                    CommsLog.log("Received ping request from " + deviceId);
+                                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + deviceId);
                                     pingPacket.setMidpointLocalTime(System.currentTimeMillis());
                                     burst(pingPacket,device);
                                 } else {
                                     device.addLatencyMeasurement(pingPacket.getLatency());
-                                    CommsLog.log("Received ping (round trip latency "+Long.toString(pingPacket.getLatency())+"ms) from " + deviceId);
+                                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency "+Long.toString(pingPacket.getLatency())+"ms) from " + deviceId);
                                 }
                             } else
-                                CommsLog.log("Received "+StringUtil.toDataSize(bytes.length)+" packet (Byte type payload) from "+deviceId);
-                            device.setLastEntry(new CommsLog.Entry("Operating normally"));
+                                CommsLog.log(CommsLog.Entry.Category.COMMS, "Received "+StringUtil.toDataSize(bytes.length)+" packet (Byte type payload) from "+deviceId);
+                            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
                             if (listener != null)
                                 listener.onRx(packet);
                         }
@@ -466,7 +475,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                     break;
 
                 default:
-                    CommsLog.log("Payload type "+payload.getType()+" received from "+deviceId+" but SqAN is not equipped to process that type yet.");
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Payload type "+payload.getType()+" received from "+deviceId+" but SqAN is not equipped to process that type yet.");
                     //TODO handle the File and Stream types
             }
         }

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.UuidUtil;
 
 public class Config {
@@ -14,29 +15,38 @@ public class Config {
     private final static String PREFS_DEBUG_MODE = "debugmode";
     private final static String PREFS_DEBUG_CONNECTION_MODE = "debugmx";
     private final static String PREFS_ALLOW_IPC_COMMS = "ipccomms";
+    private final static String PREFS_UUID_EXTENDED = "uuid_extended";
     private final static String PREFS_UUID = "uuid";
+    private final static String PREFS_CALLSIGN = "callsign";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean includeConnections = false;
-    private static String uuid = null;
+    private static SqAnDevice thisDevice = null;
 
     public static void init(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
         allowIpcComms = prefs.getBoolean(PREFS_ALLOW_IPC_COMMS,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
-        uuid = prefs.getString(PREFS_UUID,null);
-        if (uuid == null) {
-            uuid = UuidUtil.getNewUUID();
-            SharedPreferences.Editor edit = prefs.edit();
-            edit.putString(PREFS_UUID,uuid);
-            edit.apply();
-        }
+
+        int uuid = prefs.getInt(PREFS_UUID,UuidUtil.getNewUUID());
+        String uuidExtended = prefs.getString(PREFS_UUID_EXTENDED,UuidUtil.getNewExtendedUUID());
+        String callsign = prefs.getString(PREFS_CALLSIGN,UuidUtil.getRandomCallsign());
+        SharedPreferences.Editor edit = prefs.edit();
+        edit.putInt(PREFS_UUID,uuid);
+        edit.putString(PREFS_UUID_EXTENDED,uuidExtended);
+        edit.putString(PREFS_CALLSIGN,callsign);
+        edit.apply();
+        thisDevice = new SqAnDevice(uuid);
+        SqAnDevice.remove(thisDevice); //no need to list this device in the devices
+        thisDevice.setUuidExtended(uuidExtended);
+        thisDevice.setCallsign(callsign);
     }
 
     public static boolean isAllowIpcComms() { return allowIpcComms; }
     public static boolean isDebugMode() { return debugMode; }
     public static boolean isDebugConnections() { return includeConnections; }
+    public static SqAnDevice getThisDevice() { return thisDevice; }
 
     public static boolean isStartOnReboot(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
@@ -69,9 +79,5 @@ public class Config {
         if (active == false)
             edit.putBoolean(PREFS_DEBUG_MODE,false);
         edit.putBoolean(PREFS_DEBUG_CONNECTION_MODE,active);
-    }
-
-    public static String getUUID() {
-        return uuid;
     }
 }

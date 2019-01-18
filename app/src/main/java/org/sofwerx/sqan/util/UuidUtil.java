@@ -9,7 +9,7 @@ public class UuidUtil {
         StringWriter out = new StringWriter();
         Random rm = new Random();
         out.append(CALLSIGN_STOCK[rm.nextInt(CALLSIGN_STOCK.length)]);
-        out.append(' ');
+        out.append('-');
         out.append(Integer.toString(rm.nextInt(10)));
         out.append(Integer.toString(rm.nextInt(10)));
         return out.toString();
@@ -20,10 +20,13 @@ public class UuidUtil {
             "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"
     };
 
-    public static String getNewUUID() {
+    public static int getNewUUID() {
+        int uuid = (int)System.currentTimeMillis(); //drop the 1st 8 bits of the current time
+        return Math.abs(uuid);
+    }
+
+    public static String getNewExtendedUUID() {
         UUID uuid = UUID.randomUUID();
-        String fullUUID = uuid.toString();
-        String subUUID = fullUUID.substring(fullUUID.length()-7,fullUUID.length()-1); //use a smaller UUID to speed up UUID-based searches and to possibly address connection delays in Nearby Connections
-        return subUUID;
+        return uuid.toString();
     }
 }

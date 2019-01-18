@@ -116,6 +116,19 @@
             android:layout_weight="1"
             android:background="@color/trans_black" />
 
+        <TextView
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:id="@+id/mainStatusMarquee"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:fadingEdge="vertical"
+            android:textColor="@color/white_hint_green"
+            android:fadingEdgeLength="40dp"
+            android:textSize="10sp"
+            android:requiresFadingEdge="vertical"
+            android:gravity="bottom" />
+
     </LinearLayout>
 
     <TextView

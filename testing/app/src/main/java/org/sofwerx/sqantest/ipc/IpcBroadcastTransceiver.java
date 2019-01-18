@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.ipc;
+package org.sofwerx.sqantest.ipc;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -21,7 +21,7 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
     private static boolean isSqAn;
 
     public interface IpcBroadcastListener {
-        void onIpcPacketReceived(byte[] packet);
+        void onPacketReceived(byte[] packet);
     }
 
     public static void registerAsSqAn(Context context, IpcBroadcastListener listener) {
@@ -75,7 +75,7 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
                     if (isSqAn != bundle.getBoolean(RECEIVED,false)) { //only consume this if it did not come from us
                         byte[] bytes = bundle.getByteArray(PACKET_BYTES);
                         if (bytes != null)
-                            listener.onIpcPacketReceived(bytes);
+                            listener.onPacketReceived(bytes);
                     }
                 }
             }

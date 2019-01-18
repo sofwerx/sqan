@@ -1,6 +1,4 @@
-package org.sofwerx.sqan.manet.common.packet;
-
-import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
+package org.sofwerx.sqantest.packet;
 
 import java.nio.ByteBuffer;
 
@@ -15,10 +13,10 @@ public class PingPacket extends AbstractPacket {
     private long midpointLocalTime = -1l;
     private long latency = -1l; //this gets calculated
 
-    public PingPacket(int originUUID) {
-        super(new PacketHeader(originUUID));
+    public PingPacket() {
+        super(new PacketHeader());
         packetHeader.setType(getType());
-        packetHeader.setTime(NetworkTime.getNetworkTimeNow());
+        packetHeader.setTime(System.currentTimeMillis());
     }
 
     public PingPacket(PacketHeader packetHeader) {

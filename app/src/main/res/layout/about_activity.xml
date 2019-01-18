@@ -132,17 +132,16 @@
                 android:textColor="@color/white"
                 android:textColorLink="@android:color/white"
                 android:visibility="gone" />
-            <!-- android:background="@drawable/bg2" -->
-
-            <!--<TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/itar_warning"
-                android:textColor="@color/white"
-                android:layout_marginTop="8dp"/>-->
 
         </LinearLayout>
     </ScrollView>
+
+    <TextView
+        android:id="@+id/aboutUUID"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:textColor="@color/white_hint_green"/>
 
     <ImageView
         android:id="@+id/aboutAugLogo"
@@ -150,9 +149,6 @@
         android:layout_height="56dp"
         android:padding="8dp"
         android:src="@drawable/sofwerx_logo_white" />
-        <!--app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />-->
 
     <TextView
         android:id="@+id/aboutCopyright"

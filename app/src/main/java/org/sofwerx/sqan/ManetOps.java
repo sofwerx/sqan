@@ -1,5 +1,7 @@
 package org.sofwerx.sqan;
 
+import android.app.AlarmManager;
+import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -11,6 +13,8 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
@@ -67,17 +71,39 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         IpcBroadcastTransceiver.unregister(sqAnService);
         shouldBeActive = false;
         if (manet != null) {
-            try {
-                manet.disconnect();
-                manet = null;
-            } catch (ManetException e) {
-                Log.e(Config.TAG,"ManetOps is unable to shutdown MANET: "+e.getMessage());
+            if (manetThread != null) {
+                if (handler != null) {
+                    handler.removeCallbacksAndMessages(null);
+                    handler.post(() -> {
+                        try {
+                            manet.burst(new DisconnectingPacket(Config.getThisDevice().getUUID()));
+                            Log.d(Config.TAG,"Sending hangup notification to network");
+                        } catch (ManetException ignore) {
+                        }
+                    });
+                    handler.postDelayed(() -> {
+                        try {
+                            manet.disconnect();
+                            manet = null;
+                            Log.d(Config.TAG,"Disconnected from MANET");
+                        } catch (ManetException e) {
+                            Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                        }
+                    }, 1000l); //give the link 5 seconds to announce the devices departure
+                } else {
+                    try {
+                        manet.disconnect();
+                        manet = null;
+                        if (manetThread != null) {
+                            manetThread.quitSafely();
+                            manetThread = null;
+                            handler = null;
+                        }
+                    } catch (ManetException e) {
+                        Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                    }
+                }
             }
-        }
-        if (manetThread != null) {
-            manetThread.quitSafely();
-            manetThread = null;
-            handler = null;
         }
     }
 
@@ -125,6 +151,23 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     IpcBroadcastTransceiver.broadcast(sqAnService, data);
                 }
             }
+            if (packet instanceof DisconnectingPacket) {
+                SqAnDevice outgoing = SqAnDevice.findByUUID(((DisconnectingPacket)packet).getUuidOfDeviceLeaving());
+                if (outgoing != null) {
+                    if (outgoing.getCallsign() == null)
+                        Log.d(Config.TAG,Integer.toString(outgoing.getUUID())+" reporting leaving mesh");
+                    else
+                        Log.d(Config.TAG,outgoing.getCallsign()+" reporting leaving mesh");
+                    outgoing.setStatus(SqAnDevice.Status.OFFLINE);
+                    onDevicesChanged(outgoing);
+                } else
+                    Log.d(Config.TAG,"Disconnect packet received, but unable to find corresponding device");
+            } else if (packet instanceof HeartbeatPacket) {
+                SqAnDevice device = ((HeartbeatPacket)packet).getDevice();
+                device.setConnected();
+                SqAnDevice.add(device);
+                onDevicesChanged(device);
+            }
             //TODO actually do something with the packet
         }
     }
@@ -133,6 +176,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void onTx(AbstractPacket packet) {
         if (sqAnService.listener != null)
             sqAnService.listener.onDataTransmitted();
+        sqAnService.onPositiveComms();
     }
 
     @Override
@@ -194,7 +238,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * @param packet
      */
     @Override
-    public void onPacketReceived(byte[] packet) {
+    public void onIpcPacketReceived(byte[] packet) {
         Log.d(Config.TAG,"Received a request for a burst via IPC");
         AbstractPacket abstractPacket = AbstractPacket.newFromBytes(packet);
         if ((abstractPacket != null) && !abstractPacket.isAdminPacket()) //other apps are not allowed to send Admin packets

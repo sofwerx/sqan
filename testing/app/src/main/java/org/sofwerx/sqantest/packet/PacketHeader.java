@@ -1,8 +1,6 @@
-package org.sofwerx.sqan.manet.common.packet;
+package org.sofwerx.sqantest.packet;
 
 import android.util.Log;
-
-import org.sofwerx.sqan.Config;
 
 import java.nio.ByteBuffer;
 
@@ -14,18 +12,9 @@ public class PacketHeader {
     protected final static int PACKET_TYPE_PING = 1;
     protected final static int PACKET_TYPE_RAW_BYTES = 2;
     protected final static int PACKET_TYPE_CHANNEL_BYTES = 3;
-    protected final static int PACKET_TYPE_DISCONNECTING = 4;
     private long time; //timestamps are used as a message index as well
     private int packetType;
-    private int originUUID;
-
-    public PacketHeader(int originUUID) {
-        this();
-        this.originUUID = originUUID;
-    }
-
-    private PacketHeader() {
-    }
+    private int origin;
 
     /**
      * Gets the size of the header in bytes
@@ -35,32 +24,31 @@ public class PacketHeader {
 
     public long getTime() { return time; }
     public void setTime(long time) { this.time = time; }
-    public int getOriginUUID() { return originUUID; }
-    public void setOriginUUID(int uuid) { this.originUUID = uuid; }
     public int getType() { return packetType; }
     public void setType(int packetType) { this.packetType = packetType; }
+    public int getOrigin() { return origin; }
 
     public byte[] toByteArray() {
         ByteBuffer out = ByteBuffer.allocate(getSize());
         out.putInt(packetType);
-        out.putInt(originUUID);
+        out.putInt(origin);
         out.putLong(time);
         return out.array();
     }
 
     public static PacketHeader newFromBytes(byte[] bytes) {
         if (bytes == null) {
-            Log.e(Config.TAG,"Cannot generate a packet header from a null byte array");
+            Log.e("SqAn","Cannot generate a packet header from a null byte array");
             return null;
         }
         if (bytes.length != getSize()) {
-            Log.e(Config.TAG,"Cannot generate a packet header from a "+bytes.length+" byte array ("+getSize()+" bytes expected)");
+            Log.e("SqAn","Cannot generate a packet header from a "+bytes.length+" byte array ("+getSize()+" bytes expected)");
             return null;
         }
         PacketHeader packetHeader = new PacketHeader();
         ByteBuffer in = ByteBuffer.wrap(bytes);
         packetHeader.packetType = in.getInt();
-        packetHeader.originUUID = in.getInt();
+        packetHeader.origin = in.getInt();
         packetHeader.time = in.getLong();
         return packetHeader;
     }

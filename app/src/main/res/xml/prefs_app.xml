@@ -13,7 +13,8 @@
         android:title="Mesh">
         <EditTextPreference
             android:key="callsign"
-            android:title="Callsign" />
+            android:title="Callsign"
+            android:summary="This is the callsign for this device over SqAN. The callsign also acts like the device\'s domain name." />
 
         <CheckBoxPreference
             android:key="ipccomms"

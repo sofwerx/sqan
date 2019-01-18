@@ -13,15 +13,18 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.util.Admin;
 import org.sofwerx.sqan.util.CommsLog;
+
+import java.io.StringWriter;
 
 public class AboutActivity extends Activity {
     private TextView ackTitle, ack;
     private TextView licTitle, lic;
     private TextView logTitle, log;
-    private TextView version;
+    private TextView version, uuid;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +37,7 @@ public class AboutActivity extends Activity {
         logTitle = findViewById(R.id.commsLogTitle);
         log = findViewById(R.id.commsLog);
         version = findViewById(R.id.aboutVersion);
+        uuid = findViewById(R.id.aboutUUID);
 
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
@@ -48,9 +52,7 @@ public class AboutActivity extends Activity {
                 log.setVisibility(View.GONE);
                 logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expanded_white, 0, 0, 0);
             } else {
-                log.setText(CommsLog.getEntriesAsString());
-                log.setVisibility(View.VISIBLE);
-                logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expandable_white, 0, 0, 0);
+                showLog();
             }
         });
         log.setOnClickListener(v -> {
@@ -80,5 +82,22 @@ public class AboutActivity extends Activity {
         ack.setMovementMethod(LinkMovementMethod.getInstance());
         lic.setText(Html.fromHtml(Admin.getLicenses()));
         lic.setMovementMethod(LinkMovementMethod.getInstance());
+
+        StringWriter out = new StringWriter();
+        out.append("SqAN UUID ");
+        out.append(Integer.toString(Config.getThisDevice().getUUID()));
+        out.append(" (");
+        out.append(Config.getThisDevice().getUuidExtended());
+        out.append(')');
+        uuid.setText(out.toString());
+        Bundle extras = getIntent().getExtras();
+        if ((extras != null) && extras.getBoolean("logs"))
+            showLog();
+    }
+
+    private void showLog() {
+        log.setText(CommsLog.getEntriesAsString());
+        log.setVisibility(View.VISIBLE);
+        logTitle.setCompoundDrawablesWithIntrinsicBounds(R.drawable.icon_expandable_white, 0, 0, 0);
     }
 }

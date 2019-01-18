@@ -23,6 +23,7 @@ import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
 import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
@@ -39,7 +40,7 @@ public class SqAnService extends Service {
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
-    private long HELPER_INTERVAL = 1000l * 30l;
+    private long HELPER_INTERVAL = 1000l * 10l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
 
     private PowerManager.WakeLock wakeLock;
@@ -56,6 +57,10 @@ public class SqAnService extends Service {
     private ManetOps manetOps;
     private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
     private int numDevicesInLastNotification = 0;
+    private long lastPositiveOutgoingComms = Long.MIN_VALUE;
+    private int lastHeartbeatLevel = 0;
+
+    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 15l;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
 
@@ -101,11 +106,24 @@ public class SqAnService extends Service {
         }
     };
 
+    public void onPositiveComms() {
+        lastPositiveOutgoingComms = System.currentTimeMillis();
+    }
+
     public void requestHeartbeat() {
-        Log.d(Config.TAG,"SqAnService.requestHeartbeat()");
-        //TODO temporarily using the ping request instead of a proper heartbeat
-        //TODO burst(new HeartbeatPacket());
-        burst(new PingPacket());
+        if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
+            //TODO make some more sophisticated needs-based method rather than just cycling through different types of heartbeats
+            if (lastHeartbeatLevel == 0)
+                burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
+            else if (lastHeartbeatLevel == 1)
+                burst(new PingPacket(Config.getThisDevice().getUUID()));
+            else
+                burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
+            lastHeartbeatLevel++;
+            if (lastHeartbeatLevel > 0)
+                lastHeartbeatLevel = 0;
+        } else
+            Log.d(Config.TAG,"SqAnService.requestHeartbeat(), but no heartbeat needed right now");
     }
 
     public static void onIssueDetected(AbstractManetIssue issue) {
@@ -183,11 +201,11 @@ public class SqAnService extends Service {
      */
     public boolean burst(final AbstractPacket packet) {
         if ((packet == null) || !StatusHelper.isActive(manetOps.getStatus())) {
-            Log.i(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
             return false;
         }
         if (handler == null) {
-            Log.d(Config.TAG, "Sending burst directly to ManetOps (bypassing SqAnService handler)");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"SqAnService handler is not ready yet; sending burst directly to ManetOps");
             manetOps.burst(packet);
         } else {
             handler.post(() -> {

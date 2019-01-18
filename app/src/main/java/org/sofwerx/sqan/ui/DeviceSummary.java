@@ -16,7 +16,7 @@ import org.sofwerx.sqan.util.StringUtil;
 import java.io.StringWriter;
 
 public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayInterface*/ {
-    private TextView callsign, description;
+    private TextView callsign, uuid, description;
     //private ImageView iconActivity;
     private ImageView iconConnectivity;
     private ImageView iconPower;
@@ -44,8 +44,8 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
     private void init(Context context) {
         View view = inflate(context,R.layout.device_summary,this);
         callsign = view.findViewById(R.id.deviceCallsign);
+        uuid = view.findViewById(R.id.deviceUUID);
         description = view.findViewById(R.id.deviceDetails);
-        //iconActivity = view.findViewById(R.id.deviceSensor);
         iconConnectivity = view.findViewById(R.id.deviceConnectivity);
         iconPower = view.findViewById(R.id.deviceBattery);
         iconLink = view.findViewById(R.id.deviceLink);
@@ -55,10 +55,23 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
 
     public void update(SqAnDevice device) {
         if (device != null) {
-            if (device.getUUID() == null)
-                callsign.setText(device.getUUID()+"(waiting SqAN ID)");
+            StringWriter out = new StringWriter();
+            out.append("(SqAN UUID: ");
+            if (device.isUuidKnown())
+                out.append(Integer.toString(device.getUUID()));
             else
-                callsign.setText("SqAN ID: "+device.getUUID()+" ("+device.getNetworkId()+")");
+                out.append("unknown");
+            out.append(", net ID: ");
+            if (device.getNetworkId() == null)
+                out.append("unknown");
+            else
+                out.append(device.getNetworkId());
+            out.append(')');
+            if (device.getCallsign() == null)
+                callsign.setText("Waiting on SqAN Callsign");
+            else
+                callsign.setText(device.getCallsign());
+            uuid.setText(out.toString());
             StringWriter descOut = new StringWriter();
             descOut.append("Rx: ");
             descOut.append(StringUtil.toDataSize(device.getDataTally()));
@@ -77,18 +90,13 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             }
 
             description.setText(descOut.toString());
-            //updateBattery(device.getPower());
-            //updateConnection(device.getPrimaryConnection());
-            //updateSensorActivity(device);
-            //updateLocation(device);
             updateLinkDisplay(device);
-            //device.setDisplayInterface(this);
             if (iconType != null)
                 iconType.setVisibility(VISIBLE);
         } else {
             callsign.setText("No sensor");
             description.setVisibility(View.INVISIBLE);
-            //iconActivity.setVisibility(View.INVISIBLE);
+            uuid.setVisibility(View.INVISIBLE);
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
             iconLoc.setVisibility(View.INVISIBLE);
@@ -139,13 +147,27 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         if (unavailable) {
             callsign.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             description.setTextColor(getContext().getResources().getColor(R.color.light_grey));
+            uuid.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.light_grey));
+            if (iconLoc != null)
+                iconLoc.setVisibility(View.INVISIBLE);
         } else {
-            callsign.setTextColor(getContext().getResources().getColor(R.color.white));
+            callsign.setTextColor(getContext().getResources().getColor(R.color.yellow));
+            uuid.setTextColor(getContext().getResources().getColor(R.color.white));
             description.setTextColor(getContext().getResources().getColor(significant ? R.color.yellow : R.color.white_hint_green));
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.white_hint_green));
+            if (iconLoc != null) {
+                if (device.isLocationKnown()) {
+                    iconLoc.setVisibility(View.VISIBLE);
+                    if (device.isLocationCurrent())
+                        iconLoc.setColorFilter(getResources().getColor(R.color.green));
+                    else
+                        iconLoc.setColorFilter(getResources().getColor(R.color.light_grey));
+                } else
+                    iconLoc.setVisibility(View.INVISIBLE);
+            }
         }
     }
 

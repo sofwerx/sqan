@@ -34,13 +34,18 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
+
+import java.io.StringWriter;
+import java.util.ArrayList;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
 public class MainActivity extends AppCompatActivity implements SqAnStatusListener {
     protected static final int REQUEST_DISABLE_BATTERY_OPTIMIZATION = 401;
+    private final static long REPORT_PROBLEMS_DURATION = 1000l * 60l;
     private boolean permissionsNagFired = false; //used to request permissions from user
 
     protected boolean serviceBound = false;
@@ -50,9 +55,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textResults;
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
+    private TextView statusMarquee;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx;
     private View offlineStamp;
     private DevicesList devicesList;
+
+    private ArrayList<String> marqueeMessages = new ArrayList<>();
 
     private boolean shownFirstSysWarning = false;
 
@@ -96,6 +104,14 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         iconSysInfo = findViewById(R.id.mainSysStatusInfo);
         iconSysStatus = findViewById(R.id.mainSysStatusIcon);
         iconMainTx = findViewById(R.id.mainIconTxStatus);
+        statusMarquee = findViewById(R.id.mainStatusMarquee);
+        if (statusMarquee != null) {
+            statusMarquee.setOnClickListener(view -> {
+                Intent intent = new Intent(MainActivity.this,AboutActivity.class);
+                intent.putExtra("logs",true);
+                startActivity(intent);
+            });
+        }
         if (iconSysInfo != null)
             iconSysInfo.setOnClickListener(view -> SystemStatusDialog.show(MainActivity.this));
         textNetType.setText(null);
@@ -111,13 +127,52 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         devicesList = findViewById(R.id.mainDevicesList);
     }
 
+    private void updateStatusMarquee() {
+        if (statusMarquee != null) {
+            CommsLog.Entry lastError = CommsLog.getLastProblemOrStatus();
+            if ((lastError != null) && ((System.currentTimeMillis() < lastError.time + REPORT_PROBLEMS_DURATION))) {
+                String entry = lastError.toString();
+                if (entry != null) {
+                    if (!marqueeMessages.isEmpty()) {
+                        if (!entry.equalsIgnoreCase(marqueeMessages.get(marqueeMessages.size() - 1)))
+                            marqueeMessages.add(entry);
+                        while (marqueeMessages.size() > 4) {
+                            marqueeMessages.remove(0);
+                        }
+                    } else
+                        marqueeMessages.add(entry);
+                    StringWriter out = new StringWriter();
+                    boolean first = true;
+                    for (String message:marqueeMessages) {
+                        if (first)
+                            first = false;
+                        else
+                            out.append("\r\n");
+                        out.append(message);
+                    }
+
+                    statusMarquee.setText(out.toString());
+                }
+            }
+            statusMarquee.setSelected(true);
+        }
+    }
+
     private void updateTransmitText() {
         textTxTally.setText("Tx: "+StringUtil.toDataSize(ManetOps.getTransmittedByteTally()));
+    }
+
+    private void updateCallsignText() {
+        if ((Config.getThisDevice() == null) || (Config.getThisDevice().getCallsign() == null))
+            setTitle(R.string.app_name);
+        else
+            setTitle(Config.getThisDevice().getCallsign());
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        updateCallsignText();
         registerListeners();
         updateManetTypeDisplay();
         if (!permissionsNagFired) {
@@ -127,6 +182,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
         updateTransmitText();
         updateSysStatusText();
+        updateStatusMarquee();
     }
 
     @Override
@@ -223,6 +279,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateManetTypeDisplay();
             updateSysStatusText();
             updateActiveIndicator();
+            updateCallsignText();
             if (sqAnService.getManetOps() != null)
                 updateMainStatus(sqAnService.getManetOps().getStatus());
             else
@@ -364,12 +421,16 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateManetTypeDisplay();
             updateActiveIndicator();
             updateMainStatus(status);
+            updateStatusMarquee();
         });
     }
 
     @Override
     public void onNodesChanged(SqAnDevice device) {
-        devicesList.update(device);
+        runOnUiThread(() -> {
+            devicesList.update(device);
+            updateStatusMarquee();
+        });
     }
 
     @Override

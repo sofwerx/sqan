@@ -3,16 +3,23 @@ package org.sofwerx.sqan.manet.common;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
+import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
+    public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
+    private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     private final static long TIME_TO_STALE = 1000l * 60l;
     private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     private static ArrayList<SqAnDevice> devices;
-    private String uuid; //this is the persistent ID for this device
+    private int uuid; //this is the persistent SqAN ID for this device
+    private String callsign; //this is the callsign which also acts as the domain name for this device
+    private String uuidExtended; //this is the persistent ID for this device used solely to look for conflicts
     private String networkId; //this is the transient MANET ID for this device
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
@@ -21,14 +28,26 @@ public class SqAnDevice {
     private long discoveryTime = -1l; //used to mark when this device was discovered
     private long connectTime = -1l; //used to mark when this device was connected
     private CommsLog.Entry lastEntry = null;
+    private SpaceTime lastLocation = null;
 
     /**
      * SqAnDevice
      * @param uuid == the persistent UUID associated with SqAN on this physical device
      */
-    public SqAnDevice(String uuid) {
-        this.uuid = uuid;
+    public SqAnDevice(int uuid) {
+        if (uuid == UNASSIGNED_UUID)
+            this.uuid = nextUnassignedUUID.decrementAndGet();
+        else
+            this.uuid = uuid;
         SqAnDevice.add(this);
+    }
+
+    /**
+     * Constructor that creates a placeholder UUID that is later intended to be updated
+     * once the actual UUID is known
+     */
+    public SqAnDevice() {
+        this(UNASSIGNED_UUID);
     }
 
     /**
@@ -36,7 +55,7 @@ public class SqAnDevice {
      * @param uuid == the persistent UUID associated with SqAN on this physical device
      * @param networkId == the transient ID assigned to this device for this session on this MANET
      */
-    public SqAnDevice(String uuid, String networkId) {
+    public SqAnDevice(int uuid, String networkId) {
         this(uuid);
         this.networkId = networkId;
     }
@@ -52,7 +71,48 @@ public class SqAnDevice {
      * @param lastEntry
      */
     public void setLastEntry(CommsLog.Entry lastEntry) { this.lastEntry = lastEntry; }
-    public void setUUID(String uuid) { this.uuid = uuid; }
+
+    /**
+     * Sets the short uuid for this device. This should not be changed with the
+     * very rare exception of a collision with another device
+     * @param uuid
+     */
+    public void setUUID(int uuid) { this.uuid = uuid; }
+
+    /**
+     * Gets the device specific UUID; this is (almost always) immutable and singularly
+     * associated with a single device
+     * @return
+     */
+    public int getUUID() {
+        return uuid;
+    }
+
+    /**
+     * Gets the callsign for this device; this callsign can be changed and also acts as
+     * the domain name for this device
+     * @return
+     */
+    public String getCallsign() {
+        return callsign;
+    }
+
+    /**
+     * Sets the callsign for this device; this callsign can be changed and also acts as
+     * the domain name for this device
+     * @param callsign
+     */
+    public void setCallsign(String callsign) {
+        this.callsign = callsign;
+    }
+
+    public SpaceTime getLastLocation() {
+        return lastLocation;
+    }
+
+    public void setLastLocation(SpaceTime lastLocation) {
+        this.lastLocation = lastLocation;
+    }
 
     /**
      * ONLINE == device is visible but not ready to receive network packets
@@ -88,7 +148,7 @@ public class SqAnDevice {
      */
     public void addLatencyMeasurement(long latency) {
         if (latency < 0l) {
-            Log.d(Config.TAG,"A negative latency reported which doesnt make sense. Ignoring");
+            Log.d(Config.TAG,"A negative latency reported which doesn\'t make sense. Ignoring");
             return;
         }
         if (latencies == null)
@@ -159,17 +219,39 @@ public class SqAnDevice {
         return active;
     }
 
-    public String getUUID() {
-        return uuid;
+    /**
+     * Is the UUID for this device known or is there just a placeholder in play
+     * for now. Useful since some network connections are established before
+     * the device is able to pass its identifying info
+     * @return true == this is a valid UUID
+     */
+    public boolean isUuidKnown() {
+        return uuid > 0;
     }
 
     public void update(SqAnDevice other) {
         if (other == null)
             return;
+        if ((uuid < 0) && (other.uuid > 0)) {
+            uuid = other.uuid;
+            SqAnDevice existingDevice = findByUUID(other.getUUID());
+            if (existingDevice != null) {
+                CommsLog.log(CommsLog.Entry.Category.STATUS,existingDevice.networkId+" was a duplicate; information merged into "+uuid);
+                remove(existingDevice);
+            }
+        }
         if (other.networkId != null)
             networkId = other.networkId;
-        if (uuid == null)
-            uuid = other.uuid;
+        if (other.callsign != null)
+            callsign = other.callsign;
+        if (other.uuidExtended != null)
+            uuidExtended = other.uuidExtended;
+        if (uuid > 0) {
+            if (other.uuid < 0) {
+                CommsLog.log(CommsLog.Entry.Category.STATUS,other.networkId+" was a duplicate; information merged into "+uuid);
+                remove(other);
+            }
+        }
     }
 
     public static int getActiveConnections() {
@@ -193,9 +275,12 @@ public class SqAnDevice {
     public boolean isSame(SqAnDevice other) {
         if (other == null)
             return false;
-        if (uuid == null)
+        if (other.uuid == UNASSIGNED_UUID) {
+            if (other.networkId != null)
+                return other.networkId.equalsIgnoreCase(networkId);
             return false;
-        return uuid.equalsIgnoreCase(other.uuid);
+        } else
+            return (uuid == other.uuid);
     }
 
     /**
@@ -203,10 +288,10 @@ public class SqAnDevice {
      * @param uuid
      * @return true == this is the same device
      */
-    public boolean isSame(String uuid) {
-        if (uuid == null)
+    public boolean isSame(int uuid) {
+        if (uuid == UNASSIGNED_UUID)
             return false;
-        return uuid.equalsIgnoreCase(this.uuid);
+        return this.uuid == uuid;
     }
 
     public static ArrayList<SqAnDevice> getDevices() {
@@ -218,12 +303,41 @@ public class SqAnDevice {
     }
 
     /**
+     * Provides verification that two devices are the same (compares both the
+     * UUID and the extended UUID). This is useful when identifying and dealing
+     * with possible collisions based on the UUID.
+     * @param other
+     * @return
+     */
+    public boolean isSameHighConfidence(SqAnDevice other) {
+        if (other == null)
+            return false;
+        if (isSame(other)) {
+            if (other.uuidExtended != null)
+                return other.uuidExtended.equalsIgnoreCase(uuidExtended);
+        }
+        return false;
+    }
+
+    /**
+     * Extended UUIDs are larger (less collision risk) UUIDs that are immutable
+     * and singularly identify the device. These should be used for more
+     * detailed collision checks when the UUID is suspectd to possibly be
+     * duplicate between two devices.
+     * @param uuidExtended
+     */
+    public void setUuidExtended(String uuidExtended) {
+        this.uuidExtended = uuidExtended;
+    }
+    public String getUuidExtended() { return uuidExtended; }
+
+    /**
      * Add a new device to the list of devices
      * @param device
      * @return true == a new devices was added; false == this is a null or existing device
      */
     public static boolean add(SqAnDevice device) {
-        if (device == null)
+        if ((device == null) || (device.getUUID() == UNASSIGNED_UUID))
             return false;
         if (devices == null) {
             devices = new ArrayList<>();
@@ -237,6 +351,14 @@ public class SqAnDevice {
         } else
             existing.update(device);
         return false;
+    }
+
+    public static void remove(SqAnDevice device) {
+        if (devices != null) {
+            devices.remove(device);
+            if (devices.isEmpty())
+                devices = null;
+        }
     }
 
     public static void clearAllDevices(ManetType type) {
@@ -264,8 +386,8 @@ public class SqAnDevice {
      * @param uuid
      * @return the device (or null if UUID is not found)
      */
-    public static SqAnDevice findByUUID(String uuid) {
-        if ((uuid != null) && (devices != null) && !devices.isEmpty()) {
+    public static SqAnDevice findByUUID(int uuid) {
+        if ((devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
                 if (device.isSame(uuid))
                     return device;
@@ -319,12 +441,22 @@ public class SqAnDevice {
         lastConnect = time;
     }
 
-    /*public String getSimplifiedUUID() {
-        if (uuid == null)
-            return null;
-        String[] parts = uuid.split("-");
-        if (parts == null)
-            return uuid;
-        return "…"+parts[parts.length-1];
-    }*/
+    /**
+     * Is location data known for this device
+     * @return
+     */
+    public boolean isLocationKnown() {
+        return ((lastLocation != null) && lastLocation.isValid());
+    }
+
+    /**
+     * Is the location data on this device current
+     * @return true == reasonably current
+     */
+    public boolean isLocationCurrent() {
+        if (isLocationKnown())
+            return (NetworkTime.getNetworkTimeNow() - lastLocation.getTime()) > TIME_TO_STALE;
+        else
+            return false;
+    }
 }
