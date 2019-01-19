@@ -67,9 +67,9 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             else
                 out.append(device.getNetworkId());
             out.append(')');
-            if (device.getCallsign() == null)
-                callsign.setText("Waiting on SqAN Callsign");
-            else
+            //if (device.getCallsign() == null)
+            //    callsign.setText(null);
+            //else
                 callsign.setText(device.getCallsign());
             uuid.setText(out.toString());
             StringWriter descOut = new StringWriter();
@@ -119,29 +119,34 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             case ONLINE:
                 iconLink.setVisibility(View.INVISIBLE);
                 unavailable = false;
+                setBackgroundResource(R.drawable.bg_item_2_yellow);
                 break;
 
             case CONNECTED:
                 iconLink.setImageResource(R.drawable.icon_link);
                 iconLink.setVisibility(View.VISIBLE);
                 unavailable = false;
+                setBackgroundResource(R.drawable.bg_item_2);
                 break;
 
             case OFFLINE:
                 iconLink.setImageResource(R.drawable.icon_off);
                 iconLink.setVisibility(View.VISIBLE);
+                setBackgroundResource(R.drawable.bg_item_2_grey);
                 unavailable = true;
                 break;
 
             case STALE:
                 iconLink.setImageResource(R.drawable.icon_link_old);
                 iconLink.setVisibility(View.VISIBLE);
+                setBackgroundResource(R.drawable.bg_item_2_grey);
                 unavailable = false;
                 break;
 
             default:
                 iconLink.setImageResource(R.drawable.icon_link_broken);
                 iconLink.setVisibility(View.VISIBLE);
+                setBackgroundResource(R.drawable.bg_item_2_yellow);
                 unavailable = true;
         }
         if (unavailable) {

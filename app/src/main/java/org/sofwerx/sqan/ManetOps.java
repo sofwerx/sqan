@@ -20,6 +20,8 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.util.StringUtil;
 
+import java.util.ArrayList;
+
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists
  * to bring the MANET code out of the SqAnService to improve readability.
@@ -32,6 +34,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     private Handler handler;
     private ManetOps manetOps;
     private boolean shouldBeActive = true;
+
+    //for capturing overall up time analytics
+    private static SqAnDevice.FullMeshCapability meshStatus = SqAnDevice.FullMeshCapability.DOWN;
+    private static long lastMeshStatusTime = System.currentTimeMillis();
+    private static long totalMeshUpTime = 0l;
+    private static long totalMeshDegradedTime = 0l;
+    private static long totalMeshDownTime = 0l;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
@@ -50,6 +59,23 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         };
         manetThread.start();
     }
+
+    public static long getTotalUpTime() {
+        if (meshStatus == SqAnDevice.FullMeshCapability.UP)
+            return totalMeshUpTime + (System.currentTimeMillis() - lastMeshStatusTime);
+        return totalMeshUpTime;
+    }
+    public static long getTotalDegradedTime() {
+        if (meshStatus == SqAnDevice.FullMeshCapability.DEGRADED)
+            return totalMeshDegradedTime + (System.currentTimeMillis() - lastMeshStatusTime);
+        return totalMeshDegradedTime;
+    }
+    public static long getTotalDownTime() {
+        if (meshStatus == SqAnDevice.FullMeshCapability.DOWN)
+            return totalMeshDownTime + (System.currentTimeMillis() - lastMeshStatusTime);
+        return totalMeshDownTime;
+    }
+    public static SqAnDevice.FullMeshCapability getOverallMeshStatus() { return meshStatus; }
 
     /**
      * Used to toggle this MANET on/off
@@ -124,7 +150,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         shouldBeActive = true;
         if (handler != null) {
             handler.post(() -> {
-                if ((manet != null) && !manet.isRunning()) {
+                //if ((manet != null) && !manet.isRunning()) {
+                if (manet != null) {
                     try {
                         sqAnService.onStatusChange(Status.OFF, null);
                         manet.init();
@@ -200,9 +227,12 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     @Override
     public void onDevicesChanged(SqAnDevice device) {
+        evalutateMeshStatus();
         if (sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
-        sqAnService.requestHeartbeat();
+        if ((device != null) && device.isActive())
+            sqAnService.requestHeartbeat();
+        sqAnService.notifyStatusChange(null);
     }
 
     public Status getStatus() {
@@ -225,10 +255,32 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         }
     }
 
+    private void evalutateMeshStatus() {
+        SqAnDevice.FullMeshCapability currentStatus = SqAnDevice.getFullMeshStatus();
+        if (currentStatus != meshStatus) {
+            switch (meshStatus) {
+                case UP:
+                    totalMeshUpTime += System.currentTimeMillis() - lastMeshStatusTime;
+                    break;
+
+                case DEGRADED:
+                    totalMeshDegradedTime += System.currentTimeMillis() - lastMeshStatusTime;
+                    break;
+
+                case DOWN:
+                    totalMeshDownTime += System.currentTimeMillis() - lastMeshStatusTime;
+                    break;
+            }
+            lastMeshStatusTime = System.currentTimeMillis();
+            meshStatus = currentStatus;
+        }
+    }
+
     /**
      * Conduct any periodic housekeeping tasks
      */
     public void executePeriodicTasks() {
+        evalutateMeshStatus();
         if (manet != null)
             manet.executePeriodicTasks();
     }

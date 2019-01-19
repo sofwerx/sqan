@@ -61,6 +61,76 @@ public class SqAnDevice {
     }
 
     /**
+     * Look for and merge any likely duplicate nodes
+     * @return the device that absorbed a duplicate device
+     */
+    public static SqAnDevice dedup() {
+        if ((devices == null) || (devices.size() < 2))
+            return null;
+
+        SqAnDevice merged = null;
+
+        boolean scanNeeded = true;
+        int inspectingIndex = 0;
+        while ((merged == null) && (inspectingIndex < devices.size()) && scanNeeded) {
+            SqAnDevice inspecting = devices.get(inspectingIndex);
+            for (int i=0;i<devices.size();i++) {
+                if ((merged == null) && (i != inspectingIndex)) {
+                    SqAnDevice other = devices.get(i);
+                    if (inspecting.networkId != null) {
+                        if (inspecting.networkId.equalsIgnoreCase(other.networkId)) {
+                            if (inspecting.lastConnect > other.lastConnect) {
+                                merged = inspecting;
+                                CommsLog.log(CommsLog.Entry.Category.STATUS,"Duplicate devices detected; "+other.uuid+" merged into "+inspecting.uuid);
+                                devices.remove(i);
+                            } else {
+                                merged = other;
+                                CommsLog.log(CommsLog.Entry.Category.STATUS,"Duplicate devices detected; "+inspecting.uuid+" merged into "+other.uuid);
+                                devices.remove(inspectingIndex);
+                            }
+                        }
+                    }
+                }
+            }
+            inspectingIndex++;
+        }
+
+        return merged;
+    }
+
+    /**
+     * Remove old devices from the roster
+     * @return
+     */
+    public static boolean cullOldDevices() {
+        if ((devices == null) || devices.isEmpty())
+            return false;
+
+        boolean culled = false;
+
+        int i=0;
+        while (i<devices.size()) {
+            SqAnDevice device = devices.get(i);
+            if (device.networkId == null) {
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "Device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed (no network ID)");
+                devices.remove(i);
+                culled = true;
+            } else {
+                if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
+                    device.status = Status.STALE;
+                if (device.status == Status.STALE) {
+                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
+                    devices.remove(i);
+                    culled = true;
+                } else
+                    i++;
+            }
+        }
+
+        return culled;
+    }
+
+    /**
      * Gets the last CommsLog entry of interest for this device
      * @return
      */
@@ -409,6 +479,28 @@ public class SqAnDevice {
             }
         }
         return null;
+    }
+
+    public enum FullMeshCapability {
+        UP, DEGRADED, DOWN
+    }
+
+    /**
+     * Gets the overall status based on all the devices in the mesh. If no devices are connected
+     * the mesh is DOWN. If all the devices are connected, the mesh is UP. In between, the
+     * mesh is DEGRADED
+     * @return overall mesh status
+     */
+    public static FullMeshCapability getFullMeshStatus() {
+        if ((devices == null) || devices.isEmpty())
+            return FullMeshCapability.DOWN;
+
+        for (SqAnDevice device:devices) {
+            if (device.status != Status.CONNECTED)
+                return FullMeshCapability.DEGRADED;
+        }
+
+        return FullMeshCapability.UP;
     }
 
     /**

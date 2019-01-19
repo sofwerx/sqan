@@ -89,11 +89,11 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void init() throws ManetException {
-        if (!isRunning) {
+        //if (!isRunning) {
             isRunning = true;
             startAdvertising();
             startDiscovery();
-        }
+        //}
     }
 
     @Override
@@ -103,7 +103,6 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void burst(final AbstractPacket packet, SqAnDevice device) {
-        Log.d(Config.TAG,"Attempting burst");
         if (packet == null)
             return; //nothing to send
         byte[] bytes = packet.toByteArray();
@@ -155,11 +154,16 @@ public class NearbyConnectionsManet extends AbstractManet {
                             listener.onTx(packet);
                     })
                     .addOnFailureListener(e -> {
-                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to send payload: " + e.getMessage());
+                        String errorMessage = e.getMessage();
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to send payload: " + errorMessage);
                         //status = Status.ERROR;
                         if (listener != null) {
                             listener.onTxFailed(packet);
                             listener.onStatus(status);
+                        }
+                        if ((errorMessage != null) && (errorMessage.contains("ENDPOINT_UNKNOWN"))) {
+                            if (SqAnDevice.cullOldDevices() && (listener != null))
+                                listener.onDevicesChanged(null);
                         }
                     });
         } else {
@@ -224,10 +228,15 @@ public class NearbyConnectionsManet extends AbstractManet {
                     if (deviceId == null)
                         it.remove();
                     else {
-                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Attempting to connect to "+deviceId+" again");
-                        Nearby.getConnectionsClient(context)
-                                .requestConnection(Integer.toString(Config.getThisDevice().getUUID()), deviceId, connectionLifecycleCallback);
-                        connectionQueue.put(deviceId, System.currentTimeMillis() + CONNECTION_RETRY_RATE);
+                        SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
+                        if (device == null)
+                            it.remove();
+                        else {
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Attempting to connect to " + deviceId + " again");
+                            Nearby.getConnectionsClient(context)
+                                    .requestConnection(Integer.toString(Config.getThisDevice().getUUID()), deviceId, connectionLifecycleCallback);
+                            connectionQueue.put(deviceId, System.currentTimeMillis() + CONNECTION_RETRY_RATE);
+                        }
                     }
                 }
             }
@@ -285,11 +294,14 @@ public class NearbyConnectionsManet extends AbstractManet {
                 public void onConnectionInitiated(String deviceId, ConnectionInfo info) {
                     Log.d(Config.TAG,"onConnectionInitiated with "+deviceId);
                     SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
-                    if ((device == null) && (info != null))
-                        device = SqAnDevice.findByNetworkID(info.getEndpointName());
-                    else {
+                    if ((device == null) && (info != null)) {
+                        try {
+                            device = SqAnDevice.findByUUID(Integer.parseInt(info.getEndpointName()));
+                        } catch (NumberFormatException ignore) {
+                        }
+                    } else {
                         if (device.getNetworkId() == null)
-                            device.setNetworkId(info.getEndpointName());
+                            device.setNetworkId(deviceId);
                     }
                     if (device != null) {
                         device.setConnected();
@@ -321,7 +333,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Connection reported for "+deviceId+" but that device is not on my roster.");
                             if (TACTIC_REPEATED_CONNETION_TRIES)
                                 connectionQueue.remove(deviceId);
-                            //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
                             CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to connection with " + deviceId+" - Rejected");
@@ -331,7 +342,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                             }
                             if (TACTIC_REPEATED_CONNETION_TRIES)
                                 connectionQueue.remove(deviceId);
-                            //TODO
                             break;
                         case ConnectionsStatusCodes.STATUS_ERROR:
                             CommsLog.log(CommsLog.Entry.Category.PROBLEM,  "Unable to connect with " + deviceId+" - Error");
@@ -344,7 +354,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 Nearby.getConnectionsClient(context).disconnectFromEndpoint(deviceId);
                                 connectionQueue.put(deviceId,System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                             }
-                            //TODO
                             break;
                         default:
                             String resultText = ConnectionsStatusCodes.getStatusCodeString(result.getStatus().getStatusCode());
@@ -353,7 +362,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 device.setStatus(SqAnDevice.Status.ERROR);
                                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Error: "+resultText));
                             }
-                            //TODO
                             break;
                     }
                 }

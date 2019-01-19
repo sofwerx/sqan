@@ -24,4 +24,8 @@
     <string name="notify_status_title">SqAN %1$s</string>
     <string name="callsign">Callsign</string>
     <string name="commslog">Network Log</string>
+    <string name="about_stats">Mesh status during this session:</string>
+    <string name="up">Up</string>
+    <string name="degraded">Degraded</string>
+    <string name="down">Down</string>
 </resources>

@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textResults;
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
-    private TextView statusMarquee;
+    private TextView statusMarquee, textOverall;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx;
     private View offlineStamp;
     private DevicesList devicesList;
@@ -105,6 +105,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         iconSysStatus = findViewById(R.id.mainSysStatusIcon);
         iconMainTx = findViewById(R.id.mainIconTxStatus);
         statusMarquee = findViewById(R.id.mainStatusMarquee);
+        textOverall = findViewById(R.id.mainDescribeOverall);
         if (statusMarquee != null) {
             statusMarquee.setOnClickListener(view -> {
                 Intent intent = new Intent(MainActivity.this,AboutActivity.class);
@@ -183,6 +184,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         updateTransmitText();
         updateSysStatusText();
         updateStatusMarquee();
+        devicesList.update(null);
     }
 
     @Override
@@ -212,11 +214,29 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         return true;
     }
 
+    private void updateOverallMeshHealth() {
+        if (textOverall != null) {
+            switch (ManetOps.getOverallMeshStatus()) {
+                case UP:
+                    textOverall.setText("Mesh\nUP");
+                    textOverall.setTextColor(getColor(R.color.white_hint_green));
+                    break;
+                case DEGRADED:
+                    textOverall.setText("Mesh\nDEGRADED");
+                    textOverall.setTextColor(getColor(R.color.yellow));
+                    break;
+                default:
+                    textOverall.setText("Mesh\nDOWN");
+                    textOverall.setTextColor(getColor(R.color.light_red));
+                    break;
+            }
+        }
+    }
+
     private void updateActiveIndicator() {
         boolean active = false;
-        if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null) && (sqAnService.getManetOps().getManet() != null)) {
+        if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null) && (sqAnService.getManetOps().getManet() != null))
             active = sqAnService.getManetOps().getManet().isRunning();
-        }
         isSystemChangingSwitchActive = true;
         switchActive.setChecked(active);
         isSystemChangingSwitchActive = false;
@@ -279,6 +299,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateManetTypeDisplay();
             updateSysStatusText();
             updateActiveIndicator();
+            updateOverallMeshHealth();
             updateCallsignText();
             if (sqAnService.getManetOps() != null)
                 updateMainStatus(sqAnService.getManetOps().getStatus());
@@ -421,6 +442,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateManetTypeDisplay();
             updateActiveIndicator();
             updateMainStatus(status);
+            updateOverallMeshHealth();
             updateStatusMarquee();
         });
     }
@@ -430,6 +452,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         runOnUiThread(() -> {
             devicesList.update(device);
             updateStatusMarquee();
+            updateOverallMeshHealth();
         });
     }
 

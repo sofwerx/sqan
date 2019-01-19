@@ -36,7 +36,62 @@
             android:layout_width="match_parent"
             android:layout_height="8dp" />
 
-    <ScrollView
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/about_stats"/>
+
+        <TableLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:text="@string/up"/>
+                <TextView
+                    android:id="@+id/about_time_up"
+                    android:paddingStart="12dp"
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:textColor="@color/white_hint_green"/>
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:text="@string/degraded" />
+                <TextView
+                    android:id="@+id/about_time_degraded"
+                    android:paddingStart="12dp"
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:textColor="@color/yellow"/>
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:text="@string/down"/>
+                <TextView
+                    android:id="@+id/about_time_down"
+                    android:paddingStart="12dp"
+                    android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:textColor="@color/light_red"/>
+            </TableRow>
+        </TableLayout>
+
+        <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -136,7 +191,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <TextView
+        <TextView
         android:id="@+id/aboutUUID"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

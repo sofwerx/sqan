@@ -14,9 +14,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.util.Admin;
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
 
@@ -25,6 +27,7 @@ public class AboutActivity extends Activity {
     private TextView licTitle, lic;
     private TextView logTitle, log;
     private TextView version, uuid;
+    private TextView timeUp, timeDegraded, timeDown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +41,9 @@ public class AboutActivity extends Activity {
         log = findViewById(R.id.commsLog);
         version = findViewById(R.id.aboutVersion);
         uuid = findViewById(R.id.aboutUUID);
+        timeUp = findViewById(R.id.about_time_up);
+        timeDegraded = findViewById(R.id.about_time_degraded);
+        timeDown = findViewById(R.id.about_time_down);
 
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
@@ -93,6 +99,20 @@ public class AboutActivity extends Activity {
         Bundle extras = getIntent().getExtras();
         if ((extras != null) && extras.getBoolean("logs"))
             showLog();
+
+        long time;
+        if (timeUp != null) {
+            time = ManetOps.getTotalUpTime();
+            timeUp.setText((time < 1000l) ? "none" : StringUtil.toDuration(time));
+        }
+        if (timeDegraded != null) {
+            time = ManetOps.getTotalDegradedTime();
+            timeDegraded.setText((time < 1000l) ? "none" : StringUtil.toDuration(time));
+        }
+        if (timeDown != null) {
+            time = ManetOps.getTotalDownTime();
+            timeDown.setText((time < 1000l) ? "none" : StringUtil.toDuration(time));
+        }
     }
 
     private void showLog() {
