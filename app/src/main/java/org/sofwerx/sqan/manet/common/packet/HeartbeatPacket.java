@@ -43,13 +43,12 @@ public class HeartbeatPacket extends AbstractPacket {
 
     @Override
     public void parse(byte[] bytes) {
-        if (bytes == null)
+        if ((bytes == null) || (packetHeader == null))
             device = null;
         else {
             ByteBuffer buf = ByteBuffer.wrap(bytes);
             try {
-                int uuid = buf.getInt();
-                device = new SqAnDevice(uuid);
+                device = new SqAnDevice(packetHeader.getOriginUUID());
                 if (buf.remaining() >= SpaceTime.SIZE_IN_BYTES) {
                     byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
                     buf.get(spaceTimeBytes);
@@ -58,7 +57,8 @@ public class HeartbeatPacket extends AbstractPacket {
                     if (!spaceTime.isValid())
                         spaceTime = null;
                     device.setLastLocation(spaceTime);
-                }
+                } else
+                    return;
                 int callsignSize = buf.getInt();
                 if (callsignSize > 0) {
                     if (callsignSize > 256) { //that's too big to be a proper callsign
@@ -115,9 +115,6 @@ public class HeartbeatPacket extends AbstractPacket {
             out.put(superBytes);
 
         switch (detailLevel) {
-            case BASIC:
-                out.putInt(device.getUUID());
-
             case MEDIUM:
                 SpaceTime spaceTime = device.getLastLocation();
                 if (spaceTime == null)

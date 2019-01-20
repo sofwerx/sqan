@@ -42,7 +42,7 @@
         android:src="@drawable/icon_battery_50_charging"
         android:layout_gravity="center_vertical"
         android:visibility="invisible"
-        app:layout_constraintEnd_toStartOf="@+id/deviceLocation"
+        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
@@ -52,26 +52,32 @@
         android:src="@drawable/ic_backhaul"
         android:tint="@color/green"
         android:layout_gravity="center_vertical"
-        app:layout_constraintEnd_toStartOf="@+id/deviceLocation"
+        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintBottom_toBottomOf="parent" />
 
-    <ImageView
-        android:id="@+id/deviceLocation"
+    <FrameLayout
+        android:id="@+id/deviceLocationFrame"
         android:layout_width="96dp"
-        android:layout_height="match_parent"
-        android:layout_gravity="center_vertical"
-        android:src="@drawable/icon_location"
+        android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+        <ImageView
+            android:id="@+id/deviceLocation"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            android:src="@drawable/icon_location"/>
+    </FrameLayout>
+ />
 
     <TextView
         android:id="@+id/deviceDistance"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toBottomOf="@+id/deviceLocation"
-        app:layout_constraintStart_toStartOf="@+id/deviceLocation"
-        app:layout_constraintEnd_toEndOf="@+id/deviceLocation"
+        app:layout_constraintTop_toBottomOf="@+id/deviceLocationFrame"
+        app:layout_constraintStart_toStartOf="@+id/deviceLocationFrame"
+        app:layout_constraintEnd_toEndOf="@+id/deviceLocationFrame"
         android:textColor="@color/white_hint_green"
         android:textSize="12sp"
         android:text="XXXm"/>
@@ -82,8 +88,8 @@
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/deviceDistance"
-        app:layout_constraintStart_toStartOf="@+id/deviceLocation"
-        app:layout_constraintEnd_toEndOf="@+id/deviceLocation"
+        app:layout_constraintStart_toStartOf="@+id/deviceLocationFrame"
+        app:layout_constraintEnd_toEndOf="@+id/deviceLocationFrame"
         android:textColor="@color/white"
         android:textSize="10sp"
         android:text="+/-Xm"/>

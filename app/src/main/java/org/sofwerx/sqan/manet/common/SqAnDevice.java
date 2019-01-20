@@ -598,8 +598,20 @@ public class SqAnDevice {
         double distance = getDistance(other);
         if (Double.isNaN(distance))
             return null;
-        if (distance < 3d)
+        float errorDistance = 7f;
+        if ((lastLocation != null) && (other != null) && (other.lastLocation != null))
+            errorDistance = lastLocation.getTotalAccuracy(other.lastLocation);
+        if (Float.isNaN(errorDistance) || (distance < errorDistance))
             return "close";
         return Math.round(distance)+"m";
+    }
+
+    public String getAggregateAccuracy(SqAnDevice other) {
+        float errorDistance = Float.NaN;
+        if ((lastLocation != null) && (other != null) && (other.lastLocation != null))
+            errorDistance = lastLocation.getTotalAccuracy(other.lastLocation);
+        if (Float.isNaN(errorDistance))
+            return null;
+        return "±"+Math.round(errorDistance)+"m";
     }
 }

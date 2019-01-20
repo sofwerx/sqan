@@ -190,8 +190,9 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                             textDistance.setText(distanceString);
                         }
                         if (textDistanceAccuracy != null) {
-                            //TODO
-                            textDistanceAccuracy.setVisibility(View.INVISIBLE);
+                            String accuracyText = device.getAggregateAccuracy(Config.getThisDevice());
+                            textDistanceAccuracy.setText(accuracyText);
+                            textDistanceAccuracy.setVisibility(View.VISIBLE);
                         }
                     }
                 } else {

@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 public class SpaceTime {
     public final static double NO_ALTITUDE = Double.NaN;
     private double latitude, longitude, altitude;
+    private float accuracy = Float.NaN;
     private long time;
 
     public double getLatitude() { return latitude; }
@@ -33,8 +34,10 @@ public class SpaceTime {
             longitude = location.getLongitude();
             if (location.hasAltitude())
                 altitude = location.getAltitude();
-            //if (location.hasAccuracy())
-            //    accuracy = location.getAccuracy();
+            if (location.hasAccuracy())
+                accuracy = location.getAccuracy();
+            else
+                accuracy = Float.NaN;
             time = NetworkTime.toNetworkTime(location.getTime());
         }
     }
@@ -124,13 +127,14 @@ public class SpaceTime {
         return (time > 0l) && !Double.isNaN(latitude) && !Double.isNaN(longitude);
     }
 
-    public final static int SIZE_IN_BYTES = 8 + 8 + 8 + 8;
+    public final static int SIZE_IN_BYTES = 8 + 8 + 8 + 4 + 8;
 
     public byte[] toByteArray() {
         ByteBuffer out = ByteBuffer.allocate(SIZE_IN_BYTES);
         out.putDouble(latitude);
         out.putDouble(longitude);
         out.putDouble(altitude);
+        out.putFloat(accuracy);
         out.putLong(time);
         return out.array();
     }
@@ -153,6 +157,7 @@ public class SpaceTime {
         latitude = buf.getDouble();
         longitude = buf.getDouble();
         altitude = buf.getDouble();
+        accuracy = buf.getFloat();
         time = buf.getLong();
     }
 
@@ -172,5 +177,29 @@ public class SpaceTime {
             return a.distanceTo(b);
         }
         return Double.NaN;
+    }
+
+    /**
+     * Gets the accuracy (1SD)
+     * @return accuracy in meters (or NaN if the accuracy is not available)
+     */
+    public float getAccuracy() { return accuracy; }
+
+    /**
+     * Sets the accuracy (1SD)
+     * @param accuracy accuracy in meters
+     */
+    public void setAccuracy(float accuracy) { this.accuracy = accuracy; }
+
+    public boolean hasAccuracy() { return !Float.isNaN(accuracy); }
+
+    /**
+     * Gets the total accuracy error between two points
+     * @return accuracy in meters (or NaN if cannot be computed)
+     */
+    public float getTotalAccuracy(SpaceTime other) {
+        if ((other == null) || Float.isNaN(accuracy) || Float.isNaN(other.accuracy) || (accuracy < 0f) || (other.accuracy < 0f))
+            return Float.NaN;
+        return (accuracy + other.accuracy) + 0.67f;
     }
 }
