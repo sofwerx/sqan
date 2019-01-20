@@ -1,5 +1,6 @@
 package org.sofwerx.sqan.manet.common.pnt;
 
+import android.location.Location;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
@@ -23,6 +24,19 @@ public class SpaceTime {
 
     public SpaceTime() {
         this(Double.NaN,Double.NaN,Double.NaN,Long.MIN_VALUE);
+    }
+
+    public SpaceTime(Location location) {
+        this(Double.NaN,Double.NaN,Double.NaN,Long.MIN_VALUE);
+        if (location != null) {
+            latitude = location.getLatitude();
+            longitude = location.getLongitude();
+            if (location.hasAltitude())
+                altitude = location.getAltitude();
+            //if (location.hasAccuracy())
+            //    accuracy = location.getAccuracy();
+            time = NetworkTime.toNetworkTime(location.getTime());
+        }
     }
 
     /**
@@ -140,5 +154,23 @@ public class SpaceTime {
         longitude = buf.getDouble();
         altitude = buf.getDouble();
         time = buf.getLong();
+    }
+
+    /**
+     * Gets the distance between the two locations in meters
+     * @param other
+     * @return distance in meters (or NaN if not valid)
+     */
+    public double getDistance(SpaceTime other) {
+        if (isValid() && (other != null) && other.isValid()) {
+            Location a = new Location("sqan");
+            Location b = new Location("sqan");
+            a.setLatitude(latitude);
+            a.setLongitude(longitude);
+            b.setLatitude(other.latitude);
+            b.setLongitude(other.longitude);
+            return a.distanceTo(b);
+        }
+        return Double.NaN;
     }
 }

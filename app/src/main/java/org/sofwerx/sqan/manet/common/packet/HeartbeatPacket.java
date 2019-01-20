@@ -5,6 +5,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
+import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.BufferOverflowException;
@@ -49,6 +50,15 @@ public class HeartbeatPacket extends AbstractPacket {
             try {
                 int uuid = buf.getInt();
                 device = new SqAnDevice(uuid);
+                if (buf.remaining() >= SpaceTime.SIZE_IN_BYTES) {
+                    byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
+                    buf.get(spaceTimeBytes);
+                    SpaceTime spaceTime = new SpaceTime();
+                    spaceTime.parse(spaceTimeBytes);
+                    if (!spaceTime.isValid())
+                        spaceTime = null;
+                    device.setLastLocation(spaceTime);
+                }
                 int callsignSize = buf.getInt();
                 if (callsignSize > 0) {
                     if (callsignSize > 256) { //that's too big to be a proper callsign
@@ -89,14 +99,14 @@ public class HeartbeatPacket extends AbstractPacket {
         else
             size = superBytes.length;
         switch (detailLevel) {
+            case BASIC:
+                size += 4;
             case MEDIUM:
+                size += SpaceTime.SIZE_IN_BYTES;
                 size += 4 + 4;
                 if (callsignBytes != null)
                     size += callsignBytes.length;
                 break;
-
-            default:
-                size += 0;
         }
 
         ByteBuffer out = ByteBuffer.allocate(size);
@@ -105,8 +115,15 @@ public class HeartbeatPacket extends AbstractPacket {
             out.put(superBytes);
 
         switch (detailLevel) {
-            case MEDIUM:
+            case BASIC:
                 out.putInt(device.getUUID());
+
+            case MEDIUM:
+                SpaceTime spaceTime = device.getLastLocation();
+                if (spaceTime == null)
+                    out.put(SpaceTime.toByteArrayEmptySpaceTime());
+                else
+                    out.put(spaceTime.toByteArray());
                 if (callsignBytes == null)
                     out.putInt(0);
                 else {

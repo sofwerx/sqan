@@ -1,8 +1,10 @@
 package org.sofwerx.sqan.manet.common;
 
+import android.location.Location;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.util.CommsLog;
@@ -29,6 +31,7 @@ public class SqAnDevice {
     private long connectTime = -1l; //used to mark when this device was connected
     private CommsLog.Entry lastEntry = null;
     private SpaceTime lastLocation = null;
+    private boolean backhaulConnection = false;
 
     /**
      * SqAnDevice
@@ -185,6 +188,21 @@ public class SqAnDevice {
     }
 
     /**
+     * Is this device connected outside the mesh to enable data to be backhauled (i.e. moved
+     * out of theater)
+     * @return true == device has backhaul
+     */
+    public boolean isBackhaulConnection() { return backhaulConnection; }
+
+    //TODO implement designating this as a backhaul devices. This could be an app broadcast thing or alternatively could be based on SqANs ability to reach the internet
+    /**
+     * Designates if this device connected outside the mesh to enable data to be backhauled
+     * (i.e. moved out of theater)
+     * @param backhaulConnection
+     */
+    public void setBackhaulConnection(boolean backhaulConnection) { this.backhaulConnection = backhaulConnection; }
+
+    /**
      * ONLINE == device is visible but not ready to receive network packets
      * CONNECTED == device can receive network packets
      * STALE == device should be CONNECTED but has not checked in in a while
@@ -316,6 +334,10 @@ public class SqAnDevice {
             callsign = other.callsign;
         if (other.uuidExtended != null)
             uuidExtended = other.uuidExtended;
+        if (other.lastLocation != null) {
+            if ((lastLocation == null) || (other.lastLocation.getTime() > lastLocation.getTime()))
+                lastLocation = other.lastLocation;
+        }
         if (uuid > 0) {
             if (other.uuid < 0) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,other.networkId+" was a duplicate; information merged into "+uuid);
@@ -547,8 +569,37 @@ public class SqAnDevice {
      */
     public boolean isLocationCurrent() {
         if (isLocationKnown())
-            return (NetworkTime.getNetworkTimeNow() - lastLocation.getTime()) > TIME_TO_STALE;
+            return (NetworkTime.getNetworkTimeNow() - lastLocation.getTime()) < TIME_TO_STALE;
         else
             return false;
+    }
+
+    /**
+     * Gets the distance between two devices
+     * @param other
+     * @return the distance in meters (or NaN if the distance cannot be computed)
+     */
+    public double getDistance(SqAnDevice other) {
+        if ((other != null) && (other.lastLocation != null) && other.lastLocation.isValid()
+                && (lastLocation != null) && lastLocation.isValid()) {
+            return lastLocation.getDistance(other.lastLocation);
+        } else
+            return -100d;
+        //TODO check to see if the points are close in time
+        //TODO add the ability to use computed RTT distances instead
+    }
+
+    /**
+     * Gets the distance between two devices as a string
+     * @param other
+     * @return the distance (or null if the distance cannot be computed)
+     */
+    public String getDistanceText(SqAnDevice other) {
+        double distance = getDistance(other);
+        if (Double.isNaN(distance))
+            return null;
+        if (distance < 3d)
+            return "close";
+        return Math.round(distance)+"m";
     }
 }

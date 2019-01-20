@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.location.Location;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -25,6 +26,7 @@ import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
+import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
@@ -36,7 +38,7 @@ import java.util.ArrayList;
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
  */
-public class SqAnService extends Service {
+public class SqAnService extends Service implements LocationService.LocationUpdateListener {
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
@@ -59,9 +61,10 @@ public class SqAnService extends Service {
     private int numDevicesInLastNotification = 0;
     private long lastPositiveOutgoingComms = Long.MIN_VALUE;
     private int lastHeartbeatLevel = 0;
-    private long lastDevicesCleanup = Long.MIN_VALUE;
+    private long nextDevicesCleanup = Long.MIN_VALUE;
+    private LocationService locationService;
 
-    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 15l;
+    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 10l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
@@ -82,8 +85,19 @@ public class SqAnService extends Service {
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");
+        locationService = new LocationService(this);
+        locationService.start();
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
+    }
+
+    @Override
+    public void onDestroy() {
+        if (locationService != null) {
+            locationService.shutdown();
+            locationService = null;
+        }
+        super.onDestroy();
     }
 
     @Override
@@ -101,8 +115,8 @@ public class SqAnService extends Service {
             checkForStaleDevices();
             manetOps.executePeriodicTasks();
             requestHeartbeat();
-            if (System.currentTimeMillis() > lastDevicesCleanup) {
-                lastDevicesCleanup = System.currentTimeMillis();
+            if (System.currentTimeMillis() > nextDevicesCleanup) {
+                nextDevicesCleanup = System.currentTimeMillis() + INTERVAL_BETWEEN_DEVICES_CLEANUP;
                 SqAnDevice mergedDevice = SqAnDevice.dedup();
                 if ((mergedDevice != null) && (listener != null))
                     listener.onNodesChanged(mergedDevice);
@@ -126,7 +140,7 @@ public class SqAnService extends Service {
             else
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
             lastHeartbeatLevel++;
-            if (lastHeartbeatLevel > 0)
+            if (lastHeartbeatLevel > 2)
                 lastHeartbeatLevel = 0;
         } else
             Log.d(Config.TAG,"SqAnService.requestHeartbeat(), but no heartbeat needed right now");
@@ -407,6 +421,15 @@ public class SqAnService extends Service {
     }
 
     public void setListener(SqAnStatusListener listener) { this.listener = listener; }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        if (location != null) {
+            Config.getThisDevice().setLastLocation(new SpaceTime(location));
+            //TODO update a listener to update the GUI
+            //TODO consider broadcasting this change
+        }
+    }
 
     public class SqAnServiceBinder extends Binder {
         public SqAnService getService() {

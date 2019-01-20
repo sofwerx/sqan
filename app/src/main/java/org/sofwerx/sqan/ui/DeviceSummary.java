@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.CommsLog;
@@ -23,6 +24,8 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
     private ImageView iconLink;
     private ImageView iconLoc;
     private ImageView iconType;
+    private ImageView iconBackhaul;
+    private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
     private boolean significant = false;
 
@@ -51,6 +54,9 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         iconLink = view.findViewById(R.id.deviceLink);
         iconLoc = view.findViewById(R.id.deviceLocation);
         iconType = view.findViewById(R.id.deviceTypeIcon);
+        iconBackhaul = view.findViewById(R.id.deviceBackhaul);
+        textDistance = view.findViewById(R.id.deviceDistance);
+        textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
     }
 
     public void update(SqAnDevice device) {
@@ -93,25 +99,26 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             updateLinkDisplay(device);
             if (iconType != null)
                 iconType.setVisibility(VISIBLE);
+            iconBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
         } else {
             callsign.setText("No sensor");
             description.setVisibility(View.INVISIBLE);
             uuid.setVisibility(View.INVISIBLE);
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
-            iconLoc.setVisibility(View.INVISIBLE);
+            iconBackhaul.setVisibility(View.INVISIBLE);
             if (iconType != null)
                 iconType.setVisibility(INVISIBLE);
         }
+        //updateLocation(device);
     }
 
-    private void updateLocation(SqAnDevice device) {
-        /*Loc loc = device.getLocation();
-        if ((loc == null) || !loc.isValid())
+    /*private void updateLocation(SqAnDevice device) {
+        if ((device != null) && (device.getLastLocation() != null)) {
+            iconLoc.setVisibility(View.VISIBLE);
+        } else
             iconLoc.setVisibility(View.INVISIBLE);
-        else
-            iconLoc.setVisibility(unavailable?View.INVISIBLE:View.VISIBLE);*/
-    }
+    }*/
 
     private void updateLinkDisplay(SqAnDevice device) {
         //device.setDisplayInterface(this);
@@ -157,6 +164,10 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                 iconType.setColorFilter(getResources().getColor(R.color.light_grey));
             if (iconLoc != null)
                 iconLoc.setVisibility(View.INVISIBLE);
+            if (textDistance != null)
+                textDistance.setVisibility(View.INVISIBLE);
+            if (textDistanceAccuracy != null)
+                textDistanceAccuracy.setVisibility(View.INVISIBLE);
         } else {
             callsign.setTextColor(getContext().getResources().getColor(R.color.yellow));
             uuid.setTextColor(getContext().getResources().getColor(R.color.white));
@@ -170,8 +181,26 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                         iconLoc.setColorFilter(getResources().getColor(R.color.green));
                     else
                         iconLoc.setColorFilter(getResources().getColor(R.color.light_grey));
-                } else
+                    if (textDistance != null) {
+                        String distanceString = device.getDistanceText(Config.getThisDevice());
+                        if (distanceString == null)
+                            textDistance.setVisibility(View.INVISIBLE);
+                        else {
+                            textDistance.setVisibility(View.VISIBLE);
+                            textDistance.setText(distanceString);
+                        }
+                        if (textDistanceAccuracy != null) {
+                            //TODO
+                            textDistanceAccuracy.setVisibility(View.INVISIBLE);
+                        }
+                    }
+                } else {
                     iconLoc.setVisibility(View.INVISIBLE);
+                    if (textDistance != null)
+                        textDistance.setVisibility(View.INVISIBLE);
+                    if (textDistanceAccuracy != null)
+                        textDistanceAccuracy.setVisibility(View.INVISIBLE);
+                }
             }
         }
     }
