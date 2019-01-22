@@ -287,7 +287,7 @@ public class SqAnDevice {
     }
 
     public boolean isActive() {
-        return ((status == Status.CONNECTED) || (status == Status.STALE));
+        return (status == Status.CONNECTED);
     }
 
     /**

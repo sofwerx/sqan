@@ -229,7 +229,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         it.remove();
                     else {
                         SqAnDevice device = SqAnDevice.findByNetworkID(deviceId);
-                        if (device == null)
+                        if ((device == null) || device.isActive())
                             it.remove();
                         else {
                             CommsLog.log(CommsLog.Entry.Category.STATUS, "Attempting to connect to " + deviceId + " again");
