@@ -28,4 +28,7 @@
     <string name="up">Up</string>
     <string name="degraded">Degraded</string>
     <string name="down">Down</string>
+    <string name="loc_services_needed_title">Location needs to be enabled</string>
+    <string name="loc_services_needed_description">SqAN needs location services to be enabled to support some network techniques and to help SqAN make decisions about mesh structure.</string>
+    <string name="loc_services_enable">Location Settings</string>
 </resources>

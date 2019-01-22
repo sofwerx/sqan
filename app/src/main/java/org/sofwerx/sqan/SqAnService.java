@@ -15,6 +15,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.PowerManager;
+import android.provider.Settings;
 import android.util.Log;
 
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
@@ -358,37 +359,47 @@ public class SqAnService extends Service implements LocationService.LocationUpda
 
     public void notifyStatusChange(String message) {
         createNotificationChannel();
-        PendingIntent pendingIntent = null;
-        try {
-            Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqan.ui.MainActivity"));
-            pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
         Notification.Builder builder;
         builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
-        builder.setContentIntent(pendingIntent);
-        if (StatusHelper.isActive(lastNotifiedStatus)) {
-            numDevicesInLastNotification = SqAnDevice.getActiveConnections();
-            if (numDevicesInLastNotification == 0) {
-                builder.setContentTitle("SqAN is Waiting");
-                builder.setSmallIcon(R.drawable.ic_notifiction_none);
-                builder.setContentText("Searching for other nodes...");
+        if (LocationService.isLocationEnabled(this)) {
+            PendingIntent pendingIntent = null;
+            try {
+                Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqan.ui.MainActivity"));
+                pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            builder.setContentIntent(pendingIntent);
+            if (StatusHelper.isActive(lastNotifiedStatus)) {
+                numDevicesInLastNotification = SqAnDevice.getActiveConnections();
+                if (numDevicesInLastNotification == 0) {
+                    builder.setContentTitle("SqAN is Waiting");
+                    builder.setSmallIcon(R.drawable.ic_notifiction_none);
+                    builder.setContentText("Searching for other nodes...");
+                } else {
+                    builder.setContentTitle("SqAN is Active");
+                    builder.setSmallIcon(R.drawable.ic_notification);
+                    builder.setContentText("Connected to " + numDevicesInLastNotification + ((numDevicesInLastNotification == 1) ? " device" : " devices"));
+                }
             } else {
-                builder.setContentTitle("SqAN is Active");
-                builder.setSmallIcon(R.drawable.ic_notification);
-                builder.setContentText("Connected to "+numDevicesInLastNotification+((numDevicesInLastNotification == 1)?" device":" devices"));
+                builder.setContentTitle(getString(R.string.notify_status_title, StatusHelper.getName(lastNotifiedStatus)));
+                builder.setSmallIcon(R.drawable.ic_notification_down);
+                if (message == null)
+                    builder.setTicker("Squad Area Network");
+                else
+                    builder.setTicker(message);
             }
         } else {
-            builder.setContentTitle(getString(R.string.notify_status_title, StatusHelper.getName(lastNotifiedStatus)));
-            builder.setSmallIcon(R.drawable.ic_notification_down);
-            if (message == null)
-                builder.setTicker("Squad Area Network");
-            else
-                builder.setTicker(message);
+            PendingIntent pendingIntent = null;
+            Intent notificationIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            builder.setContentIntent(PendingIntent.getActivity(this, 0, notificationIntent, 0));
+            builder.setContentTitle("SqAN needs location");
+            builder.setSmallIcon(R.drawable.ic_notifiction_loc_disabled);
+            builder.setContentText("SqAN needs location services to be turned on...");
+            builder.setTicker("SqAN needs location");
         }
-        builder.setAutoCancel(true);
 
+        builder.setAutoCancel(true);
         Intent intentAction = new Intent(this, SqAnService.class);
         intentAction.setAction(ACTION_STOP);
         PendingIntent pIntentShutdown = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);

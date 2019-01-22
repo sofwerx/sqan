@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 
 public class LocationService implements LocationListener {
@@ -21,12 +22,24 @@ public class LocationService implements LocationListener {
         locationManager = (LocationManager) sqAnService.getSystemService(Context.LOCATION_SERVICE);
     }
 
+    /**
+     * Is location services currently enabled
+     * @param context
+     * @return true == currently enabled
+     */
+    public static boolean isLocationEnabled(Context context) {
+        LocationManager lm = (LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            return lm.isLocationEnabled();
+        else
+            return lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+    }
+
     public void start() {
         if (sqAnService.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && sqAnService.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
             return;
         //locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
-        //TODO maybe add active GPS location updates as well
         lastLocation = locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
     }
 
@@ -53,12 +66,12 @@ public class LocationService implements LocationListener {
 
     @Override
     public void onProviderEnabled(String s) {
-        //TODO
+        sqAnService.notifyStatusChange(null);
     }
 
     @Override
     public void onProviderDisabled(String s) {
-        //TODO
+        sqAnService.notifyStatusChange(null);
     }
 
     private final static int SIGNIFICANT_TIME_DIFFERENCE = 1000 * 60 * 2;

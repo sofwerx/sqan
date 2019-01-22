@@ -26,6 +26,7 @@ import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ExceptionHelper;
+import org.sofwerx.sqan.LocationService;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
@@ -185,6 +186,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         updateSysStatusText();
         updateStatusMarquee();
         devicesList.update(null);
+        checkForLocationServices();
     }
 
     @Override
@@ -344,6 +346,24 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private void registerListeners() {
         if (serviceBound && (sqAnService != null))
             sqAnService.setListener(this);
+    }
+
+    private void checkForLocationServices() {
+        if (!LocationService.isLocationEnabled(this)) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle(R.string.loc_services_needed_title);
+            builder.setMessage(R.string.loc_services_needed_description);
+            builder.setPositiveButton(R.string.loc_services_enable, (dialog, which) -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                } catch (ActivityNotFoundException e) {
+                    Toast.makeText(this, "Sorry, I could not find the location settings", Toast.LENGTH_LONG).show();
+                }
+            });
+            final AlertDialog dialog = builder.create();
+            dialog.setCanceledOnTouchOutside(false);
+            dialog.show();
+        }
     }
 
     private void openBatteryOptimizationDialogIfNeeded() {

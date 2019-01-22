@@ -98,6 +98,17 @@
                                           </PersistentState>
                                         </value>
                                       </entry>
+                                      <entry key="clipartAsset">
+                                        <value>
+                                          <PersistentState>
+                                            <option name="values">
+                                              <map>
+                                                <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/device/ic_location_disabled_black_24dp.xml" />
+                                              </map>
+                                            </option>
+                                          </PersistentState>
+                                        </value>
+                                      </entry>
                                       <entry key="image">
                                         <value>
                                           <PersistentState>
@@ -113,9 +124,8 @@
                                   </option>
                                   <option name="values">
                                     <map>
-                                      <entry key="assetType" value="IMAGE" />
                                       <entry key="imageAsset" value="C:\Users\shane\Code\SqAN\app\src\main\res\drawable-xxxhdpi\ic_notification_none.png" />
-                                      <entry key="outputName" value="ic_notifiction_none" />
+                                      <entry key="outputName" value="ic_notifiction_loc_disabled" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -151,7 +161,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/file/ic_cloud_upload_black_24dp.xml" />
+                                      <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/device/ic_location_disabled_black_24dp.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -161,7 +171,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputName" value="ic_backhaul" />
+                            <entry key="outputName" value="ic_location_disabled" />
                             <entry key="sourceFile" value="C:\Users\shane" />
                           </map>
                         </option>
