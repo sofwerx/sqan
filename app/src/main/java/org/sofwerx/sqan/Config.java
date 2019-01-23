@@ -18,6 +18,7 @@ public class Config {
     private final static String PREFS_UUID_EXTENDED = "uuid_extended";
     private final static String PREFS_UUID = "uuid";
     private final static String PREFS_CALLSIGN = "callsign";
+    public final static String PREFS_MANET_ENGINE = "manetType";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean includeConnections = false;

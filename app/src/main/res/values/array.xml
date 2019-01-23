@@ -1,0 +1,12 @@
+<resources>
+    <string-array name="listManetTypes">
+        <item>Nearby Connections</item>
+        <item>WiFi Aware™</item>
+        <item>WiFi Direct®</item>
+    </string-array>
+    <string-array name="listManetTypesValues">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+</resources>

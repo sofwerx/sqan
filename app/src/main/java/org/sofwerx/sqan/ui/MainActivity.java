@@ -116,7 +116,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
         if (iconSysInfo != null)
             iconSysInfo.setOnClickListener(view -> SystemStatusDialog.show(MainActivity.this));
-        textNetType.setText(null);
+        if (textNetType != null) {
+            textNetType.setText(null);
+            textNetType.setOnClickListener(v ->
+                    startActivity(new Intent(MainActivity.this,SettingsActivity.class)));
+        }
         switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!isSystemChangingSwitchActive) {
                 Config.setAutoStart(MainActivity.this,isChecked);

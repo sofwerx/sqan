@@ -5,6 +5,7 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
@@ -18,6 +19,7 @@ import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
+import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
@@ -50,8 +52,28 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
             @Override
             protected void onLooperPrepared() {
                 handler = new Handler(manetThread.getLooper());
-                //manet = new WiFiAwareManet(handler,sqAnService,manetOps);
-                manet = new NearbyConnectionsManet(handler,sqAnService,manetOps); //TODO temporary for testing
+                int manetType = 0;
+                try {
+                    manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(sqAnService).getString(Config.PREFS_MANET_ENGINE,"2"));
+                } catch (NumberFormatException e) {
+                }
+                switch (manetType) {
+                    case 1:
+                        manet = new NearbyConnectionsManet(handler,sqAnService,manetOps);
+                        break;
+
+                    case 2:
+                        manet = new WiFiAwareManet(handler,sqAnService,manetOps);
+                        break;
+
+                    case 3:
+                        manet = new WiFiDirectManet(handler,sqAnService,manetOps);
+                        break;
+
+                    default:
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"No MANET engine selected so no MANET will be used.");
+                        return;
+                }
                 if (SqAnService.checkSystemReadiness() && shouldBeActive)
                     manetOps.start();
                 if (Config.isAllowIpcComms())

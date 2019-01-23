@@ -286,6 +286,11 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         }
     }
 
+    public static void shutdown(boolean keepActivity) {
+        if (thisService != null)
+            thisService.requestShutdown(keepActivity);
+    }
+
     public void requestShutdown(boolean keepActivity) {
         releaseWakeLock();
         if (!keepActivity && (listener != null) && (listener instanceof Activity)) {

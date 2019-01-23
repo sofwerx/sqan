@@ -16,6 +16,14 @@
             android:title="Callsign"
             android:summary="This is the callsign for this device over SqAN. The callsign also acts like the device\'s domain name." />
 
+        <ListPreference
+            android:key="manetType"
+            android:title="Core Approach"
+            android:summary="This is the underlying engine that powers the MANET. Changing this requires a restart."
+            android:defaultValue="2"
+            android:entries="@array/listManetTypes"
+            android:entryValues="@array/listManetTypesValues" />
+
         <CheckBoxPreference
             android:key="ipccomms"
             android:title="Allow IPC Comms"
