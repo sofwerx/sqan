@@ -17,6 +17,7 @@ public class SpaceTime {
     private double latitude, longitude, altitude;
     private float accuracy = Float.NaN;
     private long time;
+    private final static long ACCEPTABLE_TIME_DIFFERENCE = 1000l * 30l; //how far apart can measurements be to still be considered in the same reference frame
 
     public double getLatitude() { return latitude; }
     public void setLatitude(double latitude) { this.latitude = latitude; }
@@ -168,13 +169,15 @@ public class SpaceTime {
      */
     public double getDistance(SpaceTime other) {
         if (isValid() && (other != null) && other.isValid()) {
-            Location a = new Location("sqan");
-            Location b = new Location("sqan");
-            a.setLatitude(latitude);
-            a.setLongitude(longitude);
-            b.setLatitude(other.latitude);
-            b.setLongitude(other.longitude);
-            return a.distanceTo(b);
+            if ((time > 0l) && (other.time > 0l) && Math.abs(time - other.time) < ACCEPTABLE_TIME_DIFFERENCE) {
+                Location a = new Location("sqan");
+                Location b = new Location("sqan");
+                a.setLatitude(latitude);
+                a.setLongitude(longitude);
+                b.setLatitude(other.latitude);
+                b.setLongitude(other.longitude);
+                return a.distanceTo(b);
+            }
         }
         return Double.NaN;
     }

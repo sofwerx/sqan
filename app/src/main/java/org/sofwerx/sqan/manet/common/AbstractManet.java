@@ -20,6 +20,7 @@ import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Abstract class that handles all broad MANET activity. This abstracts away any MANET specific
@@ -28,7 +29,7 @@ import java.util.ArrayList;
 public abstract class AbstractManet {
     protected Status status = Status.OFF;
     protected ManetListener listener;
-    protected boolean isRunning = false;
+    protected AtomicBoolean isRunning = new AtomicBoolean(false);
     protected final Context context;
     protected final Handler handler;
 
@@ -101,7 +102,7 @@ public abstract class AbstractManet {
     }
 
     public abstract String getName();
-    public boolean isRunning() { return isRunning; }
+    public boolean isRunning() { return isRunning.get(); }
 
     public void setListener(ManetListener listener) { this.listener = listener; }
 

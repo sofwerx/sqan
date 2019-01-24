@@ -24,6 +24,7 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
 import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
+import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
@@ -72,6 +73,17 @@ public class SqAnService extends Service implements LocationService.LocationUpda
 
     public static ArrayList<AbstractManetIssue> getIssues() {
         return issues;
+    }
+
+    public static void clearIssue(AbstractManetIssue issue) {
+        if ((issue == null) || (issues == null) || issues.isEmpty())
+            return;
+        if (issue instanceof WiFiInUseIssue) {
+            for (AbstractManetIssue current:issues) {
+                if (current instanceof WiFiInUseIssue)
+                    issues.remove(current);
+            }
+        }
     }
 
     //FIXME build an intent receiver to send/receive ChannelBytePackets as a way to use SqAN over IPC

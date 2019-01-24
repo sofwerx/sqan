@@ -8,6 +8,8 @@ import android.net.wifi.WifiManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 
 /**
  * A utility class with helper functions to address some network issues
@@ -30,6 +32,7 @@ public class NetUtil {
             Log.d(Config.TAG,"WiFi connection detected; disconnecting");
             WifiManager wiFiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
             wiFiManager.disconnect(); //TODO maybe find a more elegant solution than this
+            SqAnService.clearIssue(new WiFiInUseIssue(false,null));
         }
     }
 

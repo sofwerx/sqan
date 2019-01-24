@@ -90,7 +90,7 @@ public class NearbyConnectionsManet extends AbstractManet {
     @Override
     public void init() throws ManetException {
         //if (!isRunning) {
-            isRunning = true;
+            isRunning.set(true);
             startAdvertising();
             startDiscovery();
         //}
@@ -214,7 +214,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         Nearby.getConnectionsClient(context).stopAllEndpoints();
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         setStatus(Status.OFF);
-        isRunning = false;
+        isRunning.set(false);
     }
 
     @Override
