@@ -276,7 +276,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                             setStatus(Status.DISCOVERING);
                             if (listener != null)
                                 listener.onStatus(status);
-                            // TODO We're discovering!
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
@@ -284,7 +283,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                             setStatus(Status.ERROR);
                             if (listener != null)
                                 listener.onStatus(status);
-                            // TODO We're unable to start discovering.
                         });
     }
 

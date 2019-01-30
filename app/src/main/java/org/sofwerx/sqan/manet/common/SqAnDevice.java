@@ -171,6 +171,16 @@ public class SqAnDevice {
     }
 
     /**
+     * Gets a network and file saving safe version of the callsign
+     * @return
+     */
+    public String getSafeCallsign() {
+        if (callsign == null)
+            return "";
+        return callsign.replaceAll("\\W+", "");
+    }
+
+    /**
      * Sets the callsign for this device; this callsign can be changed and also acts as
      * the domain name for this device
      * @param callsign
