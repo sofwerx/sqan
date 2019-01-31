@@ -177,9 +177,11 @@ public abstract class AbstractManet {
      */
     public abstract void disconnect() throws ManetException;
 
-    protected void onReceived(AbstractPacket packet) throws ManetException {
+    public void onReceived(AbstractPacket packet) {
         if (packet == null)
-            throw new ManetException("Empty packet received over "+getClass());
+            Log.d(Config.TAG,"Empty packet received over "+getClass());
+        if (listener != null)
+            listener.onRx(packet);
     }
 
     public Status getStatus() { return status; }

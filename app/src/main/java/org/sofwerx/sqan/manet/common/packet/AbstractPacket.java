@@ -18,6 +18,17 @@ public abstract class AbstractPacket {
         this.packetHeader = packetHeader;
     }
 
+    /**
+     * Provides the device (or PacketHeader.BROADCAST_ADDRESS if broadcasting to all) that
+     * is the intended recipient of this packet
+     * @return
+     */
+    public int getSqAnDestination() {
+        if (packetHeader == null)
+            return PacketHeader.BROADCAST_ADDRESS;
+        return packetHeader.getDestination();
+    }
+
     //creates a new packet from the byte array
     public static AbstractPacket newFromBytes(byte[] bytes) {
         if ((bytes == null) || (bytes.length < PacketHeader.getSize())) {

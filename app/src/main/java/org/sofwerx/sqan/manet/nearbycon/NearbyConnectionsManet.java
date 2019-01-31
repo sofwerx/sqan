@@ -474,8 +474,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             } else
                                 CommsLog.log(CommsLog.Entry.Category.COMMS, "Received "+StringUtil.toDataSize(bytes.length)+" packet (Byte type payload) from "+deviceId);
                             device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                            if (listener != null)
-                                listener.onRx(packet);
+                            onReceived(packet);
                         }
                     }
                     break;
