@@ -4,5 +4,5 @@ import android.net.wifi.p2p.WifiP2pDevice;
 
 public interface WiFiDirectDiscoveryListener {
     void onDeviceDiscovered(WifiP2pDevice device);
-    void onError(String error);
+    void onDiscoveryError(String error);
 }

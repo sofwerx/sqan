@@ -7,6 +7,7 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
+import org.sofwerx.sqan.util.CommsLog;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -75,6 +76,8 @@ public class ClientHandler {
 
     public ClientHandler(SocketChannel client, PacketParser parser, ServerStatusListener listener) throws IOException, BlacklistException {
         this.parser = parser;
+        this.client = client;
+        ClientHandler.listener = listener;
         InetSocketAddress address = (InetSocketAddress) client.getRemoteAddress();
         if (address == null)
             clientSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
@@ -85,6 +88,9 @@ public class ClientHandler {
             serverSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
         else
             serverSqAnAddress = AddressUtil.getSqAnAddress(myAddress.getAddress());
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Connection established with client "+address.getAddress());
+        if (listener != null)
+            listener.onServerClientConnected(AddressUtil.getSqAnAddress(address.getAddress()));
         Long blacklistTime = BLACKLIST_MAP.get(address.getAddress());
         if (blacklistTime != null) {
             if (System.currentTimeMillis() - blacklistTime < BLACKLIST_DURATION)
@@ -92,9 +98,6 @@ public class ClientHandler {
             BLACKLIST_MAP.remove(address.getAddress());
         }
 
-        this.client = client;
-        //this.password = config.getPassphrase();
-        this.listener = listener;
         readState = ReadState.WRITING_CHALLENGE;
 
         HANDLER_MAP.put(id, this);
@@ -185,6 +188,7 @@ public class ClientHandler {
                 sizeBuffer.rewind();
 
                 int totalSize = sizeBuffer.getInt();
+                Log.d(Config.TAG,"#" + id +": Total size in readBody(true) is "+totalSize);
                 if ((totalSize < 4) || (totalSize > MAX_ALLOWABLE_PACKET_BYTES)) {
                     String size;
                     if (totalSize < 0)
@@ -201,8 +205,9 @@ public class ClientHandler {
                     return false;
                 }
                 readBuffer = ByteBuffer.allocate(totalSize);
-                readBuffer.putInt(totalSize);
-            }
+                //readBuffer.putInt(totalSize);
+            } else
+                Log.d(Config.TAG,"readyBody(false)");
 
             int pos = readBuffer.position();
             while (readBuffer.hasRemaining() && (client.read(readBuffer) > 0)) {}
@@ -219,6 +224,9 @@ public class ClientHandler {
             } else {
                 Log.d(Config.TAG, "#" + id + ": PACKET received ("+readBuffer.position()+"b)");
                 readBuffer.flip();
+
+                //readBuffer.position(4);
+
                 byte[] headerBytes = new byte[PacketHeader.getSize()];
                 readBuffer.get(headerBytes);
                 PacketHeader header = PacketHeader.newFromBytes(headerBytes);
@@ -230,14 +238,13 @@ public class ClientHandler {
                     closeClient();
                     return false;
                 }
-                Log.d(Config.TAG, "#" + id + ": HEADER: "+header.toString());
+                Log.d(Config.TAG, "#" + id + ": HEADER packet type: "+header.getType());
                 readBuffer.position(0);
                 queueReadBuffer();
                 if ((parser != null) && AddressUtil.isApplicableAddress(header.getDestination(), serverSqAnAddress)) {
                     //this packet also applies to the server
                     readBuffer.position(0);
-                    int size = readBuffer.getInt();
-                    byte[] data = new byte[size];
+                    byte[] data = new byte[readBuffer.remaining()];
                     readBuffer.get(data);
                     parser.parse(data);
                 }
@@ -309,6 +316,7 @@ public class ClientHandler {
         while (keepGoing && (cycleCount < SINGLE_READ_MAX_PACKETS)) {
             switch (readState) {
                 case INACTIVE:
+                    Log.d(Config.TAG,"readyToRead().INACTIVE");
                     if (readBuffer != null)
                         readBuffer.clear();
                     //MUST be before readBody!
@@ -316,6 +324,7 @@ public class ClientHandler {
                     keepGoing = readBody(true);
                     break;
                 case READING_PACKET:
+                    Log.d(Config.TAG,"readyToRead().READING_PACKET");
                     keepGoing = readBody(false);
                     break;
                 case READING_RESPONSE:
@@ -346,10 +355,10 @@ public class ClientHandler {
             }
             return;
         }
-
         if (readState == ReadState.READING_RESPONSE) {
             return; // no writes until we pass the challenge
         }
+        Log.d(Config.TAG,"Client handler ready to write");
         while (true) { // write as many packets as possible
             if (writeBuffer == null) {
                 writeBuffer = writeQueue.poll();
@@ -387,6 +396,7 @@ public class ClientHandler {
     }
 
     private void writeChallenge() throws IOException {
+        Log.d(Config.TAG,"Client handler writing challenge");
         if (challengeBuffer == null) {
             byte[] challenge = Challenge.generateChallenge();
             challengeBuffer = ByteBuffer.allocate(challenge.length);

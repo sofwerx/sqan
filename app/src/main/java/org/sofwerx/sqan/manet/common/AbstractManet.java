@@ -112,7 +112,7 @@ public abstract class AbstractManet {
      */
     public abstract void init() throws ManetException;
 
-    protected void setStatus(Status status) {
+    public void setStatus(Status status) {
         boolean changed = false;
         switch (status) {
             case ADVERTISING:

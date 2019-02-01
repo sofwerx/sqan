@@ -1,5 +1,8 @@
 package org.sofwerx.sqan.manet.common.sockets.client;
 
+import android.util.Log;
+
+import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
@@ -40,8 +43,10 @@ public class SocketTransceiver {
     private void immediateOutput(ByteBuffer data, final WritableByteChannel channel) throws IOException {
         while (true) {
             while (data.hasRemaining() && channel.write(data) > 0) {}
-            if (!data.hasRemaining())
+            if (!data.hasRemaining()) {
+                Log.d(Config.TAG,"Socket output complete");
                 return;
+            }
             try {
                 Thread.sleep(100l);
             } catch (Throwable ignore) {
@@ -63,9 +68,17 @@ public class SocketTransceiver {
 
     public int queue(AbstractPacket packet,WritableByteChannel channel) throws ShortBufferException, IllegalBlockSizeException,BadPaddingException, IOException {
         if (isReadyToWrite()) {
-            ByteBuffer out = ByteBuffer.wrap(parser.toBytes(packet));
-            immediateOutput(out, channel);
-        }
+            byte[] data = parser.toBytes(packet);
+            if (data != null) {
+                Log.d(Config.TAG,"queuing "+data.length+"b message");
+                ByteBuffer out = ByteBuffer.allocate(4 + data.length);
+                out.putInt(data.length);
+                out.put(data);
+                out.flip();
+                immediateOutput(out, channel);
+            }
+        } else
+            Log.d(Config.TAG,"Packet sent for queuing but socket connection is not ready to write");
 
         return MAX_QUEUE_SLOTS;
     }
@@ -103,6 +116,7 @@ public class SocketTransceiver {
     }
 
     private boolean readChallenge(boolean firstTime, ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException {
+        Log.d(Config.TAG,"reading challenge");
         boolean success = false;
         try {
             while ((inputBuffer != null ) && inputBuffer.hasRemaining() && (channel.read(inputBuffer) > 0)) {
@@ -121,6 +135,7 @@ public class SocketTransceiver {
                 ByteBuffer response = ByteBuffer.allocate(responseArray.length);
                 response.put(responseArray);
                 response.flip();
+                Log.d(Config.TAG,"Writing challenge response");
                 immediateOutput(response, output);
                 state = ClientState.READING_BODY;
             } catch (UnsupportedEncodingException ignore) {

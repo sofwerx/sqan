@@ -23,9 +23,11 @@ import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.NetUtil;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.client.Client;
@@ -46,17 +48,16 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     private final static int SQAN_PORT = 1716; //using the America's Army port to avoid likely conflicts
     private WifiP2pManager.Channel channel;
     private WifiP2pManager manager;
-    private BroadcastReceiver hardwareStatusReceiver;
-    //private List<WifiP2pDevice> peers = new ArrayList<WifiP2pDevice>();
+    private List<WifiP2pDevice> peers = new ArrayList<WifiP2pDevice>();
     private List<WifiP2pDevice> teammates = new ArrayList<WifiP2pDevice>();
     private WiFiDirectNSD nsd;
     private Client socketClient = null;
     private Server socketServer = null;
+    private WifiP2pDevice serverDevice = null;
     private final PacketParser parser;
 
     public WiFiDirectManet(Handler handler, Context context, ManetListener listener) {
         super(handler,context,listener);
-        hardwareStatusReceiver = null;
         channel = null;
         manager = null;
         parser = new PacketParser(this);
@@ -64,6 +65,57 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
 
     @Override
     public ManetType getType() { return ManetType.WIFI_DIRECT; }
+
+    private BroadcastReceiver hardwareStatusReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
+                int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
+                onHardwareChanged(state == WifiP2pManager.WIFI_P2P_STATE_ENABLED);
+            } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
+                Log.d(Config.TAG, "P2P peers changed");
+                if (manager != null)
+                    manager.requestPeers(channel, WiFiDirectManet.this);
+            } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
+                if (manager == null)
+                    return;
+                NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+
+                if (networkInfo.isConnected()) {
+                    manager.requestConnectionInfo(channel, info -> {
+                        Log.d(Config.TAG,"Group formed "+info.groupFormed+", Is owner "+info.isGroupOwner);
+                        if (info.isGroupOwner)
+                            startServer();
+                        else {
+                            String hostAddress = null;
+                            if ((info != null) && (info.groupOwnerAddress != null))
+                                hostAddress = info.groupOwnerAddress.getHostAddress();
+                            if (hostAddress != null) {
+                                if ((socketServer == null) && (socketClient == null))
+                                    startClient(hostAddress);
+                                if ((peers != null) && !peers.isEmpty()) {
+                                    for (WifiP2pDevice peer : peers) {
+                                        if (hostAddress.equalsIgnoreCase(peer.deviceAddress)) {
+                                            serverDevice = peer;
+                                            if (addTeammateIfNeeded(serverDevice)) {
+                                                //connectToDevice(serverDevice);
+                                                //break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if ((serverDevice != null) && (socketServer == null) && (socketClient == null))
+                            startClient(serverDevice.deviceAddress);
+                    });
+                }
+            } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
+                onDeviceChanged(intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
+            }
+        }
+    };
 
     @Override
     public boolean checkForSystemIssues() {
@@ -104,42 +156,10 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         manager = (WifiP2pManager) context.getSystemService(Context.WIFI_P2P_SERVICE);
         channel = manager.initialize(context, (handler!=null)?handler.getLooper():null, () -> onDisconnected());
 
-        if (hardwareStatusReceiver == null) {
-            hardwareStatusReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    String action = intent.getAction();
-                    if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
-                        int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
-                        onHardwareChanged(state == WifiP2pManager.WIFI_P2P_STATE_ENABLED);
-                    } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-                        Log.d(Config.TAG, "P2P peers changed");
-                        if (manager != null)
-                            manager.requestPeers(channel, WiFiDirectManet.this);
-                    } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-                        if (manager == null)
-                            return;
-                        NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
-
-                        if (networkInfo.isConnected()) {
-                            manager.requestConnectionInfo(channel, info -> {
-                                Log.d(Config.TAG,"Group formed "+info.groupFormed+", Is owner "+info.isGroupOwner);
-                                if (info.isGroupOwner)
-                                    startServer();
-                                //client is started if the owner is found
-                            });
-                        }
-                    } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-                        onDeviceChanged(intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
-                    }
-                }
-            };
-
-            context.registerReceiver(hardwareStatusReceiver, intentFilter);
-            nsd = new WiFiDirectNSD(this);
-            nsd.startDiscovery(manager,channel);
-            setStatus(Status.ADVERTISING_AND_DISCOVERING);
-        }
+        context.registerReceiver(hardwareStatusReceiver, intentFilter);
+        nsd = new WiFiDirectNSD(this);
+        nsd.startDiscovery(manager,channel);
+        setStatus(Status.ADVERTISING_AND_DISCOVERING);
     }
 
     /**
@@ -154,6 +174,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
      * Starts this device as a client on this channel
      */
     private void startClient(String serverIp) {
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Connecting as Client to "+serverIp+"...");
         socketClient  = new Client(new SocketChannelConfig(serverIp,SQAN_PORT),parser);
         socketClient.start();
     }
@@ -161,32 +182,46 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void burst(AbstractPacket packet) throws ManetException {
         if (packet != null) {
-            SqAnDevice device = SqAnDevice.findBySqAnAddress(packet.getSqAnDestination());
-            if (device == null) {
-                boolean multiHopNeeded = false;
-                if (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS) {
-                    if (teammates != null) {
-                        for (WifiP2pDevice wifiDev:teammates) {
-                            if (wifiDev.status == WifiP2pDevice.CONNECTED) {
-                                device = SqAnDevice.findByNetworkID(wifiDev.deviceAddress);
-                                if (device != null)
-                                    burst(packet,device);
+            if (socketClient != null) {//packets from clients always get sent to the server
+                Log.d(Config.TAG,"burst(packet) sent as a Client");
+                burst(packet, null);
+            } else {
+                if (socketServer != null) {
+                    Log.d(Config.TAG,"burst(packet) sent as a Server");
+                    SqAnDevice device = SqAnDevice.findBySqAnAddress(packet.getSqAnDestination());
+                    if (device == null) {
+                        boolean multiHopNeeded = false;
+                        if (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS) {
+                            if (teammates != null) {
+                                burst(packet, null); //FIXME workaround since the Server isn't building a good list of SqAnDevices yet
+                                /*for (WifiP2pDevice wifiDev : teammates) {
+                                    device = SqAnDevice.findByNetworkID(wifiDev.deviceAddress);
+                                    if (device != null)
+                                        burst(packet, device);
+                                }*/
                             }
+                        } else {
+                            boolean found = false;
+                            if (teammates != null) {
+                                burst(packet, null); //FIXME workaround since the Server isn't building a good list of SqAnDevices yet
+                            }
+                            multiHopNeeded = found;
                         }
-                    }
-                } else
-                    multiHopNeeded = true;
-                if (multiHopNeeded) {
-                    //TODO try to find a node that can reach this device
-                    //TODO for multi-hop
+                        if (multiHopNeeded) {
+                            //TODO try to find a node that can reach this device
+                            //TODO for multi-hop
+                        }
+                    } else //the destination device is in this manet
+                        burst(packet, device);
                 }
-            } else //the destination device is in this manet
-                burst(packet,device);
-        }
+            }
+        } else
+            Log.d(Config.TAG,"Cannot send null packet");
     }
 
     @Override
     public void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
+        Log.d(Config.TAG,"Packet burst...");
         if (packet != null) {
             boolean sent = false;
             if ((socketClient != null) && socketClient.isReady())
@@ -221,16 +256,37 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
 
     @Override
     public void disconnect() throws ManetException {
+        Log.d(Config.TAG,"Disconnecting WiFiDirectManet...");
         if (hardwareStatusReceiver != null) {
             try {
-                context.unregisterReceiver(hardwareStatusReceiver);
+                context.unregisterReceiver(hardwareStatusReceiver); //FIXME, this is being treated as a different receiver for some reason (context maybe?) and not unregistering but causing the original receiver to leak
+                Log.d(Config.TAG,"WiFi Direct Broadcast Receiver unregistered");
                 hardwareStatusReceiver = null;
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
         }
+        if (socketClient != null) {
+            socketClient.close();
+            Log.d(Config.TAG,"socketClient closing...");
+            socketClient = null;
+        }
+        if (socketServer != null) {
+            socketServer.close();
+            Log.d(Config.TAG,"socketServer closing...");
+            socketServer = null;
+        }
+        if ((manager != null) && (channel != null)) {
+            manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() { Log.d(Config.TAG, "WiFiDirectManager cancelled connection"); }
+                @Override
+                public void onFailure(int reason) { Log.d(Config.TAG, "WiFiDirectManager failed to cancel connection: " + Util.getFailureStatusString(reason)); }
+            });
+        }
         if (nsd != null) {
             nsd.stopDiscovery(manager, channel, null);
+            Log.d(Config.TAG,"Net Service Discovery closing...");
             nsd = null;
         }
     }
@@ -242,9 +298,9 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
 
     private void onDeviceChanged(WifiP2pDevice device) {
         if (device != null) {
-            Log.d(Config.TAG, device.deviceName + " changed to status " + device.status + (device.isGroupOwner() ? " (group owner" : ""));
-            if (device.isGroupOwner() && (socketClient == null)) //start the client connection if this device is the group owner
-                startClient(device.deviceAddress);
+            if ((teammates != null) && teammates.contains(device)) {
+                Log.d(Config.TAG, device.deviceName + " changed to status " + Util.getDeviceStatusString(device.status) + (device.isGroupOwner() ? " (group owner" : ""));
+            }
         }
     }
 
@@ -259,17 +315,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
 
     @Override
     public void onPeersAvailable(WifiP2pDeviceList peerList) {
-        //ignore for now
-        /*Collection<WifiP2pDevice> refreshedPeers = peerList.getDeviceList();
+        Collection<WifiP2pDevice> refreshedPeers = peerList.getDeviceList();
         if (refreshedPeers != null) {
             if (!refreshedPeers.equals(peers)) {
                 peers.clear();
                 peers.addAll(refreshedPeers);
                 if (!peers.isEmpty()) {
                     Log.d(Config.TAG,peers.size()+" peers found");
-                    for (WifiP2pDevice peer:peers) {
-                        Log.d(Config.TAG,peer.deviceName+" status "+Util.getDeviceStatusString(peer.status)+(peer.isGroupOwner()?" (group owner":""));
-                    }
                 }
             }
         } else
@@ -278,7 +330,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (peers.size() == 0) {
             Log.d(Config.TAG, "No devices found");
             return;
-        }*/
+        }
     }
 
     private void connectToDevice(WifiP2pDevice device) {
@@ -298,31 +350,49 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         manager.connect(channel, config, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                Log.d(Config.TAG,"connected to device "+config.deviceAddress);
                 SqAnDevice device = SqAnDevice.findByNetworkID(config.deviceAddress);
                 if (device != null) {
+                    CommsLog.log(CommsLog.Entry.Category.STATUS,"connected to device "+config.deviceAddress);
                     device.setStatus(SqAnDevice.Status.CONNECTED);
                     device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Disconnected"));
                     listener.onDevicesChanged(device);
+                    //if (socketServer == null) //if this device isnt already a server, then it should act like a client
+                    //    startClient(config.);
                 } else {
                     CommsLog.log(CommsLog.Entry.Category.STATUS, config.deviceAddress+" connected so I added it");
                     device = new SqAnDevice();
                     device.setNetworkId(config.deviceAddress);
                 }
+                if ((serverDevice != null) && (socketServer == null) && (socketClient == null))
+                    startClient(serverDevice.deviceAddress);
             }
 
             @Override
             public void onFailure(int reason) {
-                Log.e(Config.TAG,"Failed to connect to device, reason code: "+Util.getFailureStatusString(reason));
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Failed to connect to device: "+Util.getFailureStatusString(reason));
             }
         });
     }
 
     @Override
     public void onDeviceDiscovered(WifiP2pDevice wifiP2pDevice) {
+        if (addTeammateIfNeeded(wifiP2pDevice))
+            connectToDevice(wifiP2pDevice);
+    }
+
+    /**
+     * Adds this device to the list of teammates
+     * @param wifiP2pDevice
+     * @return true == new device; false == already a teammate
+     */
+    private boolean addTeammateIfNeeded(WifiP2pDevice wifiP2pDevice) {
+        boolean added = false;
         if (wifiP2pDevice != null) {
+            if (teammates == null)
+                teammates = new ArrayList<>();
             if (!teammates.contains(wifiP2pDevice)) {
                 teammates.add(wifiP2pDevice);
+                added = true;
                 SqAnDevice device = SqAnDevice.findByNetworkID(wifiP2pDevice.deviceAddress);
                 if (device != null) {
                     device.setStatus(SqAnDevice.Status.ONLINE);
@@ -333,19 +403,29 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     device = new SqAnDevice();
                     device.setNetworkId(wifiP2pDevice.deviceAddress);
                 }
-                Log.d(Config.TAG, "teammate "+wifiP2pDevice.deviceName + " discovered");
-                connectToDevice(wifiP2pDevice);
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "teammate "+wifiP2pDevice.deviceName + " discovered ("+teammates.size()+" total teammates)");
             }
         }
+        return added;
+    }
+
+    @Override
+    public void onDiscoveryError(String error) {
+        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Discovery error: "+error);
+        //TODO
     }
 
     @Override
     public void onServerBacklistClient(InetAddress address) {
+        if (address != null) {
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server blacklisted "+address.toString());
+        }
         //TODO
     }
 
     @Override
     public void onServerError(String error) {
+        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server error: "+error);
         //TODO
     }
 
@@ -356,6 +436,17 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
 
     @Override
     public void onServerClientDisconnected(InetAddress address) {
-        //TODO
+        if (address != null) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS, address.toString()+" disconnected");
+            //SqAnDevice device = SqAnDevice.findBySqAnAddress(AddressUtil.getSqAnAddress(address));
+        }
+    }
+
+    @Override
+    public void onServerClientConnected(int sQAnAddress) {
+        setStatus(Status.CONNECTED);
+        SqAnDevice device = SqAnDevice.findBySqAnAddress(sQAnAddress);
+        if (device != null)
+            device.setConnected();
     }
 }

@@ -1,5 +1,8 @@
 package org.sofwerx.sqan.manet.common.sockets;
 
+import android.util.Log;
+
+import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
@@ -11,9 +14,15 @@ public class PacketParser {
     }
 
     public void parse(byte[] bytes) {
-        if (bytes == null)
+        if (bytes == null) {
+            Log.e(Config.TAG, "PacketParser.parse(null) ignored");
             return;
+        }
         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
+        if (packet == null)
+            Log.e(Config.TAG,"Attempted to parse packet but could not parse the "+bytes.length+"b");
+        else
+            Log.d(Config.TAG,"Parsed "+packet.getClass().getName());
         manet.onReceived(packet);
     }
 

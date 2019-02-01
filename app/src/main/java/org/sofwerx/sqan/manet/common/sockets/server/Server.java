@@ -1,11 +1,14 @@
 package org.sofwerx.sqan.manet.common.sockets.server;
 
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
+import org.sofwerx.sqan.util.CommsLog;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -30,6 +33,9 @@ public class Server {
     private ServerSocketChannel server;
     private final PacketParser parser;
     private final ServerStatusListener listener;
+    private boolean keepRunning = false;
+    private HandlerThread serverThread;
+    private Handler handler;
 
     public Server(SocketChannelConfig config, PacketParser parser, ServerStatusListener listener) {
         this.config = config;
@@ -75,8 +81,7 @@ public class Server {
                 bindComplete = true;
                 break;
             } catch (BindException ex) {
-                Log.d(Config.TAG, "Attempting to bind to "+address.getHostString());
-                Log.e(Config.TAG, ex.getMessage());
+                Log.e(Config.TAG, "Attempting to bind to "+address.getHostString()+"; "+ex.getMessage());
                 try {
                     Thread.sleep(1000l);
                 } catch (Throwable ignore) {
@@ -89,13 +94,13 @@ public class Server {
         this.selector = Selector.open();
         // NOTE: the key for the server MUST have a null attachment
         server.register(selector, SelectionKey.OP_ACCEPT);
-        Log.d(Config.TAG, "Server started:\n" + config);
+        CommsLog.log(CommsLog.Entry.Category.STATUS, "Server started port: " + address.getPort());
     }
 
     private void readAndProcess() throws IOException {
         long secondTime = 0l;
         int acceptCount = 0;
-        while (true) {
+        while (keepRunning) {
             boolean isReading = false;
             int selectionCount = selector.select(1000l * 5l);
             Set<SelectionKey> selected = selector.selectedKeys();
@@ -155,37 +160,40 @@ public class Server {
         }
     }
 
-    public void restart(SocketChannelConfig config) throws IOException {
-        this.config = config;
-        this.restart = true;
-        this.selector.close();
-    }
-
     public void start() {
-        this.restart = true;
-        while (true) {
-            try {
-                buildServer();
-                readAndProcess();
-            } catch (Throwable t) {
-                if (restart) {
-                    Log.d(Config.TAG, "Restarting server");
-                    Log.w(Config.TAG, t.getMessage());
-                    restart = false;
+        serverThread = new HandlerThread("WiFiServer") {
+            @Override
+            protected void onLooperPrepared() {
+                handler = new Handler(serverThread.getLooper());
+                keepRunning = true;
+                restart = true;
+                while (keepRunning) {
                     try {
-                        this.selector.close();
-                    } catch (IOException ignore) {
+                        buildServer();
+                        readAndProcess();
+                    } catch (Throwable t) {
+                        if (restart) {
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting server");
+                            Log.w(Config.TAG, t.getMessage());
+                            restart = false;
+                            try {
+                                if (selector != null)
+                                    selector.close();
+                            } catch (IOException ignore) {
+                            }
+                            try {
+                                server.close();
+                            } catch (IOException ignore) {
+                            }
+                        } else {
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Severe processing error while running in Server mode");
+                            break; //TODO maybe don't fall out when this fails...
+                        }
                     }
-                    try {
-                        this.server.close();
-                    } catch (IOException ignore) {
-                    }
-                } else {
-                    Log.e(Config.TAG, "Severe processing error (exiting)");
-                    //TODO
                 }
             }
-        }
+        };
+        serverThread.start();
     }
 
     /**
@@ -194,9 +202,62 @@ public class Server {
      * @param address the client SqAnAddress (or PacketHeader.BROADCAST_ADDRESS for all clients)
      */
     public void burst(AbstractPacket packet, int address) {
+        if (handler == null) {
+            Log.d(Config.TAG, "Burst requested, but Handler is not ready yet");
+            return;
+        }
         if (packet != null) {
+            Log.d(Config.TAG,"Server bursting packet");
             ByteBuffer out = ByteBuffer.wrap(packet.toByteArray());
             ClientHandler.addToWriteQue(out,address);
+        }
+    }
+
+    public void close() {
+        keepRunning = false;
+        if (handler != null) {
+            handler.removeCallbacks(null);
+            handler.post(() -> {
+                Log.d(Config.TAG, "Server shutting down...");
+                if (selector != null) {
+                    try {
+                        selector.close();
+                        Log.d(Config.TAG, "Server selector.close() complete");
+                    } catch (IOException e) {
+                        Log.e(Config.TAG, "Server selector.close() error: " + e.getMessage());
+                    }
+                }
+                if (server != null) {
+                    try {
+                        server.close();
+                        Log.d(Config.TAG, "Server server.close() complete");
+                    } catch (IOException e) {
+                        Log.e(Config.TAG, "Server server.close() error: " + e.getMessage());
+                    }
+                }
+                if (serverThread != null)
+                    serverThread.quitSafely();
+            });
+        } else {
+            Log.d(Config.TAG, "Handler is null but Server shutting down anyway...");
+            if (selector != null) {
+                try {
+                    selector.close();
+                    Log.d(Config.TAG, "Handler is null but Server selector.close() complete");
+                } catch (IOException e) {
+                    Log.e(Config.TAG, "Handler is null and Server selector.close() error: " + e.getMessage());
+                }
+            }
+            if (server != null) {
+                try {
+                    server.close();
+                    Log.d(Config.TAG, "Handler is null but Server server.close() complete");
+                } catch (IOException e) {
+                    Log.e(Config.TAG, "Handler is null and Server server.close() error: " + e.getMessage());
+                }
+            }
+            if (serverThread != null)
+                serverThread.quit();
         }
     }
 }

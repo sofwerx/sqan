@@ -134,7 +134,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         try {
                             manet.disconnect();
                             manet = null;
-                            Log.d(Config.TAG,"Disconnected from MANET");
+                            Log.d(Config.TAG,"Disconnected from MANET normally");
                         } catch (ManetException e) {
                             Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                         }
@@ -142,6 +142,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 } else {
                     try {
                         manet.disconnect();
+                        Log.d(Config.TAG,"Disconnected from MANET with handler already closed");
                         manet = null;
                         if (manetThread != null) {
                             manetThread.quitSafely();
@@ -151,6 +152,16 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     } catch (ManetException e) {
                         Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                     }
+                }
+            } else {
+                try {
+                    if (manet != null) {
+                        manet.disconnect();
+                        Log.d(Config.TAG,"Disconnected from MANET with manetThread already closed");
+                        manet = null;
+                    }
+                } catch (ManetException e) {
+                    Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                 }
             }
         }
@@ -305,6 +316,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Conduct any periodic housekeeping tasks
      */
     public void executePeriodicTasks() {
+        Log.d(Config.TAG,"executePeriodicTasks()");
         evalutateMeshStatus();
         if (manet != null)
             manet.executePeriodicTasks();
