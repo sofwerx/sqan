@@ -2,24 +2,21 @@ package org.sofwerx.sqan.manet.common;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.common.issues.AbstractManetIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
+import org.sofwerx.sqan.util.CommsLog;
 
-import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -180,6 +177,26 @@ public abstract class AbstractManet {
     public void onReceived(AbstractPacket packet) {
         if (packet == null)
             Log.d(Config.TAG,"Empty packet received over "+getClass());
+        if (packet.isDirectFromOrigin()) {
+            SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
+            if (device == null) {
+                String callsign = null;
+                if (packet instanceof HeartbeatPacket) {
+                    HeartbeatPacket hb = (HeartbeatPacket)packet;
+                    if (hb.getDevice() != null)
+                        callsign = hb.getDevice().getCallsign();
+                }
+                if (callsign == null)
+                    callsign = "SqAN ID "+Integer.toString(packet.getOrigin());
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
+                device = new SqAnDevice();
+                device.setUUID(packet.getOrigin());
+                device.setConnected();
+                if (listener != null)
+                    listener.onDevicesChanged(device);
+            } else
+                device.setConnected();
+        }
         if (listener != null)
             listener.onRx(packet);
     }

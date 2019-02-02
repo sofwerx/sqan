@@ -208,7 +208,10 @@ public class Server {
         }
         if (packet != null) {
             Log.d(Config.TAG,"Server bursting packet");
-            ByteBuffer out = ByteBuffer.wrap(packet.toByteArray());
+            byte[] bytes = packet.toByteArray();
+            ByteBuffer out = ByteBuffer.allocate(4 + bytes.length);
+            out.putInt(bytes.length);
+            out.put(bytes);
             ClientHandler.addToWriteQue(out,address);
         }
     }

@@ -4,6 +4,7 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -67,11 +68,10 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                 out.append(Integer.toString(device.getUUID()));
             else
                 out.append("unknown");
-            out.append(", net ID: ");
-            if (device.getNetworkId() == null)
-                out.append("unknown");
-            else
+            if (device.getNetworkId() != null) {
+                out.append(", net ID: ");
                 out.append(device.getNetworkId());
+            }
             out.append(')');
             //if (device.getCallsign() == null)
             //    callsign.setText(null);
@@ -101,6 +101,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                 iconType.setVisibility(VISIBLE);
             iconBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
         } else {
+            Log.e(Config.TAG,"DeviceSummary has been assigned a null device - this should never happen");
             callsign.setText("No sensor");
             description.setVisibility(View.INVISIBLE);
             uuid.setVisibility(View.INVISIBLE);
@@ -110,18 +111,9 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             if (iconType != null)
                 iconType.setVisibility(INVISIBLE);
         }
-        //updateLocation(device);
     }
 
-    /*private void updateLocation(SqAnDevice device) {
-        if ((device != null) && (device.getLastLocation() != null)) {
-            iconLoc.setVisibility(View.VISIBLE);
-        } else
-            iconLoc.setVisibility(View.INVISIBLE);
-    }*/
-
     private void updateLinkDisplay(SqAnDevice device) {
-        //device.setDisplayInterface(this);
         switch (device.getStatus()) {
             case ONLINE:
                 iconLink.setVisibility(View.INVISIBLE);

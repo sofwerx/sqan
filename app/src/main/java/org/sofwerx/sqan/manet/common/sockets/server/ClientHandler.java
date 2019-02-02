@@ -3,6 +3,7 @@ package org.sofwerx.sqan.manet.common.sockets.server;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
@@ -33,6 +34,7 @@ public class ClientHandler {
     private static final int SINGLE_READ_MAX_PACKETS = 10;
     public static final Map<Integer, Long> START_TIME_MAP = new HashMap<>();
     private static ServerStatusListener listener;
+    private SqAnDevice clientDevice = null;
 
     private enum ReadState {
         INACTIVE, READING_PACKET, READING_PREAMBLE, READING_RESPONSE, WRITING_CHALLENGE
@@ -63,8 +65,8 @@ public class ClientHandler {
 
     private ByteBuffer challengeBuffer;
     private final SocketChannel client;
-    private final int serverSqAnAddress;
-    private final int clientSqAnAddress;
+    //private final int serverSqAnAddress;
+    //private final int clientSqAnAddress;
     private final Integer id = ID.incrementAndGet();
     private final byte[] password = null;
     private ByteBuffer sizeBuffer = ByteBuffer.allocate(4); //just used to get the size
@@ -79,18 +81,18 @@ public class ClientHandler {
         this.client = client;
         ClientHandler.listener = listener;
         InetSocketAddress address = (InetSocketAddress) client.getRemoteAddress();
-        if (address == null)
-            clientSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
-        else
-            clientSqAnAddress = AddressUtil.getSqAnAddress(address.getAddress());
+        //if (address == null)
+        //    clientSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
+        //else
+        //    clientSqAnAddress = AddressUtil.getSqAnAddress(address.getAddress());
         InetSocketAddress myAddress = (InetSocketAddress) client.getLocalAddress();
-        if (myAddress == null)
-            serverSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
-        else
-            serverSqAnAddress = AddressUtil.getSqAnAddress(myAddress.getAddress());
+        //if (myAddress == null)
+        //    serverSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
+        //else
+        //    serverSqAnAddress = AddressUtil.getSqAnAddress(myAddress.getAddress());
         CommsLog.log(CommsLog.Entry.Category.STATUS,"Connection established with client "+address.getAddress());
-        if (listener != null)
-            listener.onServerClientConnected(AddressUtil.getSqAnAddress(address.getAddress()));
+        //if (listener != null)
+        //    listener.onServerClientConnected(AddressUtil.getSqAnAddress(address.getAddress()));
         Long blacklistTime = BLACKLIST_MAP.get(address.getAddress());
         if (blacklistTime != null) {
             if (System.currentTimeMillis() - blacklistTime < BLACKLIST_DURATION)
@@ -156,13 +158,18 @@ public class ClientHandler {
     public static void addToWriteQue(ByteBuffer out, int address) {
         if (out != null) {
             for (ClientHandler h : HANDLER_MAP.values()) {
-                boolean send = AddressUtil.isApplicableAddress(h.clientSqAnAddress,address);
+                boolean send = true;
+                if (h.clientDevice != null)
+                    send = AddressUtil.isApplicableAddress(h.clientDevice.getUUID(),address);
                 if (h.readState == ReadState.WRITING_CHALLENGE) {
                     Log.e(Config.TAG, "Server cannot queue packet to #"+ h.id + "; state=" + h.readState);
                     send = false;
                 }
-                if (send)
+                if (send) {
+                    Log.d(Config.TAG,out.limit()+"b added to writeQueue for #"+h.id);
                     h.writeQueue.add(out.duplicate());
+                } else
+                    Log.d(Config.TAG,"Outgoing packet does not apply to client #"+h.id);
             }
         }
     }
@@ -205,7 +212,6 @@ public class ClientHandler {
                     return false;
                 }
                 readBuffer = ByteBuffer.allocate(totalSize);
-                //readBuffer.putInt(totalSize);
             } else
                 Log.d(Config.TAG,"readyBody(false)");
 
@@ -239,15 +245,20 @@ public class ClientHandler {
                     return false;
                 }
                 Log.d(Config.TAG, "#" + id + ": HEADER packet type: "+header.getType());
-                readBuffer.position(0);
-                queueReadBuffer();
-                if ((parser != null) && AddressUtil.isApplicableAddress(header.getDestination(), serverSqAnAddress)) {
+                if ((parser != null) && AddressUtil.isApplicableAddress(header.getDestination(), Config.getThisDevice().getUUID())) {
                     //this packet also applies to the server
                     readBuffer.position(0);
                     byte[] data = new byte[readBuffer.remaining()];
                     readBuffer.get(data);
                     parser.parse(data);
                 }
+                //Add one hop to the count of message routing then write the new header to the readBuffer
+                readBuffer.position(0);
+                header.incrementHopCount();
+                headerBytes = header.toByteArray();
+                readBuffer.put(headerBytes);
+                readBuffer.position(0);
+                queueReadBuffer();
                 if (header.getType() == PacketHeader.PACKET_TYPE_DISCONNECTING) {
                     Log.i(Config.TAG, "#" + id + ": is terminating link (planned and reported)");
                     closeClient(); //client requested termination
@@ -358,17 +369,21 @@ public class ClientHandler {
         if (readState == ReadState.READING_RESPONSE) {
             return; // no writes until we pass the challenge
         }
-        Log.d(Config.TAG,"Client handler ready to write");
+        Log.d(Config.TAG,"ClientHandler ready to write");
         while (true) { // write as many packets as possible
             if (writeBuffer == null) {
                 writeBuffer = writeQueue.poll();
                 if (writeBuffer == null) {
+                    Log.d(Config.TAG, "ClientHandler writeBuffer null");
                     break;
-                }
+                } else
+                    Log.d(Config.TAG, "ClientHandler writeQueue size "+writeQueue.size());
             }
             try {
-                Log.d(Config.TAG, "WRITING buffer of size "+writeBuffer.limit()+"b");
-                while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {}
+                writeBuffer.rewind();
+                Log.d(Config.TAG, "ClientHandler WRITING buffer of size "+writeBuffer.limit()+"b, pos "+writeBuffer.position());
+                while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {
+                }
                 if (writeBuffer.hasRemaining()) {
                     break; // nothing more to do
                 }

@@ -188,7 +188,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             } else {
                 if (socketServer != null) {
                     Log.d(Config.TAG,"burst(packet) sent as a Server");
-                    SqAnDevice device = SqAnDevice.findBySqAnAddress(packet.getSqAnDestination());
+                    SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
                     if (device == null) {
                         boolean multiHopNeeded = false;
                         if (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS) {
@@ -230,10 +230,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                 if (device == null)
                     socketServer.burst(packet, packet.getSqAnDestination());
                 else
-                    socketServer.burst(packet, device.getSqanAddress());
+                    socketServer.burst(packet, device.getUUID());
                 sent = true;
             }
-            if (!sent)
+            if (sent) {
+                if (listener != null)
+                    listener.onTx(packet);
+            } else
                 Log.d(Config.TAG,"Trying to burst over manet but packet was null");
         } else
             Log.d(Config.TAG,"Trying to burst over manet but packet was null");
@@ -350,7 +353,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         manager.connect(channel, config, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                SqAnDevice device = SqAnDevice.findByNetworkID(config.deviceAddress);
+                /*SqAnDevice device = SqAnDevice.findByNetworkID(config.deviceAddress);
                 if (device != null) {
                     CommsLog.log(CommsLog.Entry.Category.STATUS,"connected to device "+config.deviceAddress);
                     device.setStatus(SqAnDevice.Status.CONNECTED);
@@ -362,7 +365,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     CommsLog.log(CommsLog.Entry.Category.STATUS, config.deviceAddress+" connected so I added it");
                     device = new SqAnDevice();
                     device.setNetworkId(config.deviceAddress);
-                }
+                }*/ //skipping all this and handling new SqAN devices elsewhere
                 if ((serverDevice != null) && (socketServer == null) && (socketClient == null))
                     startClient(serverDevice.deviceAddress);
             }
@@ -393,7 +396,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             if (!teammates.contains(wifiP2pDevice)) {
                 teammates.add(wifiP2pDevice);
                 added = true;
-                SqAnDevice device = SqAnDevice.findByNetworkID(wifiP2pDevice.deviceAddress);
+                /*SqAnDevice device = SqAnDevice.findByNetworkID(wifiP2pDevice.deviceAddress);
                 if (device != null) {
                     device.setStatus(SqAnDevice.Status.ONLINE);
                     device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Disconnected"));
@@ -402,7 +405,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     CommsLog.log(CommsLog.Entry.Category.STATUS, wifiP2pDevice.deviceName+"("+wifiP2pDevice.deviceAddress+")"+"found so I added it");
                     device = new SqAnDevice();
                     device.setNetworkId(wifiP2pDevice.deviceAddress);
-                }
+                }*/
                 CommsLog.log(CommsLog.Entry.Category.STATUS, "teammate "+wifiP2pDevice.deviceName + " discovered ("+teammates.size()+" total teammates)");
             }
         }
@@ -445,7 +448,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onServerClientConnected(int sQAnAddress) {
         setStatus(Status.CONNECTED);
-        SqAnDevice device = SqAnDevice.findBySqAnAddress(sQAnAddress);
+        SqAnDevice device = SqAnDevice.findByUUID(sQAnAddress);
         if (device != null)
             device.setConnected();
     }

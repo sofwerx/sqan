@@ -23,7 +23,7 @@ public class SqAnDevice {
     private String callsign; //this is the callsign which also acts as the domain name for this device
     private String uuidExtended; //this is the persistent ID for this device used solely to look for conflicts
     private String networkId; //this is the transient MANET ID for this device
-    private int sqanAddress; //this is the transient SqAN address for this device; usually a translation of the IPV4 address
+    //private int sqanAddress; //this is the transient SqAN address for this device; usually a translation of the IPV4 address
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
     private Status status = Status.OFFLINE;
@@ -219,7 +219,7 @@ public class SqAnDevice {
      * multi-hop routing.
      * @return
      */
-    public int getSqanAddress() { return sqanAddress; }
+    //public int getSqanAddress() { return sqanAddress; }
 
     /**
      * Gets the SqAN address. This is the transient address that is usually the integer equivalent
@@ -227,7 +227,7 @@ public class SqAnDevice {
      * multi-hop routing.
      * @return
      */
-    public void setSqanAddress(int sqanAddress) { this.sqanAddress = sqanAddress; }
+    //public void setSqanAddress(int sqanAddress) { this.sqanAddress = sqanAddress; }
 
     /**
      * ONLINE == device is visible but not ready to receive network packets
@@ -535,10 +535,9 @@ public class SqAnDevice {
      * different than its UUID; the SqAnAddress represents a temporary address
      * to find this device on the SqAN mesh and usually is the integer equivalent
      * of the device's IPV4 address as seen by SqAN
-     * @param sqAnAddress
      * @return
      */
-    public static SqAnDevice findBySqAnAddress(int sqAnAddress) {
+    /*public static SqAnDevice findBySqAnAddress(int sqAnAddress) {
         if ((devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
                 if (device.sqanAddress == sqAnAddress)
@@ -546,7 +545,7 @@ public class SqAnDevice {
             }
         }
         return null;
-    }
+    }*/
 
 
     public enum FullMeshCapability {

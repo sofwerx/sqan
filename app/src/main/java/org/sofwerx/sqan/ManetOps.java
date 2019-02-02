@@ -316,7 +316,6 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Conduct any periodic housekeeping tasks
      */
     public void executePeriodicTasks() {
-        Log.d(Config.TAG,"executePeriodicTasks()");
         evalutateMeshStatus();
         if (manet != null)
             manet.executePeriodicTasks();

@@ -19,23 +19,23 @@ public class PacketHeader {
     protected final static int PACKET_TYPE_CHANNEL_BYTES = 3;
     public final static int PACKET_TYPE_DISCONNECTING = 4;
     private long time; //timestamps are used as a message index as well
-    private int packetType;
+    private int packetType; //TODO eventually combine packetType and hopCount into one int with some other flags
+    private int hopCount = 0;
     private int originUUID;
     private int destination = BROADCAST_ADDRESS;
+
+    private PacketHeader() {}
 
     public PacketHeader(int originUUID) {
         this();
         this.originUUID = originUUID;
     }
 
-    private PacketHeader() {
-    }
-
     /**
      * Gets the size of the header in bytes
      * @return
      */
-    public final static int getSize() { return 4 + 4 + 4 + 8; }
+    public final static int getSize() { return 4 + 4 + 4 + 4 + 8; }
 
     public long getTime() { return time; }
     public void setTime(long time) { this.time = time; }
@@ -44,6 +44,29 @@ public class PacketHeader {
     public int getType() { return packetType; }
     public void setType(int packetType) { this.packetType = packetType; }
     public int getDestination() { return destination; }
+
+    /**
+     * Gets the number of hops this packet has taken
+     * @return 0 == direct from origin
+     */
+    public int getHopCount() { return hopCount; }
+
+    /**
+     * Sets the number of hops this packet has taken
+     * @param hopCount (0 == direct from origin)
+     */
+    public void setHopCount(int hopCount) { this.hopCount = hopCount; }
+
+    /**
+     * Did this packet come directly from the original source (i.e. no hops)
+     * @return
+     */
+    public boolean isDirectFromOrigin() { return hopCount == 0; }
+
+    /**
+     * Changes this packet to reflect an additional hop
+     */
+    public void incrementHopCount() { hopCount++; }
 
     /**
      * Specifies a specific node to receive this traffic
@@ -58,17 +81,17 @@ public class PacketHeader {
 
     /**
      * Specifies a specific node to receive this traffic
-     * @param address IPV4 address of the intended destination
      */
-    private void setDestination(Inet4Address address) {
+    /*private void setDestination(Inet4Address address) {
         if (address != null) {
             destination = AddressUtil.getSqAnAddress(address);
         }
-    }
+    }*/
 
     public byte[] toByteArray() {
         ByteBuffer out = ByteBuffer.allocate(getSize());
         out.putInt(packetType);
+        out.putInt(hopCount);
         out.putInt(originUUID);
         out.putInt(destination);
         out.putLong(time);
@@ -87,6 +110,7 @@ public class PacketHeader {
         PacketHeader packetHeader = new PacketHeader();
         ByteBuffer in = ByteBuffer.wrap(bytes);
         packetHeader.packetType = in.getInt();
+        packetHeader.hopCount = in.getInt();
         packetHeader.originUUID = in.getInt();
         packetHeader.destination = in.getInt();
         packetHeader.time = in.getLong();

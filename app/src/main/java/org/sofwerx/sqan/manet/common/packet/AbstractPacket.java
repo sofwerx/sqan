@@ -111,4 +111,20 @@ public abstract class AbstractPacket {
     public abstract boolean isAdminPacket();
     public abstract void parse(byte[] bytes);
     protected abstract int getType();
+
+    /**
+     * Did this packet come directly from the origin (i.e. no hops in between)
+     * @return
+     */
+    public boolean isDirectFromOrigin() {
+        if ((packetHeader == null) || (packetHeader.getOriginUUID() == PacketHeader.BROADCAST_ADDRESS))
+            return false;
+        return packetHeader.isDirectFromOrigin();
+    }
+
+    public int getOrigin() {
+        if (packetHeader == null)
+            return PacketHeader.BROADCAST_ADDRESS;
+        return packetHeader.getOriginUUID();
+    }
 }

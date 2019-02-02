@@ -84,18 +84,23 @@ public class SocketTransceiver {
     }
 
     public void read(ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, ShortBufferException {
+        Log.d(Config.TAG,"read()");
         boolean keepGoing = true;
         boolean firstTime = true;
         while (keepGoing) {
             if (state == ClientState.READING_CHALLENGE) {
                 keepGoing = readChallenge(firstTime, channel, output);
-            } else
+                Log.d(Config.TAG,"SocketTransceiver.readChallenge complete, keepGoing "+keepGoing);
+            } else {
                 keepGoing = parseMessage(channel);
+                Log.d(Config.TAG,"SocketTransceiver.parseMessage complete, keepGoing "+keepGoing);
+            }
             firstTime = false;
         }
     }
 
     private boolean parseMessage(ReadableByteChannel channel) throws IOException {
+        Log.d(Config.TAG,"SocketTransceiver.parseMessage()");
         //synchronized (channel) {
         if ((channel == null) || !channel.isOpen()) //channel is now closed
             return false;
@@ -107,7 +112,9 @@ public class SocketTransceiver {
         preambleBuffer.rewind();
         int size = preambleBuffer.getInt();
         if (size < 0)
-            throw new IOException("Unable to parse a message with a negative size");
+            throw new IOException("SocketTransceiver unable to parse a message with a negative size");
+        else
+            Log.d(Config.TAG,"SocketTransceiver received "+size+"b message");
         ByteBuffer data = ByteBuffer.allocate(size);
         while (data.hasRemaining() && (channel.read(data) > 0)) {}
         byte[] payload = data.array();
@@ -116,7 +123,7 @@ public class SocketTransceiver {
     }
 
     private boolean readChallenge(boolean firstTime, ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException {
-        Log.d(Config.TAG,"reading challenge");
+        Log.d(Config.TAG,"SocketTransceiver reading challenge");
         boolean success = false;
         try {
             while ((inputBuffer != null ) && inputBuffer.hasRemaining() && (channel.read(inputBuffer) > 0)) {
