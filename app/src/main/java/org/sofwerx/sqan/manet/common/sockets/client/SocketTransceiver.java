@@ -3,6 +3,8 @@ package org.sofwerx.sqan.manet.common.sockets.client;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
+import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
@@ -66,7 +68,7 @@ public class SocketTransceiver {
         return state != ClientState.READING_CHALLENGE;
     }
 
-    public int queue(AbstractPacket packet,WritableByteChannel channel) throws ShortBufferException, IllegalBlockSizeException,BadPaddingException, IOException {
+    public int queue(AbstractPacket packet, WritableByteChannel channel, ManetListener listener) throws ShortBufferException, IllegalBlockSizeException,BadPaddingException, IOException {
         if (isReadyToWrite()) {
             byte[] data = parser.toBytes(packet);
             if (data != null) {
@@ -75,7 +77,10 @@ public class SocketTransceiver {
                 out.putInt(data.length);
                 out.put(data);
                 out.flip();
+                ManetOps.addBytesToTransmittedTally(data.length);
                 immediateOutput(out, channel);
+                if (listener != null)
+                    listener.onTx(packet);
             }
         } else
             Log.d(Config.TAG,"Packet sent for queuing but socket connection is not ready to write");

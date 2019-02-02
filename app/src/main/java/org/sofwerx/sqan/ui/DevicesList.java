@@ -80,26 +80,30 @@ public class DevicesList extends ConstraintLayout {
     }
 
     public void update(SqAnDevice device) {
-        ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
-        if ((devices == null) || devices.isEmpty()) {
-            adapter = null;
-            list.setAdapter(null);
-        } else {
-            if (adapter == null) {
-                adapter = new DevicesListArrayAdapter(activity, devices);
-                list.setAdapter(adapter);
-            } else {
-                if (device == null)
-                    adapter.notifyDataSetChanged();
-                else {
-                    //if (device.hasView())
-                    //    device.updateView();
-                    //else
-                    adapter.notifyDataSetChanged();
+        list.post(() -> {
+            if (device == null) {
+                ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+                if ((devices == null) || devices.isEmpty()) {
+                    adapter = null;
+                    list.setAdapter(null);
+                } else {
+                    if (adapter == null) {
+                        adapter = new DevicesListArrayAdapter(activity, devices);
+                        list.setAdapter(adapter);
+                    } else {
+                        if (device == null)
+                            adapter.notifyDataSetChanged();
+                        else {
+                            adapter.notifyDataSetChanged();
+                        }
+                    }
                 }
+            } else {
+                if (device.getUiSummary() != null)
+                    device.getUiSummary().update(device);
             }
-        }
-        updateListVisibility();
+            updateListVisibility();
+        });
     }
 
     /*public void setList(ArrayList<SqAnDevice> devices) {

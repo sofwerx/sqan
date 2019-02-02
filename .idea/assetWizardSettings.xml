@@ -161,7 +161,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/device/ic_location_disabled_black_24dp.xml" />
+                                      <entry key="url" value="jar:file:/C:/Program%20Files/Android/Android%20Studio/plugins/android/lib/android.jar!/images/material_design_icons/device/ic_wifi_tethering_black_24dp.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -171,7 +171,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputName" value="ic_location_disabled" />
+                            <entry key="outputName" value="ic_ping" />
                             <entry key="sourceFile" value="C:\Users\shane" />
                           </map>
                         </option>

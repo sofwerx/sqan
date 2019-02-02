@@ -58,7 +58,7 @@
                     android:textOff="Off"
                     android:textOn="Active"
                     app:layout_constraintBottom_toTopOf="@+id/textView"
-                    app:layout_constraintStart_toStartOf="@+id/textView" />
+                    app:layout_constraintStart_toStartOf="parent" />
 
 
                 <TextView
@@ -67,7 +67,7 @@
                     android:layout_height="wrap_content"
                     android:text="Harware status: "
                     app:layout_constraintBottom_toBottomOf="@+id/mainSysStatusIcon"
-                    app:layout_constraintStart_toStartOf="@+id/mainIconTxStatus" />
+                    app:layout_constraintStart_toStartOf="parent" />
 
                 <ImageView
                     android:id="@+id/mainSysStatusIcon"
@@ -94,6 +94,18 @@
                     app:layout_constraintStart_toEndOf="@+id/mainTextSysStatus"
                     app:layout_constraintTop_toTopOf="@+id/mainSysStatusIcon" />
 
+                <ImageView
+                    android:id="@+id/mainPing"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="2dp"
+                    android:src="@drawable/ic_ping"
+                    android:tint="@color/yellow"
+                    android:visibility="invisible"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/textView" />
+
 
                 <ImageView
                     android:id="@+id/mainIconTxStatus"
@@ -102,7 +114,7 @@
                     android:paddingStart="2dp"
                     android:paddingEnd="2dp"
                     android:src="@drawable/icon_off"
-                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/mainPing"
                     app:layout_constraintTop_toBottomOf="@+id/textView" />
 
                 <TextView
@@ -139,9 +151,9 @@
                     android:id="@+id/mainDescribeOverall"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:gravity="center"
                     android:padding="8dp"
                     android:text="Mesh\nUP"
-                    android:gravity="center"
                     android:textStyle="bold" />
             </FrameLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
@@ -166,7 +178,7 @@
             android:requiresFadingEdge="vertical"
             android:textColor="@color/white_hint_green"
             android:textSize="10sp"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -127,4 +127,11 @@ public abstract class AbstractPacket {
             return PacketHeader.BROADCAST_ADDRESS;
         return packetHeader.getOriginUUID();
     }
+
+    public void setOrgin(int uuid) {
+        if (packetHeader != null) {
+            packetHeader.setOriginUUID(uuid);
+            packetHeader.setHopCount(0);
+        }
+    }
 }

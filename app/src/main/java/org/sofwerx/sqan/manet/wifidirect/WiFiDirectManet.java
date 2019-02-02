@@ -415,7 +415,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onDiscoveryError(String error) {
         CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Discovery error: "+error);
-        //TODO
+        //ignore this for now
     }
 
     @Override
@@ -429,27 +429,14 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onServerError(String error) {
         CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server error: "+error);
-        //TODO
-    }
-
-    @Override
-    public void onServerNumberOfConnections(int currentConnections) {
-        //TODO
+        //ignore this for now as the mesh tries to self-heal
     }
 
     @Override
     public void onServerClientDisconnected(InetAddress address) {
         if (address != null) {
             CommsLog.log(CommsLog.Entry.Category.STATUS, address.toString()+" disconnected");
-            //SqAnDevice device = SqAnDevice.findBySqAnAddress(AddressUtil.getSqAnAddress(address));
+            //ignore this for now; maybe revisited later to help address mesh changes
         }
-    }
-
-    @Override
-    public void onServerClientConnected(int sQAnAddress) {
-        setStatus(Status.CONNECTED);
-        SqAnDevice device = SqAnDevice.findByUUID(sQAnAddress);
-        if (device != null)
-            device.setConnected();
     }
 }

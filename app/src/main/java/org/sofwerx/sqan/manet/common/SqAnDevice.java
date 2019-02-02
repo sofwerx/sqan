@@ -7,6 +7,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
+import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.ArrayList;
@@ -33,6 +34,7 @@ public class SqAnDevice {
     private CommsLog.Entry lastEntry = null;
     private SpaceTime lastLocation = null;
     private boolean backhaulConnection = false;
+    private DeviceSummary uiSummary = null;
 
     /**
      * SqAnDevice
@@ -212,6 +214,9 @@ public class SqAnDevice {
      * @param backhaulConnection
      */
     public void setBackhaulConnection(boolean backhaulConnection) { this.backhaulConnection = backhaulConnection; }
+
+    public void setUiSummary(DeviceSummary deviceSummary) { this.uiSummary = deviceSummary; }
+    public DeviceSummary getUiSummary() { return uiSummary; }
 
     /**
      * Gets the SqAN address. This is the transient address that is usually the integer equivalent

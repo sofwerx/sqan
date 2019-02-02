@@ -5,7 +5,11 @@ import android.os.HandlerThread;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
+import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.util.CommsLog;
@@ -36,11 +40,16 @@ public class Server {
     private boolean keepRunning = false;
     private HandlerThread serverThread;
     private Handler handler;
+    private final ManetListener manetListener;
 
     public Server(SocketChannelConfig config, PacketParser parser, ServerStatusListener listener) {
         this.config = config;
         this.parser = parser;
         this.listener = listener;
+        if ((parser != null) && (parser.getManet() != null))
+            manetListener = parser.getManet().getListener();
+        else
+            manetListener = null;
     }
 
     private int acceptClients(int acceptCount) throws IOException {
@@ -213,6 +222,9 @@ public class Server {
             out.putInt(bytes.length);
             out.put(bytes);
             ClientHandler.addToWriteQue(out,address);
+            if (manetListener != null)
+                manetListener.onTx(packet);
+            ManetOps.addBytesToTransmittedTally(bytes.length);
         }
     }
 
@@ -221,6 +233,7 @@ public class Server {
         if (handler != null) {
             handler.removeCallbacks(null);
             handler.post(() -> {
+                burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
                 Log.d(Config.TAG, "Server shutting down...");
                 if (selector != null) {
                     try {

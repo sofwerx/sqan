@@ -19,6 +19,8 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -57,9 +59,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
     private TextView statusMarquee, textOverall;
-    private ImageView iconSysStatus, iconSysInfo, iconMainTx;
+    private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
     private View offlineStamp;
     private DevicesList devicesList;
+    private long lastTxTotal = 0l;
+    private Animation pingAnimation;
 
     private ArrayList<String> marqueeMessages = new ArrayList<>();
 
@@ -104,9 +108,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         textNetType = findViewById(R.id.mainNetType);
         iconSysInfo = findViewById(R.id.mainSysStatusInfo);
         iconSysStatus = findViewById(R.id.mainSysStatusIcon);
+        iconPing = findViewById(R.id.mainPing);
         iconMainTx = findViewById(R.id.mainIconTxStatus);
         statusMarquee = findViewById(R.id.mainStatusMarquee);
         textOverall = findViewById(R.id.mainDescribeOverall);
+        pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
+
         if (statusMarquee != null) {
             statusMarquee.setOnClickListener(view -> {
                 Intent intent = new Intent(MainActivity.this,AboutActivity.class);
@@ -165,7 +172,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void updateTransmitText() {
-        textTxTally.setText("Tx: "+StringUtil.toDataSize(ManetOps.getTransmittedByteTally()));
+        long currentTotal = ManetOps.getTransmittedByteTally();
+        if (currentTotal != lastTxTotal) {
+            lastTxTotal = currentTotal;
+            iconPing.setAlpha(1f);
+            iconPing.startAnimation(pingAnimation);
+        }
+        textTxTally.setText("Tx: "+StringUtil.toDataSize(currentTotal));
     }
 
     private void updateCallsignText() {

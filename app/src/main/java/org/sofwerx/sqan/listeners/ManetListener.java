@@ -35,4 +35,10 @@ public interface ManetListener {
      * @param device the device that was changed (null == check all devices)
      */
     void onDevicesChanged(SqAnDevice device);
+
+    /**
+     * Updates any display for this device
+     * @param device
+     */
+    void updateDeviceUi(SqAnDevice device);
 }

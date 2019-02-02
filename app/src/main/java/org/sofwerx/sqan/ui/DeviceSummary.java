@@ -6,6 +6,8 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -26,9 +28,12 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
     private ImageView iconLoc;
     private ImageView iconType;
     private ImageView iconBackhaul;
+    private ImageView iconPing;
     private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
     private boolean significant = false;
+    private Animation pingAnimation;
+    private long lastData = 0;
 
     public DeviceSummary(@NonNull Context context) {
         super(context);
@@ -58,10 +63,18 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         iconBackhaul = view.findViewById(R.id.deviceBackhaul);
         textDistance = view.findViewById(R.id.deviceDistance);
         textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
+        iconPing = view.findViewById(R.id.devicePing);
+        pingAnimation = AnimationUtils.loadAnimation(context.getApplicationContext(), R.anim.ping);
+    }
+
+    private void showPing() {
+        iconPing.setAlpha(1f);
+        iconPing.startAnimation(pingAnimation);
     }
 
     public void update(SqAnDevice device) {
         if (device != null) {
+            device.setUiSummary(this);
             StringWriter out = new StringWriter();
             out.append("(SqAN UUID: ");
             if (device.isUuidKnown())
@@ -80,7 +93,13 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             uuid.setText(out.toString());
             StringWriter descOut = new StringWriter();
             descOut.append("Rx: ");
-            descOut.append(StringUtil.toDataSize(device.getDataTally()));
+            long currentTally = device.getDataTally();
+            if (lastData != currentTally) {
+                lastData = currentTally;
+                if (device.isActive())
+                    showPing();
+            }
+            descOut.append(StringUtil.toDataSize(lastData));
             long lastLatency = device.getLastLatency();
             if (lastLatency > 0l) {
                 descOut.append("; latency ");

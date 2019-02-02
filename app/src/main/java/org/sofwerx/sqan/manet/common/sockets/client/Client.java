@@ -5,6 +5,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
@@ -33,10 +34,15 @@ public class Client extends Thread {
     private long linkStartTime = Long.MIN_VALUE;
     private final static long TIME_TO_WAIT_FOR_LINK_TO_INITIATE = 1000l * 10l;
     private final PacketParser parser;
+    private final ManetListener listener;
 
     public Client(SocketChannelConfig config, PacketParser parser) {
         super("SocketClientThread");
         this.parser = parser;
+        if ((parser != null) && (parser.getManet() != null))
+            listener = parser.getManet().getListener();
+        else
+            listener = null;
         setConfig(config);
     }
 
@@ -111,7 +117,7 @@ public class Client extends Thread {
                     //if ((datalink != null) && (tryEvenIfLinkInErrorState || ((datalink.getHealth() == LinkHealth.IDLE) || (datalink.getHealth() == LinkHealth.ACTIVE)))) {
                     if (datalink != null) {
                         try {
-                            datalink.queue(packet, uplink);
+                            datalink.queue(packet, uplink,listener);
                             /*if (health != LinkHealth.ACTIVE) {
                                 if (health != LinkHealth.IDLE)
                                     MdxService.log.log(MissionLogging.Category.COMMS, "Burst sent to " + ((config == null) ? DEFAULT_LINK_NAME : config.getIp()) + " - link health changed to ACTIVE");
@@ -147,7 +153,6 @@ public class Client extends Thread {
                             }*/
                         }
                         Log.d(Config.TAG, "Not sending burst; datalink is null");
-                        //Log.d(Config.TAG, "Not sending burst; health is " + LinkHealth.getString(health));
                     }
                 } else {
                     if (System.currentTimeMillis() > linkStartTime + TIME_TO_WAIT_FOR_LINK_TO_INITIATE) {
@@ -235,13 +240,7 @@ public class Client extends Thread {
         if (datalink != null) {
             try {
                 DisconnectingPacket packet = new DisconnectingPacket(Config.getThisDevice().getUUID());
-                /*Device device = Device.getHealthForHangup();
-                MdxPacket packet = MdxPacket.getHangupPacket(device.toProtoBuf().toByteArray());
-                packet.getHeader().setNets(Config.getOrgNet(),Config.getTeamNet());
-                if (!SpecificConfig.isSensor())
-                    packet.getHeader().setAsUpstream();*/
-                datalink.queue(packet, uplink);
-                //MdxService.log.log(MissionLogging.Category.COMMS,"Notifying "+((config == null)?DEFAULT_LINK_NAME:config.getIp())+" that device is leaving");
+                datalink.queue(packet, uplink, listener);
             } catch (Exception ignore) {
             }
         }

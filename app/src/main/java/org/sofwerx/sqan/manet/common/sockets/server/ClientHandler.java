@@ -59,8 +59,8 @@ public class ClientHandler {
                 i.remove();
             }
         }
-        if (listener != null)
-            listener.onServerNumberOfConnections(HANDLER_MAP.size());
+        //if (listener != null)
+        //    listener.onServerNumberOfConnections(HANDLER_MAP.size());
     }
 
     private ByteBuffer challengeBuffer;
@@ -81,18 +81,8 @@ public class ClientHandler {
         this.client = client;
         ClientHandler.listener = listener;
         InetSocketAddress address = (InetSocketAddress) client.getRemoteAddress();
-        //if (address == null)
-        //    clientSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
-        //else
-        //    clientSqAnAddress = AddressUtil.getSqAnAddress(address.getAddress());
         InetSocketAddress myAddress = (InetSocketAddress) client.getLocalAddress();
-        //if (myAddress == null)
-        //    serverSqAnAddress = PacketHeader.BROADCAST_ADDRESS;
-        //else
-        //    serverSqAnAddress = AddressUtil.getSqAnAddress(myAddress.getAddress());
         CommsLog.log(CommsLog.Entry.Category.STATUS,"Connection established with client "+address.getAddress());
-        //if (listener != null)
-        //    listener.onServerClientConnected(AddressUtil.getSqAnAddress(address.getAddress()));
         Long blacklistTime = BLACKLIST_MAP.get(address.getAddress());
         if (blacklistTime != null) {
             if (System.currentTimeMillis() - blacklistTime < BLACKLIST_DURATION)
@@ -104,8 +94,8 @@ public class ClientHandler {
 
         HANDLER_MAP.put(id, this);
         START_TIME_MAP.put(id, System.currentTimeMillis());
-        if (listener != null)
-            listener.onServerNumberOfConnections(HANDLER_MAP.size());
+        //if (listener != null)
+        //    listener.onServerNumberOfConnections(HANDLER_MAP.size());
     }
 
     private void closeClient() {

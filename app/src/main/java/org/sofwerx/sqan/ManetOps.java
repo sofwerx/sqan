@@ -271,6 +271,12 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         sqAnService.notifyStatusChange(null);
     }
 
+    @Override
+    public void updateDeviceUi(SqAnDevice device) {
+        if (sqAnService.listener != null)
+            sqAnService.listener.onNodesChanged(device);
+    }
+
     public Status getStatus() {
         if (manet == null)
             return Status.OFF;
