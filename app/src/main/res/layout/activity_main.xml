@@ -135,6 +135,43 @@
                     app:layout_constraintStart_toStartOf="@+id/mainIconTxStatus"
                     app:layout_constraintTop_toBottomOf="@+id/mainIconTxStatus" />
 
+                <TextView
+                    android:id="@+id/mainRoleWiFi"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="center_vertical"
+                    android:drawableStart="@drawable/ic_wifi_green"
+                    android:text="WiFi Role"
+                    android:textColor="@color/white_hint_green"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/mainTextTemp" />
+
+                <TextView
+                    android:id="@+id/mainRoleBT"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="center_vertical"
+                    android:drawableStart="@drawable/ic_bt_green"
+                    android:text="BT Role"
+                    android:textColor="@color/white_hint_green"
+                    app:layout_constraintStart_toEndOf="@+id/mainRoleWiFi"
+                    app:layout_constraintEnd_toStartOf="@+id/mainBackhaul"
+                    app:layout_constraintTop_toBottomOf="@+id/mainTextTemp" />
+
+                <TextView
+                    android:id="@+id/mainBackhaul"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="center_vertical"
+                    android:drawableStart="@drawable/ic_backhaul_green"
+                    android:text="Backhaul"
+                    android:textColor="@color/white_hint_green"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/mainTextTemp" />
+
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <FrameLayout

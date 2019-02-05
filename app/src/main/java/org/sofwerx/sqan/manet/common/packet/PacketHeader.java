@@ -3,9 +3,7 @@ package org.sofwerx.sqan.manet.common.packet;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 
-import java.net.Inet4Address;
 import java.nio.ByteBuffer;
 
 /**
@@ -14,7 +12,7 @@ import java.nio.ByteBuffer;
 public class PacketHeader {
     public final static int BROADCAST_ADDRESS = Integer.MIN_VALUE;
     protected final static int PACKET_TYPE_HEARTBEAT = 0;
-    protected final static int PACKET_TYPE_PING = 1;
+    public final static int PACKET_TYPE_PING = 1;
     protected final static int PACKET_TYPE_RAW_BYTES = 2;
     protected final static int PACKET_TYPE_CHANNEL_BYTES = 3;
     public final static int PACKET_TYPE_DISCONNECTING = 4;

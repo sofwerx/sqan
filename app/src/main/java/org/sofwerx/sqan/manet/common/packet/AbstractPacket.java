@@ -8,7 +8,6 @@ import java.nio.ByteBuffer;
  * Data bundled for transmission over the MANET
  */
 public abstract class AbstractPacket {
-    //TODO make a ChallengePacket for handling sign/countersign
     protected PacketHeader packetHeader;
 
     public AbstractPacket(PacketHeader packetHeader) {
@@ -128,10 +127,16 @@ public abstract class AbstractPacket {
         return packetHeader.getOriginUUID();
     }
 
-    public void setOrgin(int uuid) {
+    public void setOrigin(int uuid) {
         if (packetHeader != null) {
             packetHeader.setOriginUUID(uuid);
             packetHeader.setHopCount(0);
+        }
+    }
+
+    public void setDestination(int uuid) {
+        if (packetHeader != null) {
+            packetHeader.setDestination(uuid);
         }
     }
 }

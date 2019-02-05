@@ -14,8 +14,11 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.packet.ChannelBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
@@ -206,10 +209,16 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void onRx(AbstractPacket packet) {
         if (packet != null) {
             if (Config.isAllowIpcComms() && !packet.isAdminPacket()) {
-                byte[] data = packet.toByteArray();
+                byte[] data = null;
+                String channel = null;
+                if (packet instanceof ChannelBytesPacket) {
+                    channel = ((ChannelBytesPacket)packet).getChannel();
+                    data = ((ChannelBytesPacket)packet).getData();
+                } else if (packet instanceof RawBytesPacket)
+                    data = ((RawBytesPacket)packet).getData();
                 if (data != null) {
-                    Log.d(Config.TAG,"Broadcasting "+ StringUtil.toDataSize((long)data.length)+" over IPC");
-                    IpcBroadcastTransceiver.broadcast(sqAnService, data);
+                    IpcBroadcastTransceiver.broadcast(sqAnService, channel, packet.getOrigin(), data);
+                    Log.d(Config.TAG, "Broadcasting " + StringUtil.toDataSize((long) data.length) + " over IPC");
                 }
             }
             if (packet instanceof DisconnectingPacket) {
@@ -332,10 +341,9 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * @param packet
      */
     @Override
-    public void onIpcPacketReceived(byte[] packet) {
+    public void onIpcPacketReceived(AbstractPacket packet) {
         Log.d(Config.TAG,"Received a request for a burst via IPC");
-        AbstractPacket abstractPacket = AbstractPacket.newFromBytes(packet);
-        if ((abstractPacket != null) && !abstractPacket.isAdminPacket()) //other apps are not allowed to send Admin packets
-            burst(abstractPacket);
+        if ((packet != null) && (!packet.isAdminPacket())) //other apps are not allowed to send Admin packets
+            burst(packet);
     }
 }

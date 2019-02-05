@@ -59,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
     private TextView statusMarquee, textOverall;
+    private TextView roleWiFi, roleBT, roleBackhaul;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
     private View offlineStamp;
     private DevicesList devicesList;
@@ -112,6 +113,9 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         iconMainTx = findViewById(R.id.mainIconTxStatus);
         statusMarquee = findViewById(R.id.mainStatusMarquee);
         textOverall = findViewById(R.id.mainDescribeOverall);
+        roleWiFi = findViewById(R.id.mainRoleWiFi);
+        roleBT = findViewById(R.id.mainRoleBT);
+        roleBackhaul = findViewById(R.id.mainBackhaul);
         pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
 
         if (statusMarquee != null) {
@@ -168,6 +172,42 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 }
             }
             statusMarquee.setSelected(true);
+        }
+        SqAnDevice device = Config.getThisDevice();
+        if (device != null) {
+            switch (device.getRoleWiFi()) {
+                case HUB:
+                    roleWiFi.setText("WiFi Hub");
+                    roleWiFi.setVisibility(View.VISIBLE);
+                    break;
+
+                case SPOKE:
+                    roleWiFi.setText("WiFi Spoke");
+                    roleWiFi.setVisibility(View.VISIBLE);
+                    break;
+
+                default:
+                    roleWiFi.setVisibility(View.INVISIBLE);
+            }
+            switch (device.getRoleBT()) {
+                case HUB:
+                    roleBT.setText("BT Hub");
+                    roleBT.setVisibility(View.VISIBLE);
+                    break;
+
+                case SPOKE:
+                    roleBT.setText("BT Spoke");
+                    roleBT.setVisibility(View.VISIBLE);
+                    break;
+
+                default:
+                    roleBT.setVisibility(View.INVISIBLE);
+            }
+            roleBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
+        } else {
+            roleWiFi.setVisibility(View.INVISIBLE);
+            roleBT.setVisibility(View.INVISIBLE);
+            roleBackhaul.setVisibility(View.INVISIBLE);
         }
     }
 

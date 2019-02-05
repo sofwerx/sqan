@@ -1,4 +1,4 @@
-package org.sofwerx.sqantest.ipc;
+package org.sofwerx.sqantest;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -15,18 +15,17 @@ import android.util.Log;
 public class IpcBroadcastTransceiver extends BroadcastReceiver {
     private final static String BROADCAST_PKT = "org.sofwerx.sqan.pkt";
     private final static String PACKET_BYTES = "bytes";
+    private final static String PACKET_ORIGIN = "src";
+    private final static String PACKET_CHANNEL = "channel";
     private final static String RECEIVED = "rcv";
     private static IpcBroadcastTransceiver receiver = null;
     private static IpcBroadcastListener listener = null;
     private static boolean isSqAn;
 
-    public interface IpcBroadcastListener {
-        void onPacketReceived(byte[] packet);
-    }
+    private final static String CHANNEL = "chat";
 
-    public static void registerAsSqAn(Context context, IpcBroadcastListener listener) {
-        register(context,listener);
-        isSqAn = true;
+    public interface IpcBroadcastListener {
+        void onIpcPacketReceived(int origin, byte[] data);
     }
 
     public static void register(Context context, IpcBroadcastListener listener) {
@@ -60,6 +59,7 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
         if ((context != null) && (bytes != null)) {
             Intent intent = new Intent(BROADCAST_PKT);
             intent.putExtra(PACKET_BYTES,bytes);
+            intent.putExtra(PACKET_CHANNEL,CHANNEL);
             if (isSqAn)
                 intent.putExtra(RECEIVED,true);
             context.sendBroadcast(intent);
@@ -74,8 +74,10 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
                 if (bundle != null) {
                     if (isSqAn != bundle.getBoolean(RECEIVED,false)) { //only consume this if it did not come from us
                         byte[] bytes = bundle.getByteArray(PACKET_BYTES);
-                        if (bytes != null)
-                            listener.onPacketReceived(bytes);
+                        int src = bundle.getInt(PACKET_ORIGIN,Integer.MIN_VALUE);
+                        String channel = bundle.getString(PACKET_CHANNEL,null);
+                        if (CHANNEL.equalsIgnoreCase(channel))
+                            listener.onIpcPacketReceived(src,bytes);
                     }
                 }
             }

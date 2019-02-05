@@ -7,6 +7,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
@@ -50,6 +51,7 @@ public class Server {
             manetListener = parser.getManet().getListener();
         else
             manetListener = null;
+        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
     }
 
     private int acceptClients(int acceptCount) throws IOException {

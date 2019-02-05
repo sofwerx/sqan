@@ -4,24 +4,16 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.Preference;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 
 public class SettingsActivity extends Activity {
-    private SharedPreferences.OnSharedPreferenceChangeListener listener = (sharedPreferences, key) -> {
-        Log.d(Config.TAG,"Preference changed: "+key);
-        if (Config.PREFS_MANET_ENGINE.equalsIgnoreCase(key)) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);
-            builder.setTitle(R.string.shutdown_required);
-            builder.setMessage(R.string.prefs_manet_changed_description);
-            final AlertDialog dialog = builder.create();
-            dialog.show();
-        }
-    };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,4 +45,15 @@ public class SettingsActivity extends Activity {
         }*/
         super.onStop();
     }
+
+    private SharedPreferences.OnSharedPreferenceChangeListener listener = (sharedPreferences, key) -> {
+        Log.d(Config.TAG,"Preference changed: "+key);
+        if (Config.PREFS_MANET_ENGINE.equalsIgnoreCase(key)) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);
+            builder.setTitle(R.string.shutdown_required);
+            builder.setMessage(R.string.prefs_manet_changed_description);
+            final AlertDialog dialog = builder.create();
+            dialog.show();
+        }
+    };
 }

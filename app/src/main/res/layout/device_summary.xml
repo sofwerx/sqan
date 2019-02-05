@@ -14,18 +14,36 @@
         android:paddingEnd="2dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintBottom_toTopOf="@+id/deviceBackhaul"/>
 
-    <ImageView
-        android:id="@+id/deviceTypeIcon"
+    <FrameLayout
+        android:id="@+id/deviceFrameTypePing"
         android:layout_width="42dp"
         android:layout_height="match_parent"
-        android:src="@drawable/ic_android"
-        android:tint="@color/white_hint_green"
         android:paddingStart="2dp"
         android:paddingEnd="2dp"
         app:layout_constraintStart_toEndOf="@id/deviceLink"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/deviceTypeIcon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_android"
+            android:tint="@color/white_hint_green"
+            android:layout_gravity="center"/>
+
+    </FrameLayout>
+
+    <ImageView
+        android:id="@+id/devicePing"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_ping"
+        android:tint="@color/yellow"
+        android:visibility="invisible"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"/>
 
     <ImageView
         android:id="@+id/deviceConnectivity"
@@ -46,15 +64,17 @@
         app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <ImageView
+    <TextView
         android:id="@+id/deviceBackhaul"
-        android:layout_width="30dp"
-        android:layout_height="match_parent"
-        android:src="@drawable/ic_backhaul"
-        android:tint="@color/green"
-        android:layout_gravity="center_vertical"
-        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:gravity="center_vertical"
+        android:drawableStart="@drawable/ic_backhaul_green"
+        android:text="Backhaul"
+        android:textColor="@color/white_hint_green"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/deviceDetails" />
 
     <FrameLayout
         android:id="@+id/deviceLocationFrame"
@@ -70,7 +90,6 @@
             android:layout_gravity="center"
             android:src="@drawable/icon_location"/>
     </FrameLayout>
- />
 
     <TextView
         android:id="@+id/deviceDistance"
@@ -87,7 +106,6 @@
         android:id="@+id/deviceDistanceAccuracy"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/deviceDistance"
         app:layout_constraintStart_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintEnd_toEndOf="@+id/deviceLocationFrame"
@@ -105,7 +123,7 @@
         android:text="@string/callsign"
         android:textColor="@color/yellow"
         app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
-        app:layout_constraintStart_toEndOf="@id/deviceTypeIcon"
+        app:layout_constraintStart_toEndOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
@@ -119,7 +137,7 @@
         android:textColor="@color/white"
         android:textSize="10sp"
         app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
-        app:layout_constraintStart_toStartOf="@id/deviceTypeIcon"
+        app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toBottomOf="@id/deviceCallsign"/>
 
     <TextView
@@ -130,18 +148,8 @@
         android:textColor="@color/white_hint_green"
         android:textSize="10sp"
         android:paddingStart="2dp"
-        app:layout_constraintStart_toStartOf="@id/deviceTypeIcon"
+        app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
         app:layout_constraintTop_toBottomOf="@id/deviceUUID"/>
-
-    <ImageView
-        android:id="@+id/devicePing"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/ic_ping"
-        android:tint="@color/yellow"
-        android:visibility="invisible"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

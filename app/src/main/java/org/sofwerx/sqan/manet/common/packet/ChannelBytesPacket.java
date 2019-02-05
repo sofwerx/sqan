@@ -91,7 +91,7 @@ public class ChannelBytesPacket extends AbstractPacket {
     }
 
     public byte[] getData() { return data; }
-    public void setDate(byte[] data) { this.data = data; }
+    public void setData(byte[] data) { this.data = data; }
 
     /**
      * Gets the channel that this data belongs to

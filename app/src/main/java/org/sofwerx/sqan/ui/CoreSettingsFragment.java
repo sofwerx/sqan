@@ -6,7 +6,9 @@ import android.preference.CheckBoxPreference;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
+import android.widget.Toast;
 
+import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 
 public class CoreSettingsFragment extends PreferenceFragment {
@@ -14,15 +16,21 @@ public class CoreSettingsFragment extends PreferenceFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         addPreferencesFromResource(R.xml.prefs_app);
-        /*CheckBoxPreference runBackground = (CheckBoxPreference)findPreference(Config.PREFS_RUN_IN_BACKGROUND);
-        CheckBoxPreference runForeground = (CheckBoxPreference)findPreference(Config.PREFS_RUN_IN_FOREGROUND);
-        EditTextPreference callsign = (EditTextPreference)findPreference(Config.PREFS_CALLSIGN);
-        callsign.setSummary(Config.getCallsign());
-        Preference uuid = findPreference(Config.PREFS_UUID);
-        uuid.setSummary(Config.getUUID());
-        if (SpecificConfig.isSensor())
-            runBackground.setEnabled(false);
-        if (Build.VERSION.SDK_INT >= 28) //TODO change to Build.VERSION_CODES.P once the SDK is updated
-            runForeground.setEnabled(false);*/
+        Preference clearTeammates = findPreference(Config.PREF_CLEAR_TEAM);
+        if (clearTeammates != null) {
+            int numberOfSavedTeammates = Config.getNumberOfSavedTeammates();
+            if (numberOfSavedTeammates > 0) {
+                clearTeammates.setEnabled(true);
+                clearTeammates.setSummary("Clear list of "+numberOfSavedTeammates+" saved teammate"+((numberOfSavedTeammates>1)?"s":""));
+                clearTeammates.setOnPreferenceClickListener(preference -> {
+                    Config.clearTeammates();
+                    Toast.makeText(getContext(), "List of saved teammates cleared.", Toast.LENGTH_LONG).show();
+                    clearTeammates.setEnabled(false);
+                    clearTeammates.setSummary("Clear list of teammates");
+                    return true;
+                });
+            } else
+                clearTeammates.setEnabled(false);
+        }
     }
 }

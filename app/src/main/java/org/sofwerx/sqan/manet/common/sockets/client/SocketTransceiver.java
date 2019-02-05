@@ -89,7 +89,7 @@ public class SocketTransceiver {
     }
 
     public void read(ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, ShortBufferException {
-        Log.d(Config.TAG,"read()");
+        //Log.d(Config.TAG,"read()");
         boolean keepGoing = true;
         boolean firstTime = true;
         while (keepGoing) {
@@ -98,14 +98,14 @@ public class SocketTransceiver {
                 Log.d(Config.TAG,"SocketTransceiver.readChallenge complete, keepGoing "+keepGoing);
             } else {
                 keepGoing = parseMessage(channel);
-                Log.d(Config.TAG,"SocketTransceiver.parseMessage complete, keepGoing "+keepGoing);
+                //Log.d(Config.TAG,"SocketTransceiver.parseMessage complete, keepGoing "+keepGoing);
             }
             firstTime = false;
         }
     }
 
     private boolean parseMessage(ReadableByteChannel channel) throws IOException {
-        Log.d(Config.TAG,"SocketTransceiver.parseMessage()");
+        //Log.d(Config.TAG,"SocketTransceiver.parseMessage()");
         //synchronized (channel) {
         if ((channel == null) || !channel.isOpen()) //channel is now closed
             return false;

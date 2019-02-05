@@ -6,6 +6,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
@@ -33,6 +34,7 @@ public class Client extends Thread {
     private static Looper looper;
     private long linkStartTime = Long.MIN_VALUE;
     private final static long TIME_TO_WAIT_FOR_LINK_TO_INITIATE = 1000l * 10l;
+    private final static long RESTART_DELAY = 1000l*2l; //time to wait to restart client on failure
     private final PacketParser parser;
     private final ManetListener listener;
 
@@ -44,6 +46,7 @@ public class Client extends Thread {
         else
             listener = null;
         setConfig(config);
+        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
     }
 
     public void setConfig(SocketChannelConfig config) {
@@ -195,20 +198,25 @@ public class Client extends Thread {
                 }*/
                 try {
                     uplink.close();
-                    /*if (health != LinkHealth.OFF) {
-                        health = LinkHealth.OFF;
-                        if (linkHealthListener != null)
-                            linkHealthListener.onLinkHealthChange(health);
-                    }*/
                 } catch (Throwable t) {
+                }
+                if (handler != null) {
+                    handler.removeCallbacks(null);
+                    handler.postDelayed((Runnable) () -> {
+                        buildSocket();
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
+                    }, RESTART_DELAY);
                 }
                 close();
             } catch (Exception e) {
                 CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error initiating uplink: "+e.getMessage());
-                /*health = LinkHealth.ERROR;
-                MdxService.log.log(MissionLogging.Category.COMMS,"Error initiating uplink to "+config.getIp()+": "+e.getMessage());
-                if (linkHealthListener != null)
-                    linkHealthListener.onLinkHealthChange(health);*/
+                if (handler != null) {
+                    handler.removeCallbacks(null);
+                    handler.postDelayed((Runnable) () -> {
+                        buildSocket();
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
+                    }, RESTART_DELAY);
+                }
                 close();
             }
         }

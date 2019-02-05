@@ -16,6 +16,11 @@
             android:title="Callsign"
             android:summary="This is the callsign for this device over SqAN. The callsign also acts like the device\'s domain name." />
 
+        <Preference
+            android:key="clearteam"
+            android:title="Forget teammates"
+            android:summary="Clear any the list of other devices saved as teammates."/>
+
         <ListPreference
             android:key="manetType"
             android:title="Core Approach"

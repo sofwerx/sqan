@@ -27,7 +27,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
     private ImageView iconLink;
     private ImageView iconLoc;
     private ImageView iconType;
-    private ImageView iconBackhaul;
+    private View markerBackhaul;
     private ImageView iconPing;
     private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
@@ -60,7 +60,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
         iconLink = view.findViewById(R.id.deviceLink);
         iconLoc = view.findViewById(R.id.deviceLocation);
         iconType = view.findViewById(R.id.deviceTypeIcon);
-        iconBackhaul = view.findViewById(R.id.deviceBackhaul);
+        markerBackhaul = view.findViewById(R.id.deviceBackhaul);
         textDistance = view.findViewById(R.id.deviceDistance);
         textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
         iconPing = view.findViewById(R.id.devicePing);
@@ -118,7 +118,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             updateLinkDisplay(device);
             if (iconType != null)
                 iconType.setVisibility(VISIBLE);
-            iconBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
+            markerBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
         } else {
             Log.e(Config.TAG,"DeviceSummary has been assigned a null device - this should never happen");
             callsign.setText("No sensor");
@@ -126,7 +126,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
             uuid.setVisibility(View.INVISIBLE);
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
-            iconBackhaul.setVisibility(View.INVISIBLE);
+            markerBackhaul.setVisibility(View.INVISIBLE);
             if (iconType != null)
                 iconType.setVisibility(INVISIBLE);
         }

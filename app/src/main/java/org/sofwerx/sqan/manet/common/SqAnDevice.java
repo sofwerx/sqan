@@ -35,6 +35,10 @@ public class SqAnDevice {
     private SpaceTime lastLocation = null;
     private boolean backhaulConnection = false;
     private DeviceSummary uiSummary = null;
+    private NodeRole roleWiFi = NodeRole.OFF;
+    private NodeRole roleBT = NodeRole.OFF;
+
+    public static enum NodeRole { HUB, SPOKE, OFF }
 
     /**
      * SqAnDevice
@@ -472,8 +476,10 @@ public class SqAnDevice {
         if (existing == null) {
             devices.add(device);
             return true;
-        } else
+        } else {
             existing.update(device);
+            Config.saveTeammate(device.getUUID(),null,device.getCallsign());
+        }
         return false;
     }
 
@@ -664,4 +670,28 @@ public class SqAnDevice {
             return null;
         return "±"+Math.round(errorDistance)+"m";
     }
+
+    /**
+     * Gets this device's role in the network in WiFi comms
+     * @return
+     */
+    public NodeRole getRoleWiFi() { return roleWiFi; }
+
+    /**
+     * Sets this device's role in the network in WiFi comms
+     * @param roleWiFi
+     */
+    public void setRoleWiFi(NodeRole roleWiFi) { this.roleWiFi = roleWiFi; }
+
+    /**
+     * Gets this device's role in the network in Bluetooth comms
+     * @return
+     */
+    public NodeRole getRoleBT() { return roleBT; }
+
+    /**
+     * Sets this device's role in the network in Bluetooth comms
+     * @param roleBT
+     */
+    public void setRoleBT(NodeRole roleBT) { this.roleBT = roleBT; }
 }

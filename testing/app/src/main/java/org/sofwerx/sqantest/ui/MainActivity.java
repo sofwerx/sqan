@@ -12,11 +12,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.sofwerx.sqantest.IpcBroadcastTransceiver;
 import org.sofwerx.sqantest.R;
-import org.sofwerx.sqantest.ipc.IpcBroadcastTransceiver;
-import org.sofwerx.sqantest.packet.AbstractPacket;
-import org.sofwerx.sqantest.packet.PacketHeader;
-import org.sofwerx.sqantest.packet.RawBytesPacket;
 import org.sofwerx.sqantest.util.PackageUtil;
 
 import java.io.StringWriter;
@@ -65,13 +62,12 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 if (message == null)
                     Toast.makeText(MainActivity.this,"No message to send",Toast.LENGTH_LONG).show();
                 else {
-                    RawBytesPacket packet = new RawBytesPacket(new PacketHeader());
                     try {
-                        packet.setData(message.getBytes("UTF-8"));
+                        byte[] data = message.getBytes("UTF-8");
+                        IpcBroadcastTransceiver.broadcast(this, data);
                     } catch (UnsupportedEncodingException e) {
                         e.printStackTrace();
                     }
-                    IpcBroadcastTransceiver.broadcast(this, packet.toByteArray());
                     editText.setText(null);
                     if (first)
                         first = false;
@@ -103,6 +99,26 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     }
 
     @Override
+    public void onIpcPacketReceived(int src, byte[] data) {
+        if (data != null) {
+            try {
+                String message = new String(data,"UTF-8");
+                if (first)
+                    first = false;
+                else
+                    convo.append("\r\n");
+                convo.append(Integer.toString(src));
+                convo.append(": ");
+                convo.append(message);
+                convoText.setText(convo.toString());
+                scrollContainer.post(() -> scrollContainer.fullScroll(View.FOCUS_DOWN));
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /*@Override
     public void onPacketReceived(byte[] packet) {
         AbstractPacket abstractPacket = AbstractPacket.newFromBytes(packet);
         if (abstractPacket != null) {
@@ -131,5 +147,5 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 }
             }
         }
-    }
+    }*/
 }

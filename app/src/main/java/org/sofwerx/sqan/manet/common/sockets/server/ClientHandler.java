@@ -94,8 +94,6 @@ public class ClientHandler {
 
         HANDLER_MAP.put(id, this);
         START_TIME_MAP.put(id, System.currentTimeMillis());
-        //if (listener != null)
-        //    listener.onServerNumberOfConnections(HANDLER_MAP.size());
     }
 
     private void closeClient() {
@@ -133,6 +131,10 @@ public class ClientHandler {
     }
 
     private void queueReadBuffer() {
+        ByteBuffer out = ByteBuffer.allocate(4 + readBuffer.limit());
+        out.putInt(readBuffer.limit());
+        out.put(readBuffer);
+        out.flip();
         Log.d(Config.TAG, "#" + id + ": adding readBuffer to the outgoing queue");
         for (ClientHandler h : HANDLER_MAP.values()) {
             boolean send = !h.id.equals(this.id); // don't queue the incoming packet to myself
@@ -140,8 +142,10 @@ public class ClientHandler {
                 Log.e(Config.TAG, "#" + id + ": cannot queue incoming packet to #"+ h.id + "; state=" + h.readState);
                 send = false;
             }
-            if (send)
-                h.writeQueue.add(readBuffer.duplicate());
+            if (send) {
+                h.writeQueue.add(out.duplicate());
+                //h.writeQueue.add(readBuffer.duplicate());
+            }
         }
     }
 
@@ -248,7 +252,8 @@ public class ClientHandler {
                 headerBytes = header.toByteArray();
                 readBuffer.put(headerBytes);
                 readBuffer.position(0);
-                queueReadBuffer();
+                if (header.getType() != PacketHeader.PACKET_TYPE_PING) //don't forward pings
+                    queueReadBuffer();
                 if (header.getType() == PacketHeader.PACKET_TYPE_DISCONNECTING) {
                     Log.i(Config.TAG, "#" + id + ": is terminating link (planned and reported)");
                     closeClient(); //client requested termination

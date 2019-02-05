@@ -234,7 +234,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
      */
     public boolean burst(final AbstractPacket packet) {
         if ((packet == null) || !StatusHelper.isActive(manetOps.getStatus())) {
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
+            Log.d(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
             return false;
         }
         if (handler == null) {
@@ -312,6 +312,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             }
         }
         CommsLog.clear();
+        Config.savePrefs(this);
         if (handler == null) {
             shutdown();
             SqAnDevice.clearAllDevices(null);
@@ -360,6 +361,11 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                 unregisterReceiver(powerReceiver);
             powerReceiver = null;
         } catch (IllegalArgumentException ignore) {
+        }
+        SqAnDevice device = Config.getThisDevice();
+        if (device != null) {
+            device.setRoleWiFi(SqAnDevice.NodeRole.OFF);
+            device.setRoleBT(SqAnDevice.NodeRole.OFF);
         }
         thisService = null;
     }
