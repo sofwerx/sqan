@@ -174,8 +174,8 @@ class WiFiDirectNSD {
         }
     };
 
-    private WifiP2pManager.DnsSdServiceResponseListener servListener = (instanceName, registrationType, resourceType) -> {
+    private WifiP2pManager.DnsSdServiceResponseListener servListener = (instanceName, registrationType, device) -> {
         //TODO
-        Log.d(Config.TAG, "Service Available " + instanceName+": "+resourceType.deviceName);
+        Log.d(Config.TAG, "Service Available " + instanceName+": "+device.deviceName+", but no action taken in WifiP2pManager.DnsSdServiceResponseListener");
     };
 }

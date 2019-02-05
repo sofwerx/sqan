@@ -10,6 +10,7 @@ import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
@@ -191,11 +192,15 @@ public abstract class AbstractManet {
         if (packet.isDirectFromOrigin()) {
             SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
             if (packet instanceof PingPacket) {
-                PingPacket pingPacket = (PingPacket)packet;
-                if (device == null) {
-                    Log.d(Config.TAG, "Ping request from an unknown device; ignoring");
+                if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
+                    Log.e(Config.TAG,"PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
                     return;
                 }
+                PingPacket pingPacket = (PingPacket)packet;
+                //if (device == null) {
+                //    Log.d(Config.TAG, "Ping request from an unknown device; ignoring");
+                //    return;
+                //}
                 if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
                     pingPacket.setDestination(pingPacket.getOrigin());
                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());

@@ -31,7 +31,6 @@ import org.sofwerx.sqan.manet.common.sockets.client.Client;
 import org.sofwerx.sqan.manet.common.sockets.server.Server;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
 import org.sofwerx.sqan.manet.wifi.Util;
-import org.sofwerx.sqan.manet.wifi.WiFiGroup;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.net.InetAddress;
@@ -45,9 +44,6 @@ import java.util.List;
  */
 public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.PeerListListener, WiFiDirectDiscoveryListener, ServerStatusListener {
     private final static int SQAN_PORT = 1716; //using the America's Army port to avoid likely conflicts
-    private final static long DELAY_BEFORE_FORM_GROUP_WHEN_TEAMMATES_PRESENT = 1000l*120l;
-    private final static long DELAY_BEFORE_FORM_GROUP = 1000l*15l;
-    private boolean hasPausedForTeammates = false;
     private WifiP2pManager.Channel channel;
     private WifiP2pManager manager;
     private WifiManager wifiManager;
@@ -76,13 +72,15 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
+                Log.d(Config.TAG, "WIFI_P2P_STATE_CHANGED_ACTION");
                 int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
                 onHardwareChanged(state == WifiP2pManager.WIFI_P2P_STATE_ENABLED);
             } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION.equals(action)) {
-                Log.d(Config.TAG, "P2P peers changed");
+                Log.d(Config.TAG, "WIFI_P2P_PEERS_CHANGED_ACTION");
                 if (manager != null)
                     manager.requestPeers(channel, WiFiDirectManet.this);
             } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
+                Log.d(Config.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION");
                 if (manager == null)
                     return;
                 NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
@@ -96,7 +94,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                                     CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Group is formed, but groupInfo is null");
                                 } else {
                                     CommsLog.log(CommsLog.Entry.Category.STATUS,"Group "+groupInfo.getNetworkName()+" formed");
-                                    WiFiGroup group = new WiFiGroup(groupInfo.getNetworkName(), groupInfo.getPassphrase());
+                                    //WiFiGroup group = new WiFiGroup(groupInfo.getNetworkName(), groupInfo.getPassphrase());
                                 }
                             });
                             startServer();
@@ -120,6 +118,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     });
                 }
             } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
+                Log.d(Config.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
                 onDeviceChanged(intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
             }
         }
@@ -335,6 +334,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     }
 
     private void onDisconnected() {
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Channel disconnected");
         //TODO
     }
 
@@ -356,25 +356,28 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                             Log.d(Config.TAG,"Peer: "+peer.deviceName+" status "+Util.getDeviceStatusString(peer.status));
                             try {
                                 Config.SavedTeammate teammate = Config.getTeammate(peer.deviceAddress);
-                                if ((teammate != null) && (teammate.getSqAnAddress() != PacketHeader.BROADCAST_ADDRESS)) {
-                                    if ((socketClient == null) && (socketServer == null) && (serverDevice == null) && peer.isGroupOwner()) {
-                                        serverDevice = peer;
-                                        CommsLog.log(CommsLog.Entry.Category.STATUS,"Hub found at "+serverDevice.deviceAddress+", starting client...");
-                                        connectToDevice(peer);
-                                        startClient(serverDevice.deviceAddress);
-                                    }
-                                    SqAnDevice device = SqAnDevice.findByUUID(teammate.getSqAnAddress());
-                                    if (device == null) {
-                                        device = new SqAnDevice(teammate.getSqAnAddress());
-                                        if (teammate.getCallsign() != null)
-                                            device.setCallsign(teammate.getCallsign());
-                                        if (listener != null) {
-                                            listener.onDevicesChanged(device);
-                                            listener.updateDeviceUi(device);
+                                if (peer.status == WifiP2pDevice.AVAILABLE) {
+                                    if ((teammate != null) && (teammate.getSqAnAddress() != PacketHeader.BROADCAST_ADDRESS)) {
+                                        SqAnDevice device = SqAnDevice.findByUUID(teammate.getSqAnAddress());
+                                        if ((socketClient == null) && (socketServer == null) && (serverDevice == null) && peer.isGroupOwner()) {
+                                            serverDevice = peer;
+                                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Hub found at " + serverDevice.deviceAddress + ", starting client...");
+                                            connectToDevice(peer);
+                                            startClient(serverDevice.deviceAddress);
+                                        } else
+                                            connectToDevice(peer);
+                                        if (device == null) {
+                                            device = new SqAnDevice(teammate.getSqAnAddress());
+                                            if (teammate.getCallsign() != null)
+                                                device.setCallsign(teammate.getCallsign());
+                                            if (listener != null) {
+                                                listener.onDevicesChanged(device);
+                                                listener.updateDeviceUi(device);
+                                            }
                                         }
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS, "Device matching saved teammate " + teammate.getCallsign() + " found");
+                                        break;
                                     }
-                                    CommsLog.log(CommsLog.Entry.Category.COMMS,"Device matching saved teammate "+teammate.getCallsign()+" found");
-                                    break;
                                 }
                             } catch (NumberFormatException ignore) {
                             }
@@ -449,8 +452,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     public void onDeviceDiscovered(WifiP2pDevice wifiP2pDevice) {
         if (addTeammateIfNeeded(wifiP2pDevice)) {
             CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+wifiP2pDevice.deviceName+" discovered");
-            if (wifiP2pDevice.isGroupOwner())
-                connectToDevice(wifiP2pDevice);
+            connectToDevice(wifiP2pDevice);
         }
     }
 
@@ -537,16 +539,6 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             if (!teammates.contains(wifiP2pDevice)) {
                 teammates.add(wifiP2pDevice);
                 added = true;
-                /*SqAnDevice device = SqAnDevice.findByNetworkID(wifiP2pDevice.deviceAddress);
-                if (device != null) {
-                    device.setStatus(SqAnDevice.Status.ONLINE);
-                    device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Disconnected"));
-                    listener.onDevicesChanged(device);
-                } else {
-                    CommsLog.log(CommsLog.Entry.Category.STATUS, wifiP2pDevice.deviceName+"("+wifiP2pDevice.deviceAddress+")"+"found so I added it");
-                    device = new SqAnDevice();
-                    device.setNetworkId(wifiP2pDevice.deviceAddress);
-                }*/
                 CommsLog.log(CommsLog.Entry.Category.STATUS, "teammate "+wifiP2pDevice.deviceName + " discovered ("+((teammates.size()>1)?(teammates.size()+" total teammates)"):" (only teammate at this time)"));
             }
         }
