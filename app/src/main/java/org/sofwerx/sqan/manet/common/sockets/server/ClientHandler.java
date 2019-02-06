@@ -162,6 +162,7 @@ public class ClientHandler {
                 if (send) {
                     Log.d(Config.TAG,out.limit()+"b added to writeQueue for #"+h.id);
                     h.writeQueue.add(out.duplicate());
+                    //TODO call read and write here possibly as a way to speed up the data burst from the server
                 } else
                     Log.d(Config.TAG,"Outgoing packet does not apply to client #"+h.id);
             }

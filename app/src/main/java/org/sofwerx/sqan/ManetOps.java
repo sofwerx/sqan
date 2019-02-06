@@ -232,15 +232,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     onDevicesChanged(outgoing);
                 } else
                     Log.d(Config.TAG,"Disconnect packet received, but unable to find corresponding device");
-            } else if (packet instanceof HeartbeatPacket) {
-                SqAnDevice device = ((HeartbeatPacket)packet).getDevice();
-                if (device != null) {
-                    device.setConnected();
-                    SqAnDevice.add(device);
-                    onDevicesChanged(device);
-                }
             }
-            //TODO actually do something with the packet
         }
     }
 

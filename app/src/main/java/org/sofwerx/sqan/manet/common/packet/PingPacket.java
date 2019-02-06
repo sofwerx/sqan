@@ -15,8 +15,9 @@ public class PingPacket extends AbstractPacket {
     private long midpointLocalTime = -1l;
     private long latency = -1l; //this gets calculated
 
-    public PingPacket(int originUUID) {
+    public PingPacket(int originUUID, int destinationUUID) {
         super(new PacketHeader(originUUID));
+        packetHeader.setDestination(destinationUUID);
         packetHeader.setType(getType());
         packetHeader.setTime(NetworkTime.getNetworkTimeNow());
     }

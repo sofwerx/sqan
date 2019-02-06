@@ -38,6 +38,7 @@ WiFi Direct architecture is still under development but build on all devices per
 Performance so far:
  - although occssional stability issues exist on start-up, possibly related to debugging starting and stopping, NSD occurs rather rapidly (typically under 15 sec)
  - Server/Client connections typically occur rapidly with the mesh forming often in under 3 seconds
+ - Messages originating from the server or broadcast by the server have a bit (1-3 seconds) extra latency as the server queues outgoing messages but does not immediately burst them. This will need evaluation to see if the latency hit is worth the battery saving
 
 ## Augmenting WiFi Aware and Direct
 

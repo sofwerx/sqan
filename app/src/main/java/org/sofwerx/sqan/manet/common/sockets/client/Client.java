@@ -87,8 +87,10 @@ public class Client extends Thread {
                     if ((datalink != null) && (uplink != null) && (downlink != null))
                         datalink.read(uplink, downlink);
                 } catch (Exception e) {
-                    if (keepRunning)
-                        Log.e(Config.TAG,"Client.DownlinkThread.run error: "+e.getMessage());
+                    if (keepRunning) {
+                        Log.e(Config.TAG, "Client.DownlinkThread.run error: " + e.getMessage());
+                        restartClient();
+                    }
                     /*if (health != LinkHealth.ERROR) {
                         health = LinkHealth.ERROR;
                         MdxService.log.log(MissionLogging.Category.COMMS,((config == null)?DEFAULT_LINK_NAME:config.getIp())+" downlink error");
@@ -200,25 +202,25 @@ public class Client extends Thread {
                     uplink.close();
                 } catch (Throwable t) {
                 }
-                if (handler != null) {
-                    handler.removeCallbacks(null);
-                    handler.postDelayed((Runnable) () -> {
-                        buildSocket();
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
-                    }, RESTART_DELAY);
-                }
+                restartClient();
                 close();
             } catch (Exception e) {
                 CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error initiating uplink: "+e.getMessage());
-                if (handler != null) {
-                    handler.removeCallbacks(null);
-                    handler.postDelayed((Runnable) () -> {
-                        buildSocket();
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
-                    }, RESTART_DELAY);
-                }
-                close();
+                restartClient();
             }
+        }
+    }
+
+    private void restartClient() {
+        if (handler != null) {
+            handler.removeCallbacks(null);
+            handler.postDelayed(() -> {
+                buildSocket();
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
+            }, RESTART_DELAY);
+        } else {
+            buildSocket();
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Restarting Client (with null handler - something is significantly broken...)");
         }
     }
 

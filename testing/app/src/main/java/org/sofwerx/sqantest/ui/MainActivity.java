@@ -117,35 +117,4 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
             }
         }
     }
-
-    /*@Override
-    public void onPacketReceived(byte[] packet) {
-        AbstractPacket abstractPacket = AbstractPacket.newFromBytes(packet);
-        if (abstractPacket != null) {
-            byte[] data = null;
-            if (abstractPacket instanceof RawBytesPacket) {
-                RawBytesPacket rawPkt = (RawBytesPacket)abstractPacket;
-                data = rawPkt.getData();
-            }
-            if (data == null)
-                Toast.makeText(this,packet.length+"b packet received over SqAn",Toast.LENGTH_LONG).show();
-            else {
-                try {
-                    String message = new String(data,"UTF-8");
-                    //Toast.makeText(this,"Received: "+new String(data,"UTF-8"),Toast.LENGTH_LONG).show();
-                    if (first)
-                        first = false;
-                    else
-                        convo.append("\r\n");
-                    convo.append(Integer.toString(abstractPacket.getPacketHeader().getOrigin()));
-                    convo.append(": ");
-                    convo.append(message);
-                    convoText.setText(convo.toString());
-                    scrollContainer.post(() -> scrollContainer.fullScroll(View.FOCUS_DOWN));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }*/
 }

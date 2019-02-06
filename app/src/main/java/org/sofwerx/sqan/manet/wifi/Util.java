@@ -37,4 +37,18 @@ public class Util {
         }
         return "unknown";
     }
+
+    /**
+     * An abritrary method that makes it possible to label one MAC as a higher priority than the other
+     * @param firstMAC
+     * @param secondMAC
+     * @return true == firstMAC is the "higher" priority MAC
+     */
+    public static boolean isHigherPriorityMac(String firstMAC, String secondMAC) {
+        if (firstMAC == null)
+            return false;
+        if (secondMAC == null)
+            return true;
+        return firstMAC.hashCode() > secondMAC.hashCode();
+    }
 }

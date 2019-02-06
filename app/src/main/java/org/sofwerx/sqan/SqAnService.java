@@ -36,6 +36,7 @@ import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetworkUtil;
 
 import java.util.ArrayList;
+import java.util.Random;
 
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
@@ -46,6 +47,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private final static int SQAN_NOTIFICATION_ID = 60;
     private long HELPER_INTERVAL = 1000l * 10l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
+    private Random random = new Random();
 
     private PowerManager.WakeLock wakeLock;
     private PowerManager powerManager;
@@ -148,9 +150,17 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             //TODO make some more sophisticated needs-based method rather than just cycling through different types of heartbeats
             if (lastHeartbeatLevel == 0)
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
-            else if (lastHeartbeatLevel == 1)
-                burst(new PingPacket(Config.getThisDevice().getUUID()));
-            else
+            else if (lastHeartbeatLevel == 1) {
+                //FIXME PingPackets arent working
+                /*ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+                if ((devices != null) && !devices.isEmpty()) {
+                    //randomly distribute ping requests
+                    int index = random.nextInt(devices.size());
+                    SqAnDevice device = devices.get(index);
+                    if (device.isActive())
+                        burst(new PingPacket(Config.getThisDevice().getUUID(),device.getUUID()));
+                }*/
+            } else
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
             lastHeartbeatLevel++;
             if (lastHeartbeatLevel > 2)
@@ -460,8 +470,6 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     public void onLocationChanged(Location location) {
         if (location != null) {
             Config.getThisDevice().setLastLocation(new SpaceTime(location));
-            //TODO update a listener to update the GUI
-            //TODO consider broadcasting this change
         }
     }
 

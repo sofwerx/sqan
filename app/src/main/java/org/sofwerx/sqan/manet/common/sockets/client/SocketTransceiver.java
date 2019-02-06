@@ -23,6 +23,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.ShortBufferException;
 
 public class SocketTransceiver {
+    private final static int MAX_PACKET_SIZE = 256000;
     private ByteBuffer inputBuffer;
     private final SocketChannelConfig config;
     private ClientState state;
@@ -89,17 +90,14 @@ public class SocketTransceiver {
     }
 
     public void read(ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, ShortBufferException {
-        //Log.d(Config.TAG,"read()");
         boolean keepGoing = true;
         boolean firstTime = true;
         while (keepGoing) {
             if (state == ClientState.READING_CHALLENGE) {
                 keepGoing = readChallenge(firstTime, channel, output);
                 Log.d(Config.TAG,"SocketTransceiver.readChallenge complete, keepGoing "+keepGoing);
-            } else {
+            } else
                 keepGoing = parseMessage(channel);
-                //Log.d(Config.TAG,"SocketTransceiver.parseMessage complete, keepGoing "+keepGoing);
-            }
             firstTime = false;
         }
     }
@@ -118,6 +116,8 @@ public class SocketTransceiver {
         int size = preambleBuffer.getInt();
         if (size < 0)
             throw new IOException("SocketTransceiver unable to parse a message with a negative size");
+        else if (size > MAX_PACKET_SIZE)
+            throw new IOException("SocketTransceiver unable to parse a "+size+"b message, this must be an error");
         else
             Log.d(Config.TAG,"SocketTransceiver received "+size+"b message");
         ByteBuffer data = ByteBuffer.allocate(size);

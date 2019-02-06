@@ -189,70 +189,66 @@ public abstract class AbstractManet {
             return;
         }
         setStatus(Status.CONNECTED);
-        if (packet.isDirectFromOrigin()) {
-            SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
-            if (packet instanceof PingPacket) {
-                if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
-                    Log.e(Config.TAG,"PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
-                    return;
-                }
-                PingPacket pingPacket = (PingPacket)packet;
-                //if (device == null) {
-                //    Log.d(Config.TAG, "Ping request from an unknown device; ignoring");
-                //    return;
-                //}
-                if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
-                    pingPacket.setDestination(pingPacket.getOrigin());
-                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());
-                    pingPacket.setMidpointLocalTime(System.currentTimeMillis());
-                    try {
-                        burst(pingPacket, device);
-                    } catch (ManetException e) {
-                        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error handling Ping request "+e.getMessage());
-                        return;
-                    }
-                } else {
-                    device.addLatencyMeasurement(pingPacket.getLatency());
-                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
-                }
-                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected();
-                Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
-                if (teammate != null)
-                    teammate.update(device.getCallsign(),System.currentTimeMillis());
-                if (listener != null)
-                    listener.updateDeviceUi(device);
+        SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
+        if ((packet instanceof PingPacket) && packet.isDirectFromOrigin()) {
+            if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
+                Log.e(Config.TAG,"PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
                 return;
             }
-            if (device == null) {
-                String callsign = null;
-                if (packet instanceof HeartbeatPacket) {
-                    HeartbeatPacket hb = (HeartbeatPacket)packet;
-                    if (hb.getDevice() != null)
-                        callsign = hb.getDevice().getCallsign();
+            PingPacket pingPacket = (PingPacket)packet;
+            if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
+                pingPacket.setDestination(pingPacket.getOrigin());
+                CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());
+                pingPacket.setMidpointLocalTime(System.currentTimeMillis());
+                try {
+                    burst(pingPacket, device);
+                } catch (ManetException e) {
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error handling Ping request "+e.getMessage());
+                    return;
                 }
-                if (callsign == null)
-                    callsign = "SqAN ID "+Integer.toString(packet.getOrigin());
-                CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
-                device = new SqAnDevice();
-                Config.SavedTeammate saved = Config.getTeammate(packet.getOrigin());
-                if (saved != null)
-                    device.setCallsign(saved.getCallsign());
-                device.setUUID(packet.getOrigin());
-                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected();
-                if (listener != null)
-                    listener.onDevicesChanged(device);
             } else {
-                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected();
+                device.addLatencyMeasurement(pingPacket.getLatency());
+                CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
             }
+            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+            device.setConnected();
             Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
             if (teammate != null)
                 teammate.update(device.getCallsign(),System.currentTimeMillis());
             if (listener != null)
                 listener.updateDeviceUi(device);
+            return;
         }
+        if (device == null) {
+            String callsign = null;
+            if (packet instanceof HeartbeatPacket) {
+                HeartbeatPacket hb = (HeartbeatPacket)packet;
+                if (hb.getDevice() != null)
+                    callsign = hb.getDevice().getCallsign();
+            }
+            if (callsign == null)
+                callsign = "SqAN ID "+Integer.toString(packet.getOrigin());
+            CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
+            device = new SqAnDevice();
+            Config.SavedTeammate saved = Config.getTeammate(packet.getOrigin());
+            if (saved != null)
+                device.setCallsign(saved.getCallsign());
+            device.setUUID(packet.getOrigin());
+            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+            device.setConnected();
+            if (listener != null)
+                listener.onDevicesChanged(device);
+        } else {
+            if (listener != null)
+                listener.onDevicesChanged(device);
+            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+            device.setConnected();
+        }
+        Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
+        if (teammate != null)
+            teammate.update(device.getCallsign(),System.currentTimeMillis());
+        if (listener != null)
+            listener.updateDeviceUi(device);
         if (listener != null)
             listener.onRx(packet);
     }
