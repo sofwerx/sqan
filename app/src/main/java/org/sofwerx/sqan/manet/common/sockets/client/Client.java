@@ -229,6 +229,7 @@ public class Client extends Thread {
     }
 
     public void close(boolean forceful) {
+        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
         if (isAlive()) {
             Log.d(Config.TAG, "SocketRelayThread.close() called");
             if ((handler != null) && !forceful) {

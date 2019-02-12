@@ -10,6 +10,7 @@ import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
@@ -30,7 +31,6 @@ import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.client.Client;
 import org.sofwerx.sqan.manet.common.sockets.server.Server;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
-import org.sofwerx.sqan.manet.wifi.Util;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.net.InetAddress;
@@ -86,15 +86,24 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                 if (manager != null)
                     manager.requestPeers(channel, WiFiDirectManet.this);
             } else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
-                Log.d(Config.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION");
+                //Log.d(Config.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION");
                 if (manager == null)
                     return;
                 NetworkInfo networkInfo = intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+                if (networkInfo == null)
+                    return;
                 if (networkInfo.isConnected()) {
                     Log.d(Config.TAG,"WIFI_P2P_CONNECTION_CHANGED_ACTION - network is now connected");
                     manager.requestConnectionInfo(channel, WiFiDirectManet.this);
                 } else {
-                    Log.d(Config.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION - network is disconnected: "+networkInfo.getExtraInfo());
+                    Log.d(Config.TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION - network is disconnected"+((networkInfo.getExtraInfo()==null)?"":": "+networkInfo.getExtraInfo()));
+                    stopSocketConnections();
+                    if (nsd == null) {
+                        Log.e(Config.TAG,"NSD was null, this should never happen. Initializing again...");
+                        nsd = new WiFiDirectNSD(WiFiDirectManet.this);
+                    }
+                    nsd.startDiscovery(manager,channel);
+                    nsd.startAdvertising(manager, channel,false);
                     /*if ((manager != null) && (channel != null)) {
                         Log.d(Config.TAG,"Cancelling connection and trying again");
                         manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
@@ -121,16 +130,17 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     }*/
                 }
             } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
-                Log.d(Config.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
                 WifiP2pDevice reportedDevice = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
                 if (reportedDevice != null) {
+                    Log.d(Config.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION: this device is "+reportedDevice.deviceName+(reportedDevice.isGroupOwner()?" (group owner)":" (group member)"));
                     thisDevice = reportedDevice;
                     if ((socketServer != null) && reportedDevice.isGroupOwner()) {
                         Log.d(Config.TAG,"WIFI_P2P_THIS_DEVICE_CHANGED_ACTION - device is group owner, starting Server");
                         startServer();
                     }
-                }
-               // onDeviceChanged(intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
+                } else
+                    Log.d(Config.TAG, "WIFI_P2P_THIS_DEVICE_CHANGED_ACTION");
+                // onDeviceChanged(intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE));
             }
         }
     };
@@ -178,7 +188,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         context.registerReceiver(hardwareStatusReceiver, intentFilter);
         nsd = new WiFiDirectNSD(this);
         nsd.startDiscovery(manager,channel);
-        nsd.startAdvertising(manager, channel);
+        nsd.startAdvertising(manager, channel,false);
         manager.requestPeers(channel, WiFiDirectManet.this);
         setStatus(Status.DISCOVERING);
     }
@@ -190,7 +200,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (socketServer == null) {
             if ((manager != null) && (channel != null)) {
                 nsd.stopDiscovery(manager,channel,null);
-                nsd.startAdvertising(manager,channel);
+                nsd.startAdvertising(manager,channel,true); //TODO trying to test forcing advertising again after connection
             }
             if (socketClient != null) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"Switching from Client mode to Server mode...");
@@ -209,9 +219,9 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (socketClient == null) {
             CommsLog.log(CommsLog.Entry.Category.STATUS, "Connecting as Client to " + serverIp + "...");
 
-            //TODO trying to stop other devices from attempting to connect with a device in client mode
+            //TODO stop other devices from attempting to connect with a device in client mode - thats happening for some reason
             if ((manager != null) && (channel != null)) {
-                nsd.startAdvertising(manager, channel);
+                //nsd.startAdvertising(manager, channel,false); //TODO start advertising maybe kicking off another connection - removing this to test
                 nsd.stopDiscovery(manager, channel, null);
             }
             socketClient = new Client(new SocketChannelConfig(serverIp, SQAN_PORT), parser);
@@ -322,16 +332,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             }
             wifiManager = null;
         }
-        if (socketClient != null) {
-            socketClient.close();
-            Log.d(Config.TAG,"socketClient closing...");
-            socketClient = null;
-        }
-        if (socketServer != null) {
-            socketServer.close();
-            Log.d(Config.TAG,"socketServer closing...");
-            socketServer = null;
-        }
+        stopSocketConnections();
         if ((manager != null) && (channel != null)) {
             manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
                 @Override
@@ -344,6 +345,19 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     channel.close();
             } catch (Exception ignore) {
             }
+        }
+    }
+
+    private void stopSocketConnections() {
+        if (socketClient != null) {
+            socketClient.close();
+            Log.d(Config.TAG,"socketClient closing...");
+            socketClient = null;
+        }
+        if (socketServer != null) {
+            socketServer.close();
+            Log.d(Config.TAG,"socketServer closing...");
+            socketServer = null;
         }
     }
 
@@ -496,6 +510,17 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         manager.connect(channel, config, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
+                //FIXME testing this
+                manager.requestGroupInfo(channel, group -> {
+                    if (group == null)
+                        Log.d(Config.TAG,"Connected to null group");
+                    else {
+                        Log.d(Config.TAG, group.toString());
+                        Log.d(Config.TAG, "Group " + group.getNetworkName() + "; password: " + group.getPassphrase());
+                    }
+                });
+                //FIXME testing this
+
                 CommsLog.log(CommsLog.Entry.Category.COMMS, "Successfully connected to "+config.deviceAddress);
                 if ((socketClient == null) && (socketServer == null)) {
                     if (serverDevice != null)

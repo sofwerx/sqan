@@ -45,7 +45,11 @@ Performance so far:
 Since only Nearby Connections organically uses both WiFi and Bluetooth, a seperate Bluetooth capability will be built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters.
 
 Initial bluetooth focus will be on experimental efforts with the less frequently used bluetooth high speed protocol as a way to provide a larger pipe between seperated clusters with emphasis on bandwidth over number of connections.
- 
+
+## WiFiManager
+
+An approach using WiFi Manager was explored as well. WiFiManager could be used to create a access point but that required reflection to access private APIs starting at Android 7. This capability was discontinued entirely at Android 8, so this approach was dropped as long-term unstable.
+
 # Sending data via IPC
 
 Although SqAN is intended primarily to intercept and re-route TCP/IP traffic, SqAN can be used via Interprocess Communication (IPC) to send data from apps specifically for transmission via SqAN. To use IPC to send data over SqAN:

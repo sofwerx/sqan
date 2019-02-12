@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.wifi;
+package org.sofwerx.sqan.manet.wifidirect;
 
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;

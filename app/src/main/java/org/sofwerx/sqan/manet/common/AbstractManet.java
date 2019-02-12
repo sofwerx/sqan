@@ -15,11 +15,9 @@ import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
-import org.sofwerx.sqan.manet.wifi.WiFiManet;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
-import org.sofwerx.sqan.util.StringUtil;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -96,9 +94,6 @@ public abstract class AbstractManet {
 
             case WIFI_DIRECT:
                 return new WiFiDirectManet(handler, context, listener);
-
-            case WIFI:
-                return new WiFiManet(handler, context, listener);
 
             default:
                 return null;

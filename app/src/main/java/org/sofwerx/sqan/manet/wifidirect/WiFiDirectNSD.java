@@ -7,8 +7,6 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.manet.wifi.Util;
-import org.sofwerx.sqan.manet.wifi.WiFiGroup;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.HashMap;
@@ -28,8 +26,15 @@ class WiFiDirectNSD {
     private boolean isDiscoveryMode = false;
     private boolean isAdvertisingMode = false;
 
-    void startAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel) {
-        if (!isAdvertisingMode) {
+    /**
+     * Starts advertising mode
+     * @param manager
+     * @param channel
+     * @param force restart advertising mode even if it is already running (attempting to address issue with advertising stopping after connections
+     */
+    void startAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, boolean force) {
+        if (!isAdvertisingMode || force) {
+            Log.d(Config.TAG,"startAdvertising called");
             isAdvertisingMode = true;
             String callsign = Config.getThisDevice().getSafeCallsign();
             HashMap<String,String> record = new HashMap();
@@ -43,14 +48,14 @@ class WiFiDirectNSD {
                     new WifiP2pManager.ActionListener() {
                         @Override
                         public void onSuccess() {
-                                Log.d(Config.TAG,"addLocalService.onSuccess()");
+                                Log.d(Config.TAG,"Advertising addLocalService.onSuccess()");
                             if (listener != null)
                                 listener.onAdvertisingStarted();
                         }
 
                         @Override
                         public void onFailure(int code) {
-                            Log.d(Config.TAG,"addLocalService.onFailure("+ Util.getFailureStatusString(code)+")");
+                            Log.d(Config.TAG,"Advertising addLocalService.onFailure("+ Util.getFailureStatusString(code)+")");
                         }
                     });
             manager.setDnsSdResponseListeners(channel, servListener, txtListener);
@@ -93,6 +98,7 @@ class WiFiDirectNSD {
     }
 
     void stopAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
+        Log.d(Config.TAG,"stopAdvertising called");
         if (isAdvertisingMode) {
             isAdvertisingMode = false;
             if (listener == null) {

@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.wifi;
+package org.sofwerx.sqan.manet.wifidirect;
 
 public class WiFiGroup {
     private String ssid;

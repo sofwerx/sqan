@@ -142,10 +142,8 @@ public class ClientHandler {
                 Log.e(Config.TAG, "#" + id + ": cannot queue incoming packet to #"+ h.id + "; state=" + h.readState);
                 send = false;
             }
-            if (send) {
+            if (send)
                 h.writeQueue.add(out.duplicate());
-                //h.writeQueue.add(readBuffer.duplicate());
-            }
         }
     }
 

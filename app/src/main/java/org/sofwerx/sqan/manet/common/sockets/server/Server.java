@@ -231,6 +231,7 @@ public class Server {
     }
 
     public void close() {
+        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
         keepRunning = false;
         if (handler != null) {
             handler.removeCallbacks(null);
