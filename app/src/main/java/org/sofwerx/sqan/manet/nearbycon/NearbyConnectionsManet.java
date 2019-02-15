@@ -80,11 +80,6 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     @Override
-    public void onNodeLost(SqAnDevice node) {
-        setNewNodesAllowed(true); //TODO make this a more sophisticated strategy than just "turn discovery back on"
-    }
-
-    @Override
     public String getName() { return "Nearby Connections"; }
 
     @Override
@@ -215,6 +210,11 @@ public class NearbyConnectionsManet extends AbstractManet {
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         setStatus(Status.OFF);
         isRunning.set(false);
+    }
+
+    @Override
+    protected void onDeviceLost(SqAnDevice device, boolean directConnection) {
+        setNewNodesAllowed(true); //TODO make this more sophisticated than just turning discovery back on
     }
 
     @Override

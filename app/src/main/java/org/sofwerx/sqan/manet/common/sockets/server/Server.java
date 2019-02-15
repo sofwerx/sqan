@@ -28,10 +28,13 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
+//FIXME establishing a connection with a client, then shutting down the app, then resstarting the app leads to a problem with the port not being released and the server restart not fully taking
+
 /**
  * The Server to host Clients over TCP/IP
  */
 public class Server {
+    private final static int MAX_SOCKETS_ACCEPTED = 24;
     private SocketChannelConfig config;
     private boolean restart;
     private Selector selector;
@@ -88,7 +91,7 @@ public class Server {
         boolean bindComplete = false;
         for (int i = 0; i < 3; ++i) {
             try {
-                server.bind(address, 50);
+                server.bind(address, MAX_SOCKETS_ACCEPTED);
                 bindComplete = true;
                 break;
             } catch (BindException ex) {
@@ -184,20 +187,24 @@ public class Server {
                         readAndProcess();
                     } catch (Throwable t) {
                         if (restart) {
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting server");
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Could not start server; shutting server down...");
                             Log.w(Config.TAG, t.getMessage());
                             restart = false;
                             try {
-                                if (selector != null)
+                                if (selector != null) {
                                     selector.close();
+                                    selector = null;
+                                }
                             } catch (IOException ignore) {
                             }
                             try {
                                 server.close();
+                                server = null;
                             } catch (IOException ignore) {
                             }
                         } else {
                             CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Severe processing error while running in Server mode");
+                            close();
                             break; //TODO maybe don't fall out when this fails...
                         }
                     }
@@ -232,12 +239,12 @@ public class Server {
 
     public void close() {
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
-        keepRunning = false;
         if (handler != null) {
             handler.removeCallbacks(null);
             handler.post(() -> {
                 burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
                 Log.d(Config.TAG, "Server shutting down...");
+                keepRunning = false;
                 if (selector != null) {
                     try {
                         selector.close();
@@ -258,6 +265,7 @@ public class Server {
                     serverThread.quitSafely();
             });
         } else {
+            keepRunning = false;
             Log.d(Config.TAG, "Handler is null but Server shutting down anyway...");
             if (selector != null) {
                 try {

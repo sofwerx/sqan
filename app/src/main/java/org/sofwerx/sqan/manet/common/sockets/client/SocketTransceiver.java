@@ -69,7 +69,7 @@ public class SocketTransceiver {
         return state != ClientState.READING_CHALLENGE;
     }
 
-    public int queue(AbstractPacket packet, WritableByteChannel channel, ManetListener listener) throws ShortBufferException, IllegalBlockSizeException,BadPaddingException, IOException {
+    public int queue(AbstractPacket packet, WritableByteChannel channel, ManetListener listener) throws IOException {
         if (isReadyToWrite()) {
             byte[] data = parser.toBytes(packet);
             if (data != null) {

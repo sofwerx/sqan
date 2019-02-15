@@ -140,11 +140,6 @@ public class WiFiAwareManet extends AbstractManet {
     }
 
     @Override
-    public void onNodeLost(SqAnDevice node) {
-        //TODO
-    }
-
-    @Override
     public String getName() { return "WiFi Aware™"; }
 
     @Override
@@ -407,6 +402,11 @@ public class WiFiAwareManet extends AbstractManet {
         setStatus(Status.OFF);
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         isRunning.set(true);
+    }
+
+    @Override
+    protected void onDeviceLost(SqAnDevice device, boolean directConnection) {
+        //TODO
     }
 
     @Override

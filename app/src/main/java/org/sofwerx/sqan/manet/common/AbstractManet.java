@@ -9,6 +9,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
+import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
@@ -75,14 +76,6 @@ public abstract class AbstractManet {
      * @param newNodesAllowed
      */
     public abstract void setNewNodesAllowed(boolean newNodesAllowed);
-
-    /**
-     * Intended to allow the network to reconfigure (i.e. start advertising/discovering again
-     * or maybe reallocate topology) in the event that a device is lost (i.e. fails to meet
-     * health check requirements)
-     * @param node
-     */
-    public abstract void onNodeLost(SqAnDevice node);
 
     public final static AbstractManet newFromType(Handler handler, Context context, ManetListener listener, ManetType type) {
         switch (type) {
@@ -185,34 +178,36 @@ public abstract class AbstractManet {
         }
         setStatus(Status.CONNECTED);
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
-        if ((packet instanceof PingPacket) && packet.isDirectFromOrigin()) {
-            if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
-                Log.e(Config.TAG,"PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
-                return;
-            }
-            PingPacket pingPacket = (PingPacket)packet;
-            if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
-                pingPacket.setDestination(pingPacket.getOrigin());
-                CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());
-                pingPacket.setMidpointLocalTime(System.currentTimeMillis());
-                try {
-                    burst(pingPacket, device);
-                } catch (ManetException e) {
-                    CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error handling Ping request "+e.getMessage());
+        if (packet.isDirectFromOrigin()) {
+            if (packet instanceof PingPacket) {
+                if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
+                    Log.e(Config.TAG, "PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
                     return;
                 }
-            } else {
-                device.addLatencyMeasurement(pingPacket.getLatency());
-                CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
+                PingPacket pingPacket = (PingPacket) packet;
+                if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
+                    pingPacket.setDestination(pingPacket.getOrigin());
+                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());
+                    pingPacket.setMidpointLocalTime(System.currentTimeMillis());
+                    try {
+                        burst(pingPacket, device);
+                    } catch (ManetException e) {
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Error handling Ping request " + e.getMessage());
+                        return;
+                    }
+                } else {
+                    device.addLatencyMeasurement(pingPacket.getLatency());
+                    CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
+                }
+                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+                device.setConnected();
+                Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
+                if (teammate != null)
+                    teammate.update(device.getCallsign(), System.currentTimeMillis());
+                if (listener != null)
+                    listener.updateDeviceUi(device);
+                return;
             }
-            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-            device.setConnected();
-            Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
-            if (teammate != null)
-                teammate.update(device.getCallsign(),System.currentTimeMillis());
-            if (listener != null)
-                listener.updateDeviceUi(device);
-            return;
         }
         if (device == null) {
             String callsign = null;
@@ -246,7 +241,14 @@ public abstract class AbstractManet {
             listener.updateDeviceUi(device);
         if (listener != null)
             listener.onRx(packet);
+        if (packet instanceof DisconnectingPacket)
+            onDeviceLost(device,packet.isDirectFromOrigin());
     }
+
+    /**
+     * This device's hub (if this MANET is in a spoke/hub architecture) has become disconnected
+     */
+    protected abstract void onDeviceLost(SqAnDevice device, boolean directConnection);
 
     public Status getStatus() { return status; }
 

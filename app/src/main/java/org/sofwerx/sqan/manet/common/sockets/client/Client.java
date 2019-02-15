@@ -27,9 +27,6 @@ public class Client extends Thread {
     private SocketChannel uplink;
     private SocketChannel downlink;
     private SocketTransceiver datalink = null;
-    //private LinkHealthListener linkHealthListener = null;
-    //private MdxPacketListener packetListener = null;
-    //private LinkHealth health = LinkHealth.UNKNOWN;
     private static Handler handler;
     private static Looper looper;
     private long linkStartTime = Long.MIN_VALUE;
@@ -119,44 +116,16 @@ public class Client extends Thread {
         if ((handler != null) && (packet != null)) {
             handler.post(() -> {
                 if ((uplink != null) && uplink.isConnected()) {
-                    //if ((datalink != null) && (tryEvenIfLinkInErrorState || ((datalink.getHealth() == LinkHealth.IDLE) || (datalink.getHealth() == LinkHealth.ACTIVE)))) {
                     if (datalink != null) {
                         try {
                             datalink.queue(packet, uplink,listener);
-                            /*if (health != LinkHealth.ACTIVE) {
-                                if (health != LinkHealth.IDLE)
-                                    MdxService.log.log(MissionLogging.Category.COMMS, "Burst sent to " + ((config == null) ? DEFAULT_LINK_NAME : config.getIp()) + " - link health changed to ACTIVE");
-                                health = LinkHealth.ACTIVE;
-
-                                if (linkHealthListener != null)
-                                    linkHealthListener.onLinkHealthChange(health);
-                            }*/
                         } catch (Exception e) {
                             Log.e(Config.TAG, e.getMessage());
                             buildSocket(); //reset the connection
-                            /*if (health != LinkHealth.ERROR) {
-                                health = LinkHealth.ERROR;
-                                MdxService.log.log(MissionLogging.Category.COMMS, "Unable to send burst to " + ((config == null) ? DEFAULT_LINK_NAME : config.getIp()) + " - link error");
-                                if (linkHealthListener != null)
-                                    linkHealthListener.onLinkHealthChange(health);
-                            } else {
-                                if (linkHealthListener != null)
-                                    linkHealthListener.onCommsFailure();
-                            }*/
                         }
                     } else {
-                        if ((uplink == null) || (datalink == null) || !uplink.isConnected()) {
+                        if ((uplink == null) || (datalink == null) || !uplink.isConnected())
                             buildSocket(); //reset the connection
-                            /*if (health != LinkHealth.ERROR) {
-                                health = LinkHealth.ERROR;
-                                MdxService.log.log(MissionLogging.Category.COMMS, "Unable to send burst to " + ((config == null) ? DEFAULT_LINK_NAME : config.getIp()) + " - link error");
-                                if (linkHealthListener != null)
-                                    linkHealthListener.onLinkHealthChange(health);
-                            } else {
-                                if (linkHealthListener != null)
-                                    linkHealthListener.onCommsFailure();
-                            }*/
-                        }
                         Log.d(Config.TAG, "Not sending burst; datalink is null");
                     }
                 } else {
@@ -184,20 +153,8 @@ public class Client extends Thread {
                 uplink = SocketChannel.open(address);
                 downlink = uplink;
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"Operating as a Client");
-                /*if (health != LinkHealth.IDLE) {
-                    health = LinkHealth.IDLE;
-                    MdxService.log.log(MissionLogging.Category.COMMS,"Link to "+config.getIp()+" established");
-                    if (linkHealthListener != null)
-                        linkHealthListener.onLinkHealthChange(health);
-                }*/
             } catch (IOException e) {
                 CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error initiating uplink: "+e.getMessage());
-                /*if (health != LinkHealth.ERROR) {
-                    health = LinkHealth.ERROR;
-                    MdxService.log.log(MissionLogging.Category.COMMS,"Unable to initiate link to "+config.getIp());
-                    if (linkHealthListener != null)
-                        linkHealthListener.onLinkHealthChange(health);
-                }*/
                 try {
                     uplink.close();
                 } catch (Throwable t) {
@@ -261,13 +218,6 @@ public class Client extends Thread {
         Log.d(Config.TAG,"terminating socket link");
         if (sendHangup)
             sendHangup();
-        /*if (health != LinkHealth.OFF) {
-            health = LinkHealth.OFF;
-            if (linkHealthListener != null) {
-                linkHealthListener.onLinkHealthChange(health);
-            }
-        }
-        linkHealthListener = null;*/
         if (downlinkThread != null) {
             downlinkThread.stopLink();
             downlinkThread = null;
@@ -289,7 +239,6 @@ public class Client extends Thread {
         if (datalink != null) {
             datalink.closeAll();
             datalink = null;
-            //MdxService.log.log(MissionLogging.Category.COMMS,"Link to "+((config == null)?DEFAULT_LINK_NAME:config.getIp())+" terminated");
         }
         config = null;
     }
