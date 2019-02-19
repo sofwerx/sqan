@@ -28,7 +28,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
-//FIXME establishing a connection with a client, then shutting down the app, then resstarting the app leads to a problem with the port not being released and the server restart not fully taking
+//FIXME establishing a connection with a client, then shutting down the app, then restarting the app leads to a problem with the port not being released and the server restart not fully taking
 
 /**
  * The Server to host Clients over TCP/IP
@@ -88,6 +88,7 @@ public class Server {
         final InetSocketAddress address = new InetSocketAddress(config.getPort());
         this.server = ServerSocketChannel.open();
         server.configureBlocking(false);
+        //server.setOption(StandardSocketOptions.SO_REUSEADDR, true); //used to prevent blocking on port when rapidly cycling server on and off
         boolean bindComplete = false;
         for (int i = 0; i < 3; ++i) {
             try {
@@ -181,12 +182,12 @@ public class Server {
                 handler = new Handler(serverThread.getLooper());
                 keepRunning = true;
                 restart = true;
-                while (keepRunning) {
+                //while (keepRunning) {
                     try {
                         buildServer();
                         readAndProcess();
                     } catch (Throwable t) {
-                        if (restart) {
+                /*        if (restart) {
                             CommsLog.log(CommsLog.Entry.Category.STATUS, "Could not start server; shutting server down...");
                             Log.w(Config.TAG, t.getMessage());
                             restart = false;
@@ -203,12 +204,16 @@ public class Server {
                             } catch (IOException ignore) {
                             }
                         } else {
+                *///            keepRunning = false;
                             CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Severe processing error while running in Server mode");
-                            close();
-                            break; //TODO maybe don't fall out when this fails...
-                        }
+                            if (listener == null)
+                                close(false);
+                            else
+                                listener.onServerFatalError();
+                //            break;
+                //        }
                     }
-                }
+                //}
             }
         };
         serverThread.start();
@@ -237,12 +242,13 @@ public class Server {
         }
     }
 
-    public void close() {
+    public void close(final boolean announce) {
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
         if (handler != null) {
             handler.removeCallbacks(null);
             handler.post(() -> {
-                burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
+                if (announce)
+                    burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
                 Log.d(Config.TAG, "Server shutting down...");
                 keepRunning = false;
                 if (selector != null) {
@@ -263,6 +269,8 @@ public class Server {
                 }
                 if (serverThread != null)
                     serverThread.quitSafely();
+                if (listener != null)
+                    listener.onServerClosed();
             });
         } else {
             keepRunning = false;
@@ -285,6 +293,8 @@ public class Server {
             }
             if (serverThread != null)
                 serverThread.quit();
+            if (listener != null)
+                listener.onServerClosed();
         }
     }
 }

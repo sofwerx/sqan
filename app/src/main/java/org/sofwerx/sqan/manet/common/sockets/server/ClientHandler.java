@@ -291,6 +291,8 @@ public class ClientHandler {
                 readBuffer = null;
                 challengeBuffer = null;
                 readState = ReadState.INACTIVE;
+                if (listener != null)
+                    listener.onNewClient(clientDevice);
                 return false;
             /*}
 

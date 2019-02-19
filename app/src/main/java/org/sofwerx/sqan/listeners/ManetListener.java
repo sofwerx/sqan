@@ -41,4 +41,9 @@ public interface ManetListener {
      * @param device
      */
     void updateDeviceUi(SqAnDevice device);
+
+    /**
+     * Called once this device has been authenticated on a new net
+     */
+    void onAuthenticatedOnNet();
 }

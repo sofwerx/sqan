@@ -167,7 +167,9 @@ public abstract class AbstractManet {
      * Disconnect from the MANET (i.e. stop/shutdown - release any resources needed to connect with
      * the MANET)
      */
-    public abstract void disconnect() throws ManetException;
+    public void disconnect() throws ManetException {
+        isRunning.set(false);
+    }
 
     public void onReceived(AbstractPacket packet) {
         if (packet == null)
@@ -258,4 +260,9 @@ public abstract class AbstractManet {
     public abstract void executePeriodicTasks();
 
     public ManetListener getListener() { return listener; };
+
+    public void onAuthenticatedOnNet() {
+        if (listener != null)
+            listener.onAuthenticatedOnNet();
+    }
 }

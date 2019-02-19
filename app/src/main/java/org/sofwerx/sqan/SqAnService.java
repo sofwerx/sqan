@@ -145,7 +145,13 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         lastPositiveOutgoingComms = System.currentTimeMillis();
     }
 
-    public void requestHeartbeat() {
+    public void requestHeartbeat() { requestHeartbeat(false); }
+
+    public void requestHeartbeat(boolean force) {
+        if (force) {
+            burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
+            return;
+        }
         if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
             //TODO make some more sophisticated needs-based method rather than just cycling through different types of heartbeats
             if (lastHeartbeatLevel == 0)

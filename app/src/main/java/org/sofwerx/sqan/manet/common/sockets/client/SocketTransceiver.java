@@ -27,10 +27,8 @@ public class SocketTransceiver {
     private ByteBuffer inputBuffer;
     private final SocketChannelConfig config;
     private ClientState state;
-    //private static final AtomicLong CHANNEL = new AtomicLong(0l);
     private static final int MAX_QUEUE_SLOTS = 10;
-    //private final long identifier = CHANNEL.incrementAndGet();
-    private SocketChannel socket;
+    //private SocketChannel socket;
     private final PacketParser parser;
     private enum ClientState {
         READING_BODY, READING_CHALLENGE
@@ -58,11 +56,11 @@ public class SocketTransceiver {
     }
 
     public void closeAll() {
-        try {
+        /*try {
             if (socket != null)
                 socket.close();
         } catch (IOException ignore) {
-        }
+        }*/
     }
 
     public boolean isReadyToWrite() {
@@ -103,8 +101,6 @@ public class SocketTransceiver {
     }
 
     private boolean parseMessage(ReadableByteChannel channel) throws IOException {
-        //Log.d(Config.TAG,"SocketTransceiver.parseMessage()");
-        //synchronized (channel) {
         if ((channel == null) || !channel.isOpen()) //channel is now closed
             return false;
         ByteBuffer preambleBuffer = ByteBuffer.allocate(4);
@@ -150,6 +146,8 @@ public class SocketTransceiver {
                 Log.d(Config.TAG,"Writing challenge response");
                 immediateOutput(response, output);
                 state = ClientState.READING_BODY;
+                if (parser != null)
+                    parser.getManet().onAuthenticatedOnNet();
             } catch (UnsupportedEncodingException ignore) {
             }
         }

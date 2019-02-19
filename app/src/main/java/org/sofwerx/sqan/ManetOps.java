@@ -16,8 +16,6 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.ChannelBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
-import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
-import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
@@ -120,6 +118,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Shutdown the MANET and frees all resources
      */
     public void shutdown() {
+        Log.d(Config.TAG,"ManetOps disconnecting...");
         IpcBroadcastTransceiver.unregister(sqAnService);
         shouldBeActive = false;
         if (manet != null) {
@@ -268,7 +267,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         if (sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
         if ((device != null) && device.isActive())
-            sqAnService.requestHeartbeat();
+            sqAnService.requestHeartbeat(true);
         sqAnService.notifyStatusChange(null);
     }
 
@@ -276,6 +275,11 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void updateDeviceUi(SqAnDevice device) {
         if (sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
+    }
+
+    @Override
+    public void onAuthenticatedOnNet() {
+        sqAnService.requestHeartbeat(true);
     }
 
     public Status getStatus() {
