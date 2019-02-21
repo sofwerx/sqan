@@ -2,4 +2,6 @@
 <resources>
     <declare-styleable name="DevicesList"/>
     <declare-styleable name="DeviceSummary"/>
+    <declare-styleable name="StoredTeammatesList"/>
+    <declare-styleable name="StoredTeammateSummary"/>
 </resources>

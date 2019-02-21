@@ -1,5 +1,7 @@
 package org.sofwerx.sqan.manet.common;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.location.Location;
 import android.util.Log;
 
@@ -23,6 +25,7 @@ public class SqAnDevice {
     private int uuid; //this is the persistent SqAN ID for this device
     private String callsign; //this is the callsign which also acts as the domain name for this device
     private String uuidExtended; //this is the persistent ID for this device used solely to look for conflicts
+    private MacAddress bluetoothMac;
     private String networkId; //this is the transient MANET ID for this device
     //private int sqanAddress; //this is the transient SqAN address for this device; usually a translation of the IPV4 address
     private long lastConnect = Long.MIN_VALUE;
@@ -37,6 +40,27 @@ public class SqAnDevice {
     private DeviceSummary uiSummary = null;
     private NodeRole roleWiFi = NodeRole.OFF;
     private NodeRole roleBT = NodeRole.OFF;
+
+    /**
+     * Gets this device's bluetooth MAC address
+     * @return
+     */
+    public MacAddress getBluetoothMac() {
+        return bluetoothMac;
+    }
+
+    /**
+     * Sets this device's bluetooth MAC address
+     * @param mac
+     */
+    public void setBluetoothMac(String mac) {
+        if ((mac == null) || !BluetoothAdapter.checkBluetoothAddress(mac)) {
+            Log.e(Config.TAG,"MAC address "+mac+" is not a valid Bluetooth mac address");
+            bluetoothMac = null;
+            return;
+        }
+        bluetoothMac = new MacAddress(mac);
+    }
 
     public static enum NodeRole { HUB, SPOKE, OFF }
 

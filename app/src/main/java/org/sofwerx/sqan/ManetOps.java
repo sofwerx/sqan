@@ -1,15 +1,13 @@
 package org.sofwerx.sqan;
 
-import android.app.AlarmManager;
-import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.bt.BtManet;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
@@ -69,6 +67,10 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
                     case 3:
                         manet = new WiFiDirectManet(handler,sqAnService,manetOps);
+                        break;
+
+                    case 4:
+                        manet = new BtManet(handler,sqAnService,manetOps);
                         break;
 
                     default:

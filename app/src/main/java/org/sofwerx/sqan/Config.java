@@ -7,6 +7,7 @@ import android.preference.PreferenceManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.CommsLog;
@@ -168,11 +169,14 @@ public class Config {
         return savedTeammates.size();
     }
 
+    public static ArrayList<SavedTeammate> getSavedTeammates() { return savedTeammates; }
+
     public static class SavedTeammate {
         private String callsign;
         private int sqAnAddress;
         private String netID;
         private long lastContact;
+        private MacAddress bluetoothMac;
 
         public SavedTeammate(JSONObject obj) {
             parseJSON(obj);
@@ -186,6 +190,7 @@ public class Config {
         }
 
         public void setCallsign(String callsign) { this.callsign = callsign; }
+        public void setBluetoothMac(MacAddress mac) { this.bluetoothMac = mac; }
 
         public void update(SavedTeammate other) {
             if (other != null)
@@ -206,6 +211,8 @@ public class Config {
                 obj.putOpt("netID",netID);
                 obj.put("sqAnAddress",sqAnAddress);
                 obj.put("lastContact",lastContact);
+                if (bluetoothMac != null)
+                    obj.put("btMac",bluetoothMac.toString());
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -218,11 +225,15 @@ public class Config {
                 netID = obj.optString("netID");
                 sqAnAddress = obj.optInt("sqAnAddress",PacketHeader.BROADCAST_ADDRESS);
                 lastContact = obj.optLong("lastContact",Long.MIN_VALUE);
+                String bluetoothMacString = obj.optString("btMac",null);
+                bluetoothMac = MacAddress.build(bluetoothMacString);
             }
         }
 
         public String getCallsign() { return callsign; }
-
         public int getSqAnAddress() { return sqAnAddress; }
+        public long getLastContact() { return lastContact; }
+        public MacAddress getBluetoothMac() { return bluetoothMac; }
+        public String getNetID() { return netID; }
     }
 }

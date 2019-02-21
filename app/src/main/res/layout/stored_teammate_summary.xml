@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:id="@+id/teammateHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toTopOf="parent"
+        android:background="@drawable/lr_blue_gradient">
+
+        <ImageView
+            android:id="@+id/teammateTypeIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_android"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:tint="@color/white_hint_green" />
+
+        <TextView
+            android:id="@+id/teammateCallsign"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:padding="2dp"
+            android:text="@string/callsign"
+            android:textColor="@color/yellow"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+
+    <ImageView
+        android:id="@+id/teammateFix"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_fix"
+        android:tint="@color/white"
+        android:padding="4dp"
+        app:layout_constraintTop_toBottomOf="@id/teammateHeader"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ImageView
+        android:id="@+id/teammateForget"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_delete"
+        android:tint="@color/white"
+        android:padding="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TableLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toBottomOf="@id/teammateHeader"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/teammateFix"
+        android:background="@drawable/bg_item_2_yellow">
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:layout_height="32dp"
+                android:layout_width="32dp"
+                android:src="@drawable/ic_notification"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white_hint_green"
+                android:layout_gravity="center_vertical"
+                android:text="SqAN UUID"
+                android:padding="4dp" />
+
+            <TextView
+                android:id="@+id/teammateUUID"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp"/>
+
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/teammateIconLast"
+                android:layout_height="32dp"
+                android:layout_width="32dp"
+                android:src="@drawable/ic_ping"
+                android:tint="@color/green"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white_hint_green"
+                android:text="Last Connected"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp" />
+
+            <TextView
+                android:id="@+id/teammateLast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp"/>
+
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/teammateIconWiFi"
+                android:layout_height="32dp"
+                android:layout_width="32dp"
+                android:src="@drawable/ic_wifi_green"
+                android:tint="@color/green"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white_hint_green"
+                android:text="WiFi"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp" />
+
+            <TextView
+                android:id="@+id/teammateWiFi"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp"/>
+
+        </TableRow>
+
+        <TableRow
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/teammateIconBt"
+                android:layout_height="32dp"
+                android:layout_width="32dp"
+                android:src="@drawable/ic_bt_green"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white_hint_green"
+                android:text="Bluetooth"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp" />
+
+            <TextView
+                android:id="@+id/teammateBt"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:padding="4dp"/>
+
+        </TableRow>
+    </TableLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

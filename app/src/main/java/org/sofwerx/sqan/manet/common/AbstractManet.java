@@ -8,6 +8,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.manet.bt.BtManet;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
@@ -87,6 +88,9 @@ public abstract class AbstractManet {
 
             case WIFI_DIRECT:
                 return new WiFiDirectManet(handler, context, listener);
+
+            case BT_ONLY:
+                return new BtManet(handler, context, listener);
 
             default:
                 return null;

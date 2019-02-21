@@ -310,6 +310,10 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 startActivity(new Intent(this, AboutActivity.class));
                 return true;
 
+            case R.id.action_saved_teammates:
+                startActivity(new Intent(this, StoredTeammatesActivity.class));
+                return true;
+
             case R.id.action_settings:
                 startActivity(new Intent(this, SettingsActivity.class));
                 return true;

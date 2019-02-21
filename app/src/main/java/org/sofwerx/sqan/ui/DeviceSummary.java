@@ -19,9 +19,8 @@ import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
 
-public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayInterface*/ {
+public class DeviceSummary extends ConstraintLayout {
     private TextView callsign, uuid, description;
-    //private ImageView iconActivity;
     private ImageView iconConnectivity;
     private ImageView iconPower;
     private ImageView iconLink;
@@ -86,10 +85,7 @@ public class DeviceSummary extends ConstraintLayout /*implements DeviceDisplayIn
                 out.append(device.getNetworkId());
             }
             out.append(')');
-            //if (device.getCallsign() == null)
-            //    callsign.setText(null);
-            //else
-                callsign.setText(device.getCallsign());
+            callsign.setText(device.getCallsign());
             uuid.setText(out.toString());
             StringWriter descOut = new StringWriter();
             descOut.append("Rx: ");
