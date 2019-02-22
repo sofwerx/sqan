@@ -1,55 +1,16 @@
 package org.sofwerx.sqan.ui;
 
-import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.net.ConnectivityManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.IBinder;
-import android.os.PowerManager;
-import android.provider.Settings;
-import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.widget.ImageView;
-import android.widget.Switch;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.ExceptionHelper;
-import org.sofwerx.sqan.LocationService;
-import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
-import org.sofwerx.sqan.SqAnService;
-import org.sofwerx.sqan.listeners.SqAnStatusListener;
-import org.sofwerx.sqan.manet.common.AbstractManet;
-import org.sofwerx.sqan.manet.common.SqAnDevice;
-import org.sofwerx.sqan.manet.common.Status;
-import org.sofwerx.sqan.manet.common.StatusHelper;
-import org.sofwerx.sqan.util.CommsLog;
-import org.sofwerx.sqan.util.PermissionsHelper;
-import org.sofwerx.sqan.util.StringUtil;
-
-import java.io.StringWriter;
-import java.util.ArrayList;
+import org.sofwerx.sqan.manet.bt.Discovery;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
-
-public class StoredTeammatesActivity extends AppCompatActivity {
-    private boolean permissionsNagFired = false; //used to request permissions from user
+public class StoredTeammatesActivity extends AppCompatActivity implements StoredTeammateChangeListener {
     private StoredTeammatesList teammatesList;
+    private Discovery btDiscovery;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,12 +22,48 @@ public class StoredTeammatesActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
+        updateDisplay();
+    }
+
+    private void updateDisplay() {
         teammatesList.update(null);
+        int num = Config.getNumberOfSavedTeammates();
+        if (num < 1)
+            setTitle("No Stored Teammates");
+        else {
+            if (num == 1)
+                setTitle("Stored Teammate");
+            else
+                setTitle(num+" Stored Teammates");
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        if (btDiscovery != null) {
+            btDiscovery.stopDiscovery();
+            btDiscovery.stopAdvertising();
+            btDiscovery = null;
+        }
+        super.onDestroy();
     }
 
     @Override
     public void onPause() {
         super.onPause();
+    }
+
+    @Override
+    public void onTeammateChanged(Config.SavedTeammate teammate) {
+        runOnUiThread(() -> updateDisplay());
+    }
+
+    @Override
+    public void onDiscoveryNeeded() {
+        if (btDiscovery == null)
+            btDiscovery = new Discovery(this);
+        btDiscovery.startAdvertising();
+        btDiscovery.startDiscovery();
     }
 
     /*public boolean onCreateOptionsMenu(Menu menu) {

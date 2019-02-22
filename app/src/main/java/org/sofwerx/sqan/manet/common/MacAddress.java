@@ -46,7 +46,7 @@ public class MacAddress {
                     first = false;
                 else
                     sb.append(':');
-                sb.append(String.format("%02X ", b));
+                sb.append(String.format("%02X", b));
             }
             return sb.toString();
         }
@@ -61,13 +61,18 @@ public class MacAddress {
     public static byte[] macToByteArray(String mac) {
         if (mac == null)
             return null;
+        mac = mac.replace(" ","");
         String[] parts = mac.split(":");
         if (parts.length != MAC_BYTE_SIZE)
             return null;
         byte[] macAddressBytes = new byte[6];
         for(int i=0; i<6; i++){
-            Integer hex = Integer.parseInt(parts[i], 16);
-            macAddressBytes[i] = hex.byteValue();
+            try {
+                Integer hex = Integer.parseInt(parts[i], 16);
+                macAddressBytes[i] = hex.byteValue();
+            } catch (NumberFormatException e) {
+                macAddressBytes[i] = 0;
+            }
         }
         return macAddressBytes;
     }

@@ -150,7 +150,7 @@ public class Config {
         savedTeammates = null;
     }
 
-    public static void saveTeammate(int sqAnAddress, String netID, String callsign) {
+    public static SavedTeammate saveTeammate(int sqAnAddress, String netID, String callsign) {
         SavedTeammate savedTeammate = getTeammate(sqAnAddress);
         if (savedTeammate == null) {
             savedTeammate = new SavedTeammate(sqAnAddress, netID);
@@ -161,6 +161,7 @@ public class Config {
             CommsLog.log(CommsLog.Entry.Category.COMMS,((callsign == null)?sqAnAddress:(callsign+"("+sqAnAddress+")"))+" saved as a teammate");
         } else
             savedTeammate.update(callsign,System.currentTimeMillis());
+        return savedTeammate;
     }
 
     public static int getNumberOfSavedTeammates() {
@@ -170,6 +171,11 @@ public class Config {
     }
 
     public static ArrayList<SavedTeammate> getSavedTeammates() { return savedTeammates; }
+
+    public static void removeTeammate(SavedTeammate teammate) {
+        if ((teammate != null) && (savedTeammates != null))
+            savedTeammates.remove(teammate);
+    }
 
     public static class SavedTeammate {
         private String callsign;
@@ -196,6 +202,8 @@ public class Config {
             if (other != null)
                 update(other.callsign, other.lastContact);
         }
+
+        public void update() { lastContact = System.currentTimeMillis(); }
 
         public void update(String callsign, long lastContact) {
             if (callsign != null)

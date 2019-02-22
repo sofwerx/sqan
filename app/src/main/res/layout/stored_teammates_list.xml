@@ -5,11 +5,15 @@
 
     <ListView
         android:id="@+id/teammatesList"
-        android:fadingEdgeLength="20dp"
-        android:fadingEdge="vertical"
-        android:requiresFadingEdge="vertical"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent"
+        android:divider="@color/light_grey"
+        android:dividerHeight="2dp"
+        android:fadingEdge="vertical"
+        android:fadingEdgeLength="20dp"
+        android:footerDividersEnabled="false"
+        android:headerDividersEnabled="false"
+        android:requiresFadingEdge="vertical" />
 
     <LinearLayout
         android:id="@+id/teammatesNoDevices"

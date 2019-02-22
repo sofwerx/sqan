@@ -68,9 +68,6 @@ public class BtManet extends AbstractManet {
         final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
         thisDeviceUuid = getUUID(Config.getThisDevice());
-
-        //FIXME hey dummy! you're making a teamates list and teamates activity and then triggering any bluetooth fixes from there
-            //then try to connect to teamates base on most recent to last seen
     }
 
     @Override

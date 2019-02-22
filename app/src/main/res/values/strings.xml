@@ -34,4 +34,8 @@
     <string name="shutdown_required">Shutdown required</string>
     <string name="prefs_manet_changed_description">Shutdown SqAN completely to finish changing to the MANET engine.</string>
     <string name="shutdown">Shutdown</string>
+    <string name="forget_teammate">Forget this Device</string>
+    <string name="forget_teammate_description">Forget this device? This cannot be undone and will require you to reconnect to the device before the device is able to join you on SqAN.</string>
+    <string name="forget">Forget Device</string>
+    <string name="keep">Keep Device</string>
 </resources>

@@ -1,6 +1,9 @@
 package org.sofwerx.sqan.ui;
 
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
@@ -8,9 +11,11 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.CommsLog;
@@ -26,6 +31,9 @@ public class StoredTeammateSummary extends ConstraintLayout {
     private TextView callsign, uuid, bt, wifi, last;
     private ImageView iconTrash, iconFix;
     private ImageView iconBt, iconWiFi, iconLast;
+    private StoredTeammateChangeListener listener;
+    private Config.SavedTeammate teammate;
+    private Activity activity;
 
     public StoredTeammateSummary(@NonNull Context context) {
         super(context);
@@ -43,6 +51,8 @@ public class StoredTeammateSummary extends ConstraintLayout {
     }
 
     private void init(Context context) {
+        if (context instanceof Activity)
+            activity = (Activity)context;
         View view = inflate(context,R.layout.stored_teammate_summary,this);
         callsign = view.findViewById(R.id.teammateCallsign);
         uuid = view.findViewById(R.id.teammateUUID);
@@ -54,12 +64,38 @@ public class StoredTeammateSummary extends ConstraintLayout {
         iconWiFi = view.findViewById(R.id.teammateIconWiFi);
         iconBt = view.findViewById(R.id.teammateIconBt);
         iconLast = view.findViewById(R.id.teammateIconLast);
+        if (context instanceof StoredTeammateChangeListener)
+            listener = (StoredTeammateChangeListener)context;
+        else
+            listener = null;
+        if (listener == null)
+            iconTrash.setVisibility(View.INVISIBLE);
+        else {
+            iconTrash.setVisibility(View.VISIBLE);
+            iconTrash.setOnClickListener(v -> new AlertDialog.Builder(context)
+                    .setTitle(R.string.forget_teammate)
+                    .setMessage(R.string.forget_teammate_description)
+                    .setNegativeButton(R.string.forget, (dialog, which) -> {
+                        Config.removeTeammate(teammate);
+                        if (listener != null)
+                            listener.onTeammateChanged(null);
+                    })
+                    .setPositiveButton(R.string.keep, (dialog, which) -> dialog.dismiss()).create().show());
+        }
+        iconFix.setOnClickListener(v -> {
+            if (listener != null)
+                listener.onDiscoveryNeeded();
+        });
     }
 
     public void update(Config.SavedTeammate teammate) {
+        this.teammate = teammate;
         if (teammate != null) {
             boolean needsRepair = false;
-            callsign.setText(teammate.getCallsign());
+            if (teammate.getCallsign() == null)
+                callsign.setText("[unknown callsign]");
+            else
+                callsign.setText(teammate.getCallsign());
             uuid.setText(Integer.toString(teammate.getSqAnAddress()));
             if (teammate.getLastContact() > 0l) {
                 if ((System.currentTimeMillis() - teammate.getLastContact()) > RECENT_TIME)
@@ -87,7 +123,10 @@ public class StoredTeammateSummary extends ConstraintLayout {
                 wifi.setText(teammate.getNetID());
                 iconWiFi.setColorFilter(getResources().getColor(R.color.green));
             }
-            iconFix.setVisibility(needsRepair?View.VISIBLE:View.INVISIBLE);
+            if (activity == null)
+                iconFix.setVisibility(View.INVISIBLE);
+            else
+                iconFix.setVisibility(needsRepair?View.VISIBLE:View.INVISIBLE);
         } else
             Log.e(Config.TAG,"StoredTeammateSummary has been assigned a null teammate - this should never happen");
     }
