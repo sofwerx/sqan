@@ -83,4 +83,14 @@ public class MacAddress {
             return address;
         return null;
     }
+
+    public boolean isEqual(MacAddress other) {
+        if ((other == null) || (other.bytes == null) || (bytes == null) || (bytes.length != other.bytes.length))
+            return false;
+        for (int i=0;i<bytes.length;i++) {
+            if (bytes[i] != other.bytes[i])
+                return false;
+        }
+        return true;
+    }
 }

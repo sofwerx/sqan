@@ -14,6 +14,7 @@ import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
+import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
@@ -33,6 +34,7 @@ public abstract class AbstractManet {
     protected AtomicBoolean isRunning = new AtomicBoolean(false);
     protected final Context context;
     protected final Handler handler;
+    protected final PacketParser parser;
 
     //TODO look to add support for the WiFi Round Trip Timing API for spacing
     //https://developer.android.com/guide/topics/connectivity/wifi-rtt
@@ -48,6 +50,7 @@ public abstract class AbstractManet {
         this.context = context;
         this.listener = listener;
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
+        parser = new PacketParser(this);
     }
 
     /**

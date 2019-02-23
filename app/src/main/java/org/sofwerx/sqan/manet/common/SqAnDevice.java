@@ -553,13 +553,31 @@ public class SqAnDevice {
     /**
      * Finds a device in the list of devices based on NetworkID
      * @param networkId
-     * @return the device (or null if NetworkID is not found)
+     * @return the device (or null if not found)
      */
     public static SqAnDevice findByNetworkID(String networkId) {
         if ((networkId != null) && (devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
                 if ((device.networkId != null) && device.networkId.equalsIgnoreCase(networkId))
                     return device;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds a device in the list of devices based on Bluetooth MAC
+     * @param macString Bluetooth MAC
+     * @return the device (or null if not found)
+     */
+    public static SqAnDevice findByBtMac(String macString) {
+        if ((macString != null) && (devices != null) && !devices.isEmpty()) {
+            MacAddress mac = MacAddress.build(macString);
+            if (mac != null) {
+                for (SqAnDevice device : devices) {
+                    if (mac.isEqual(device.bluetoothMac))
+                        return device;
+                }
             }
         }
         return null;

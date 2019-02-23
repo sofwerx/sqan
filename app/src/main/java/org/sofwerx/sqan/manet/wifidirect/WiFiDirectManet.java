@@ -57,7 +57,6 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     private Client socketClient = null;
     private Server socketServer = null;
     private WifiP2pDevice serverDevice = null;
-    private final PacketParser parser;
     private boolean priorWiFiStateEnabled = true;
     private long nextAllowablePeerConnectionAttempt = Long.MIN_VALUE;
     private final static long MIN_TIME_BETWEEN_PEER_CONNECTIONS = 1000l * 10l;
@@ -67,7 +66,6 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         super(handler,context,listener);
         channel = null;
         manager = null;
-        parser = new PacketParser(this);
     }
 
     @Override

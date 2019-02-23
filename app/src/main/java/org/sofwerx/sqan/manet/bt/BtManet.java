@@ -28,6 +28,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.NetUtil;
@@ -36,6 +37,8 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.sockets.PacketParser;
+import org.sofwerx.sqan.manet.common.sockets.server.ClientHandler;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.io.IOException;
@@ -53,7 +56,7 @@ import java.util.UUID;
  *  (https://developer.android.com/guide/topics/connectivity/bluetooth#java)
  *
  */
-public class BtManet extends AbstractManet {
+public class BtManet extends AbstractManet implements BtSocketListener {
     private static final String SERVICE_NAME = "sqan";
     private static final long TIME_TO_CONSIDER_STALE_DEVICE = 1000l * 60l * 5l;
     private BluetoothAdapter bluetoothAdapter;
@@ -104,7 +107,19 @@ public class BtManet extends AbstractManet {
     public void init() throws ManetException {
         isRunning.set(true);
         AcceptThread acceptThread = new AcceptThread();
-        acceptThread.run();
+        acceptThread.start();
+        ArrayList<Config.SavedTeammate> teammates = Config.getSavedTeammates();
+        if ((teammates != null) && !teammates.isEmpty()) {
+            for (Config.SavedTeammate teammate:teammates) {
+                MacAddress mac = teammate.getBluetoothMac();
+                if ((mac != null) && mac.isValid()) {
+                    String macString = mac.toString();
+                    Log.d(Config.TAG,"Attempting to connect to "+macString);
+                    ConnectThread connectThread = new ConnectThread(bluetoothAdapter.getRemoteDevice(macString));
+                    connectThread.start();
+                }
+            }
+        }
         //TODO
     }
 
@@ -193,6 +208,7 @@ public class BtManet extends AbstractManet {
             }
         }
         //clear out stale nodes
+        BtSocketHandler.removeUnresponsiveConnections();
         if ((nodes != null) && !nodes.isEmpty()) {
             Iterator it = nodes.entrySet().iterator();
             long timeToConsiderStale = System.currentTimeMillis() + TIME_TO_CONSIDER_STALE_DEVICE;
@@ -262,7 +278,9 @@ public class BtManet extends AbstractManet {
     }
 
     private void manageMyConnectedSocket(BluetoothSocket socket) {
-        //TODO
+        if (socket == null)
+            return;
+        BtSocketHandler h = new BtSocketHandler(socket, parser, this);
     }
 
     private class ConnectThread extends Thread {
@@ -293,6 +311,8 @@ public class BtManet extends AbstractManet {
                 // Connect to the remote device through the socket. This call blocks
                 // until it succeeds or throws an exception.
                 mmSocket.connect();
+                if (mmSocket.getRemoteDevice() != null)
+                    Log.d(Config.TAG,"BT socket connected to "+mmSocket.getRemoteDevice().getName());
             } catch (IOException connectException) {
                 // Unable to connect; close the socket and return.
                 try {
@@ -333,5 +353,17 @@ public class BtManet extends AbstractManet {
         if ((mac == null) || !BluetoothAdapter.checkBluetoothAddress(mac))
             return null;
         return bluetoothAdapter.getRemoteDevice(mac);
+    }
+
+    @Override
+    public void onConnectionError(String warning) {
+        Log.e(Config.TAG,"BtManet error: "+warning);
+        //TODO
+    }
+
+    @Override
+    public void onBtSocketDisconnected(SqAnDevice device) {
+        Log.d(Config.TAG,"onBtSocketDisconnected");
+        //TODO
     }
 }
