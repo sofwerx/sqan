@@ -151,7 +151,7 @@ public class SpaceTime {
 
     public void parse(byte[] bytes) {
         if ((bytes == null) || (bytes.length != SIZE_IN_BYTES)) {
-            Log.e(Config.TAG,"Unable to parse SpaceTime as "+SIZE_IN_BYTES+"b expected");
+            Log.e(Config.TAG,"Unable to processPacketAndNotifyManet SpaceTime as "+SIZE_IN_BYTES+"b expected");
             return;
         }
         ByteBuffer buf = ByteBuffer.wrap(bytes);

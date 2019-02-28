@@ -54,6 +54,11 @@ public class PingPacket extends AbstractPacket {
         return PacketHeader.PACKET_TYPE_PING;
     }
 
+    @Override
+    public int getApproxSize() {
+        return INTERNAL_LENGTH;
+    }
+
     /**
      * Gets the time when the packet leaves the origination station (in local time)
      * @return departure time (local device time)

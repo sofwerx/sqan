@@ -29,7 +29,7 @@ public class AddressUtil {
      * @return
      */
     public static boolean isApplicableAddress(int sqanAddress, int filterAddress) {
-        if (sqanAddress == PacketHeader.BROADCAST_ADDRESS)
+        if (filterAddress == PacketHeader.BROADCAST_ADDRESS)
             return true;
         return (sqanAddress == filterAddress);
     }

@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 import java.security.NoSuchAlgorithmException;
 
@@ -111,15 +110,15 @@ public class SocketTransceiver {
         preambleBuffer.rewind();
         int size = preambleBuffer.getInt();
         if (size < 0)
-            throw new IOException("SocketTransceiver unable to parse a message with a negative size");
+            throw new IOException("SocketTransceiver unable to processPacketAndNotifyManet a message with a negative size");
         else if (size > MAX_PACKET_SIZE)
-            throw new IOException("SocketTransceiver unable to parse a "+size+"b message, this must be an error");
+            throw new IOException("SocketTransceiver unable to processPacketAndNotifyManet a "+size+"b message, this must be an error");
         else
             Log.d(Config.TAG,"SocketTransceiver received "+size+"b message");
         ByteBuffer data = ByteBuffer.allocate(size);
         while (data.hasRemaining() && (channel.read(data) > 0)) {}
         byte[] payload = data.array();
-        parser.parse(payload);
+        parser.processPacketAndNotifyManet(payload);
         return false;
     }
 

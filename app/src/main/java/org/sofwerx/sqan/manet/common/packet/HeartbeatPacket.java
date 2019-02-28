@@ -16,6 +16,8 @@ public class HeartbeatPacket extends AbstractPacket {
     private SqAnDevice device;
     private DetailLevel detailLevel;
 
+    //FIXME include a list of the devices this device is connected to (and maybe some measure of strength/stability)
+
     public HeartbeatPacket(int originUUID) {
         super(new PacketHeader(originUUID));
         packetHeader.setType(getType());
@@ -49,32 +51,34 @@ public class HeartbeatPacket extends AbstractPacket {
         else {
             ByteBuffer buf = ByteBuffer.wrap(bytes);
             try {
-                device = new SqAnDevice(packetHeader.getOriginUUID());
-                if (buf.remaining() >= SpaceTime.SIZE_IN_BYTES) {
-                    byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
-                    buf.get(spaceTimeBytes);
-                    SpaceTime spaceTime = new SpaceTime();
-                    spaceTime.parse(spaceTimeBytes);
-                    if (!spaceTime.isValid())
-                        spaceTime = null;
-                    device.setLastLocation(spaceTime);
-                } else
-                    return;
-                int callsignSize = buf.getInt();
-                if (callsignSize > 0) {
-                    if (callsignSize > 256) { //that's too big to be a proper callsign
-                        Log.e(Config.TAG,"Heartbeat contained a callsign "+callsignSize+"b long; message was dropped as it is likely an error");
+                if (packetHeader.getOriginUUID() > 0) {
+                    device = new SqAnDevice(packetHeader.getOriginUUID());
+                    if (buf.remaining() >= SpaceTime.SIZE_IN_BYTES) {
+                        byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
+                        buf.get(spaceTimeBytes);
+                        SpaceTime spaceTime = new SpaceTime();
+                        spaceTime.parse(spaceTimeBytes);
+                        if (!spaceTime.isValid())
+                            spaceTime = null;
+                        device.setLastLocation(spaceTime);
+                    } else
                         return;
-                    }
-                    byte[] callsignBytes = new byte[callsignSize];
-                    buf.get(callsignBytes);
-                    try {
-                        device.setCallsign(new String(callsignBytes,"UTF-8"));
-                    } catch (UnsupportedEncodingException ignore) {
+                    int callsignSize = buf.getInt();
+                    if (callsignSize > 0) {
+                        if (callsignSize > 256) { //that's too big to be a proper callsign
+                            Log.e(Config.TAG, "Heartbeat contained a callsign " + callsignSize + "b long; message was dropped as it is likely an error");
+                            return;
+                        }
+                        byte[] callsignBytes = new byte[callsignSize];
+                        buf.get(callsignBytes);
+                        try {
+                            device.setCallsign(new String(callsignBytes, "UTF-8"));
+                        } catch (UnsupportedEncodingException ignore) {
+                        }
                     }
                 }
             } catch (BufferOverflowException e) {
-                Log.e(Config.TAG,"Could not parse Heartbeat: "+e.getMessage());
+                Log.e(Config.TAG,"Could not processPacketAndNotifyManet Heartbeat: "+e.getMessage());
             }
         }
     }
@@ -137,6 +141,23 @@ public class HeartbeatPacket extends AbstractPacket {
     @Override
     protected int getType() {
         return PacketHeader.PACKET_TYPE_HEARTBEAT;
+    }
+
+    @Override
+    public int getApproxSize() {
+        if (detailLevel == null)
+            return 4;
+        switch (detailLevel) {
+            case BASIC:
+                return 4;
+            case MEDIUM:
+                int size = SpaceTime.SIZE_IN_BYTES + 4 + 4;
+                if ((device != null) && (device.getCallsign() != null))
+                    size += device.getCallsign().length();
+                return size;
+            default:
+                return 4;
+        }
     }
 
     @Override

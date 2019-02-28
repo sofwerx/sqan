@@ -1,7 +1,10 @@
 package org.sofwerx.sqan.manet.common.packet;
 
+import android.util.Log;
+
 import org.sofwerx.sqan.util.CommsLog;
 
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
 /**
@@ -17,6 +20,17 @@ public abstract class AbstractPacket {
         this.packetHeader = packetHeader;
     }
 
+    public void incrementHopCount() {
+        if (packetHeader != null)
+            packetHeader.incrementHopCount();
+    }
+
+    public int getCurrentHopCount() {
+        if (packetHeader == null)
+            return 0;
+        return packetHeader.getHopCount();
+    }
+
     /**
      * Provides the device (or PacketHeader.BROADCAST_ADDRESS if broadcasting to all) that
      * is the intended recipient of this packet
@@ -30,35 +44,39 @@ public abstract class AbstractPacket {
 
     //creates a new packet from the byte array
     public static AbstractPacket newFromBytes(byte[] bytes) {
-        if ((bytes == null) || (bytes.length < PacketHeader.getSize())) {
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Unable to generate a packet from the byte array; byte array was not big enough to hold a header");
-        }
-        AbstractPacket packet = null;
-        ByteBuffer reader = ByteBuffer.wrap(bytes);
+        try {
+            if ((bytes == null) || (bytes.length < PacketHeader.getSize())) {
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to generate a packet from the byte array; byte array was not big enough to hold a header");
+            }
+            AbstractPacket packet = null;
+            ByteBuffer reader = ByteBuffer.wrap(bytes);
 
-        byte[] headerBytes = new byte[PacketHeader.getSize()];
-        reader.get(headerBytes);
-        PacketHeader header = PacketHeader.newFromBytes(headerBytes);
+            byte[] headerBytes = new byte[PacketHeader.getSize()];
+            reader.get(headerBytes);
+            PacketHeader header = PacketHeader.newFromBytes(headerBytes);
 
-        if (header == null) {
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Unable to generate a packet header from the byte array");
+            if (header == null) {
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to generate a packet header from the byte array");
+                return null;
+            }
+
+            packet = AbstractPacket.newFromHeader(header);
+            if (packet == null) {
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to generate a packet from the packet header");
+                return null;
+            }
+
+            int len = reader.remaining();
+            if (len > 0) {
+                byte[] packetBytes = new byte[len];
+                reader.get(packetBytes);
+                packet.parse(packetBytes);
+            }
+            reader.clear();
+            return packet;
+        } catch (Exception e) {
             return null;
         }
-
-        packet = AbstractPacket.newFromHeader(header);
-        if (packet == null) {
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Unable to generate a packet from the packet header");
-            return null;
-        }
-
-        int len = reader.remaining();
-        if (len > 0) {
-            byte[] packetBytes = new byte[len];
-            reader.get(packetBytes);
-            packet.parse(packetBytes);
-        }
-        reader.clear();
-        return packet;
     }
 
     public byte[] toByteArray() {
@@ -139,4 +157,11 @@ public abstract class AbstractPacket {
             packetHeader.setDestination(uuid);
         }
     }
+
+    /**
+     * Size reporting for the sake of measuring data flow only; items like headers may not be fully accounted
+     * for. Should NOT be used to do any bytewise operations
+     * @return
+     */
+    public abstract int getApproxSize();
 }

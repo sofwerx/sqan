@@ -15,20 +15,41 @@ public class PacketParser {
     }
     public AbstractManet getManet() { return manet; };
 
-    public void parse(byte[] bytes) {
+    public static SqAnDevice process(AbstractPacket packet) {
+        if (packet == null) {
+            Log.e(Config.TAG, "Could not process the packet as it was null");
+            return null;
+        } else
+            Log.d(Config.TAG,"Processed "+packet.getClass().getName());
+        SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
+        if (device == null) {
+            if (packet.getOrigin() > 0) {
+                device = new SqAnDevice(packet.getOrigin());
+                device.setConnected(packet.getCurrentHopCount());
+            }
+        } else {
+            int hops = device.getHopsAway();
+            if (packet.getCurrentHopCount() < hops)
+                device.setConnected(packet.getCurrentHopCount());
+        }
+        if (device != null)
+            device.addToDataTally(packet.getApproxSize());
+        return device;
+    }
+
+    public SqAnDevice processPacketAndNotifyManet(AbstractPacket packet) {
+        manet.onReceived(packet);
+        return process(packet);
+    }
+
+    @Deprecated
+    public SqAnDevice processPacketAndNotifyManet(byte[] bytes) {
         if (bytes == null) {
-            Log.e(Config.TAG, "PacketParser.parse(null) ignored");
-            return;
+            Log.e(Config.TAG, "PacketParser.processPacketAndNotifyManet(null) ignored");
+            return null;
         }
         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
-        if (packet == null)
-            Log.e(Config.TAG,"Attempted to parse packet but could not parse the "+bytes.length+"b");
-        else
-            Log.d(Config.TAG,"Parsed "+packet.getClass().getName());
-        SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
-        if (device != null)
-            device.addToDataTally(bytes.length);
-        manet.onReceived(packet);
+        return processPacketAndNotifyManet(packet);
     }
 
     public byte[] toBytes(AbstractPacket packet) {

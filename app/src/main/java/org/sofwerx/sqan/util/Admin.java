@@ -3,6 +3,7 @@ package org.sofwerx.sqan.util;
 public class Admin {
     private final static String[] CREDITS = {
             "Some geodesy tools derived from <a href=\"https://github.com/OpenSextant/geodesy\">OpenSextant, MITRE Corporation</a> licensed under <a href=\"http://www.apache.org/licenses/LICENSE-2.0\">Apache License, Version 2.0</a>",
+            "Some bluetooth tools derived from <a href=\"https://github.com/giladHaimov/BTWiz\">BTWiz</a> licensed under <a href=\"http://www.apache.org/licenses/LICENSE-2.0\">Apache License, Version 2.0</a>",
     };
 
     public final static String getCredits() {

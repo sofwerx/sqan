@@ -208,7 +208,7 @@ public class WiFiAwareManet extends AbstractManet {
                 device = new SqAnDevice();
                 device.setNetworkId(Integer.toString(peerHandle.hashCode()));
             }
-            device.setConnected();
+            device.setConnected(0);
         }
         nodes.put(peerHandle,System.currentTimeMillis());
     }

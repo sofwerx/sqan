@@ -4,26 +4,27 @@ import android.bluetooth.BluetoothSocket;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.util.CommsLog;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BtSocketHandler {
+@Deprecated
+public class BtSocketHandler extends Thread {
     private final static int MAX_ALLOWABLE_PACKET_BYTES = 1024*1024*20;
     private static final Map<Integer, BtSocketHandler> HANDLER_MAP = new ConcurrentHashMap<>();
     private static final AtomicInteger ID = new AtomicInteger(0);
@@ -32,28 +33,86 @@ public class BtSocketHandler {
     private static final int SINGLE_READ_MAX_PACKETS = 10;
     public static final Map<Integer, Long> START_TIME_MAP = new HashMap<>();
     private SqAnDevice device = null;
+    private MacAddress mac = null;
     private final PacketParser parser;
     private static BtSocketListener listener;
     private BluetoothSocket socket;
     private byte[] sizeBuffer = new byte[4];
-    private ByteBuffer readBuffer;
+    private ByteBuffer readBuffer, writeBuffer;
     private final BlockingQueue<ByteBuffer> writeQueue = new LinkedBlockingQueue<>();
     private InputStream inputStream;
     private OutputStream outputStream;
+    private boolean keepGoing = false;
 
     public BtSocketHandler(BluetoothSocket socket, PacketParser parser, BtSocketListener listener) {
+        Log.d(Config.TAG,"Creating BtSocketHandler");
         this.socket = socket;
         this.parser = parser;
         BtSocketHandler.listener = listener;
         if (socket == null)
             return;
         if (socket.getRemoteDevice() != null) {
-            device = SqAnDevice.findByBtMac(socket.getRemoteDevice().getAddress());
+            mac = MacAddress.build(socket.getRemoteDevice().getAddress());
+            device = SqAnDevice.findByBtMac(mac);
             CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection established with " + socket.getRemoteDevice().getName());
         }
 
         HANDLER_MAP.put(id, this);
         START_TIME_MAP.put(id, System.currentTimeMillis());
+    }
+
+    public static int getNumConnections() {
+        return HANDLER_MAP.size();
+    }
+
+    /**
+     * Checks to see if this mac is already connected
+     * @param mac
+     * @return
+     */
+    public static boolean isConnected(MacAddress mac) {
+        if (mac == null) {
+            Log.e(Config.TAG,"BtSocketHandler.isConnected() should not be passed a NULL MAC address");
+            return false;
+        }
+        for (BtSocketHandler h : HANDLER_MAP.values()) {
+            if (mac.isEqual(h.mac))
+                return true;
+        }
+        Log.d(Config.TAG,"BtSocketHandler is not yet connected to "+mac.toString());
+        return false;
+    }
+
+    public static void burst(AbstractPacket packet) {
+        if (packet != null) {
+            if (HANDLER_MAP.isEmpty()) {
+                Log.d(Config.TAG,"Ignoring burst as no Bt connections have been established yet");
+                return;
+            }
+            int dest = packet.getSqAnDestination();
+            byte[] bytes = packet.toByteArray();
+            if (bytes != null) {
+                ByteBuffer out = ByteBuffer.allocate(bytes.length + 4);
+                out.putInt(bytes.length);
+                out.put(bytes);
+                addToWriteQue(out, dest);
+            }
+        }
+    }
+
+    public static void removeAllConnections() {
+        Log.d(Config.TAG,"BtSocketHandler.remoreAllConnections()");
+        for (BtSocketHandler h : HANDLER_MAP.values()) {
+            try {
+                h.closeSocket();
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    @Override
+    public void run() {
+        Log.d(Config.TAG,"BtSocketHandler.run()");
         try {
             inputStream = socket.getInputStream();
             outputStream = socket.getOutputStream();
@@ -61,11 +120,51 @@ public class BtSocketHandler {
             if (listener != null)
                 listener.onConnectionError("Unable to connect to socket input or output stream: "+e.getMessage());
             closeSocket();
+            return;
+        }
+        keepGoing = true;
+        boolean firstTime = true;
+        while (keepGoing) {
+            writeBody();
+            firstTime = readBody(firstTime);
+        }
+    }
+
+    private void writeBody() {
+        Log.d(Config.TAG,"BtSocketHandler ready to write");
+        while (true) { // write as many packets as possible
+            if (writeBuffer == null) {
+                writeBuffer = writeQueue.poll();
+                if (writeBuffer == null) {
+                    Log.d(Config.TAG, "BtSocketHandler writeBuffer null");
+                    break;
+                } else
+                    Log.d(Config.TAG, "BtSocketHandler writeQueue size "+writeQueue.size());
+            }
+            try {
+                writeBuffer.rewind();
+                Log.d(Config.TAG, "BtSocketHandler WRITING buffer of size "+writeBuffer.limit()+"b, pos "+writeBuffer.position());
+                outputStream.write(writeBuffer.array());
+                //while (writeBuffer.hasRemaining() && (outputStream.write(writeBuffer) > 0)) {
+                //}
+                if (writeBuffer.hasRemaining()) {
+                    break; // nothing more to do
+                }
+                writeBuffer = null;
+                // and loop around to grab the next buffer
+            } catch (Throwable t) {
+                String warning = "#" + id + ": Error writing packet from client #"+ id + " (closing)";
+                Log.e(Config.TAG, warning, t);
+                if (listener != null)
+                    listener.onConnectionError(warning);
+                closeSocket();
+                break;
+            }
         }
     }
 
     public static void removeUnresponsiveConnections() {
-        long now = System.currentTimeMillis();
+        /*TODO long now = System.currentTimeMillis();
         Iterator<Map.Entry<Integer, Long>> i = START_TIME_MAP.entrySet().iterator();
         while (i.hasNext()) {
             Map.Entry<Integer, Long> entry = i.next();
@@ -82,12 +181,11 @@ public class BtSocketHandler {
                 }
                 i.remove();
             }
-        }
-        //if (listener != null)
-        //    listener.onServerNumberOfConnections(HANDLER_MAP.size());
+        }*/
     }
 
     private void closeSocket() {
+        keepGoing = false;
         try {
             try {
                 if (inputStream != null) {
@@ -113,7 +211,7 @@ public class BtSocketHandler {
         HANDLER_MAP.remove(id);
     }
 
-    public Integer getId() {
+    public Integer getSocketId() {
         return id;
     }
 
@@ -141,17 +239,19 @@ public class BtSocketHandler {
                     h.writeQueue.add(out.duplicate());
                     //TODO call read and write here possibly as a way to speed up the data burst from the server
                 } else
-                    Log.d(Config.TAG,"Outgoing packet does not apply to client #"+h.id);
+                    Log.d(Config.TAG,"Outgoing packet does not apply to socket #"+h.id);
             }
         }
     }
 
     private boolean readBody(boolean firstTime) {
+        Log.d(Config.TAG,"BtSocketHandler.readBody()");
         try {
-            if (firstTime) {
+            //if (firstTime) {
                 //sizeBuffer.clear();
                 //while (sizeBuffer.hasRemaining() && (inputStream.read(sizeBuffer) > 0)) {}
                 int readBytes = inputStream.read(sizeBuffer);
+                Log.d(Config.TAG,"readBody() payload size "+readBytes+"b expected");
 
                 if (readBytes == 0) {
                     Log.d(Config.TAG, "#" + id + ": Nothing else to read for this socket");
@@ -176,8 +276,8 @@ public class BtSocketHandler {
                     return false;
                 }
                 readBuffer = ByteBuffer.allocate(totalSize);
-            } else
-                Log.d(Config.TAG,"readyBody(false)");
+            //} else
+            //    Log.d(Config.TAG,"readyBody(false)");
 
             byte[] tempData = new byte[1024];
             int bytesRead = 0;
@@ -218,7 +318,7 @@ public class BtSocketHandler {
                     readBuffer.position(0);
                     byte[] data = new byte[readBuffer.remaining()];
                     readBuffer.get(data);
-                    parser.parse(data);
+                    parser.processPacketAndNotifyManet(data);
                 }
                 //Add one hop to the count of message routing then write the new header to the readBuffer
                 readBuffer.position(0);
@@ -230,7 +330,7 @@ public class BtSocketHandler {
                     queueReadBuffer();
                 if (header.getType() == PacketHeader.PACKET_TYPE_DISCONNECTING) {
                     Log.i(Config.TAG, "#" + id + ": is terminating link (planned and reported)");
-                    closeSocket(); //client requested termination
+                    closeSocket(); //other end requested termination
                     return false;
                 }
                 readBuffer = null;

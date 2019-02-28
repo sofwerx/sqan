@@ -15,6 +15,8 @@ import org.sofwerx.sqan.util.UuidUtil;
 
 import java.util.ArrayList;
 
+import javax.crypto.Mac;
+
 public class Config {
     public final static String TAG = "SqAN";
     private final static String PREFS_START_ON_REBOOT = "startonreboot";
@@ -129,6 +131,18 @@ public class Config {
             for (SavedTeammate teammate:savedTeammates) {
                 if (sqAnAddress == teammate.sqAnAddress)
                     return teammate;
+            }
+        }
+        return null;
+    }
+
+    public static SavedTeammate getTeammateByBtMac(MacAddress mac) {
+        if (mac != null) {
+            if (savedTeammates != null) {
+                for (SavedTeammate teammate : savedTeammates) {
+                    if (mac.isEqual(teammate.bluetoothMac))
+                        return teammate;
+                }
             }
         }
         return null;

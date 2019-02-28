@@ -38,6 +38,13 @@ public class RawBytesPacket extends AbstractPacket {
         return PacketHeader.PACKET_TYPE_RAW_BYTES;
     }
 
+    @Override
+    public int getApproxSize() {
+        if (data == null)
+            return 0;
+        return data.length;
+    }
+
     public byte[] getData() { return data; }
     public void setData(byte[] data) { this.data = data; }
 

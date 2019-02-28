@@ -7,7 +7,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.bt.BtManet;
+import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
@@ -70,7 +70,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         break;
 
                     case 4:
-                        manet = new BtManet(handler,sqAnService,manetOps);
+                        manet = new BtManetV2(handler,sqAnService,manetOps);
                         break;
 
                     default:
@@ -268,8 +268,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         evalutateMeshStatus();
         if (sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
-        if ((device != null) && device.isActive())
-            sqAnService.requestHeartbeat(true);
+        //if ((device != null) && device.isActive())
+        //    sqAnService.requestHeartbeat(false);
         sqAnService.notifyStatusChange(null);
     }
 

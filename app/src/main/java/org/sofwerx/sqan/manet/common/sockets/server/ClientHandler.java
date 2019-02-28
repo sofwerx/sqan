@@ -96,7 +96,7 @@ public class ClientHandler {
         START_TIME_MAP.put(id, System.currentTimeMillis());
     }
 
-    private void closeClient() {
+    public void closeClient() {
         try {
             if (client != null) {
                 final SocketAddress socketAddress = client.getRemoteAddress();
@@ -243,7 +243,7 @@ public class ClientHandler {
                     readBuffer.position(0);
                     byte[] data = new byte[readBuffer.remaining()];
                     readBuffer.get(data);
-                    parser.parse(data);
+                    parser.processPacketAndNotifyManet(data);
                 }
                 //Add one hop to the count of message routing then write the new header to the readBuffer
                 readBuffer.position(0);

@@ -302,7 +302,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             device.setNetworkId(deviceId);
                     }
                     if (device != null) {
-                        device.setConnected();
+                        device.setConnected(0); //direct, no hops in between
                         device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Connection initiated"));
                     }
                     CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
@@ -323,7 +323,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 listener.onDevicesChanged(device);
                             }
                             if (device != null) {
-                                device.setConnected();
+                                device.setConnected(0); //direct, no hops in between
                                 String lagString = "discovery to connection "+StringUtil.toDuration(device.getDiscoveryConnectLag());
                                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, lagString));
                                 CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection established with " + deviceId+", "+lagString);
@@ -449,7 +449,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         device = new SqAnDevice();
                         device.setNetworkId(deviceId);
                     }
-                    device.setConnected();
+                    device.setConnected(0); //direct, no hops in between
                     byte[] bytes = payload.asBytes();
                     if (bytes == null) {
                         device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Empty payload received"));
@@ -458,8 +458,8 @@ public class NearbyConnectionsManet extends AbstractManet {
                         device.addToDataTally(bytes.length);
                         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
                         if (packet == null) {
-                            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Unable to parse last payload"));
-                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to parse payload from " + deviceId);
+                            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Unable to processPacketAndNotifyManet last payload"));
+                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to processPacketAndNotifyManet payload from " + deviceId);
                         } else {
                             if (packet instanceof PingPacket) {
                                 PingPacket pingPacket = (PingPacket)packet;

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
+    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     private final static long TIME_TO_STALE = 1000l * 60l;
@@ -40,6 +41,8 @@ public class SqAnDevice {
     private DeviceSummary uiSummary = null;
     private NodeRole roleWiFi = NodeRole.OFF;
     private NodeRole roleBT = NodeRole.OFF;
+    private int hopsAway = 0;
+    private long lastHopUpdate = Long.MIN_VALUE;
 
     /**
      * Gets this device's bluetooth MAC address
@@ -62,6 +65,14 @@ public class SqAnDevice {
         bluetoothMac = new MacAddress(mac);
     }
 
+    /**
+     * Gets how far away this device is (i.e. 0 hops == direct connection, 1 hop == one device acting as a relay)
+     * @return
+     */
+    public int getHopsAway() {
+        return hopsAway;
+    }
+
     public static enum NodeRole { HUB, SPOKE, OFF }
 
     /**
@@ -69,9 +80,10 @@ public class SqAnDevice {
      * @param uuid == the persistent UUID associated with SqAN on this physical device
      */
     public SqAnDevice(int uuid) {
-        if (uuid == UNASSIGNED_UUID)
+        if (uuid == UNASSIGNED_UUID) {
             this.uuid = nextUnassignedUUID.decrementAndGet();
-        else
+            Log.w(Config.TAG,"This device has an unassigned UUID and so has been assigned the next UUID in the host's UUID block: "+this.uuid);
+        } else
             this.uuid = uuid;
         SqAnDevice.add(this);
     }
@@ -395,7 +407,7 @@ public class SqAnDevice {
         if (other.uuidExtended != null)
             uuidExtended = other.uuidExtended;
         if (other.lastLocation != null) {
-            if ((lastLocation == null) || (other.lastLocation.getTime() > lastLocation.getTime()))
+            if ((lastLocation == null) || !lastLocation.isValid() || (other.lastLocation.getTime() > lastLocation.getTime()))
                 lastLocation = other.lastLocation;
         }
         if (uuid > 0) {
@@ -571,13 +583,20 @@ public class SqAnDevice {
      * @return the device (or null if not found)
      */
     public static SqAnDevice findByBtMac(String macString) {
-        if ((macString != null) && (devices != null) && !devices.isEmpty()) {
-            MacAddress mac = MacAddress.build(macString);
-            if (mac != null) {
-                for (SqAnDevice device : devices) {
-                    if (mac.isEqual(device.bluetoothMac))
-                        return device;
-                }
+        MacAddress mac = MacAddress.build(macString);
+        return findByBtMac(mac);
+    }
+
+    /**
+     * Finds a device in the list of devices based on Bluetooth MAC
+     * @param mac Bluetooth MAC
+     * @return the device (or null if not found)
+     */
+    public static SqAnDevice findByBtMac(MacAddress mac) {
+        if ((mac != null) && (devices != null) && !devices.isEmpty()) {
+            for (SqAnDevice device : devices) {
+                if (mac.isEqual(device.bluetoothMac))
+                    return device;
             }
         }
         return null;
@@ -643,11 +662,20 @@ public class SqAnDevice {
         return networkId;
     }
     public void setNetworkId(String networkId) { this.networkId = networkId; }
-    public void setConnected() {
+    public void setConnected(int hopsAway) {
         status = Status.CONNECTED;
         setLastConnect(System.currentTimeMillis());
         if (connectTime < 0l)
             connectTime = System.currentTimeMillis();
+        if (hopsAway > this.hopsAway) {
+            if (System.currentTimeMillis() > lastHopUpdate + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
+                lastHopUpdate = System.currentTimeMillis();
+                this.hopsAway = hopsAway;
+            }
+        } else {
+            lastHopUpdate = System.currentTimeMillis();
+            this.hopsAway = hopsAway;
+        }
     }
     public void setLastConnect(long time) {
         lastConnect = time;

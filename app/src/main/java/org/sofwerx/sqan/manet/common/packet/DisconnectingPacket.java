@@ -41,5 +41,10 @@ public class DisconnectingPacket extends AbstractPacket {
     }
 
     @Override
+    public int getApproxSize() {
+        return 4;
+    }
+
+    @Override
     public boolean isAdminPacket() { return true; }
 }

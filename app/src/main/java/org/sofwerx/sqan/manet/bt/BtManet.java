@@ -5,22 +5,9 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.wifi.aware.AttachCallback;
-import android.net.wifi.aware.DiscoverySession;
-import android.net.wifi.aware.DiscoverySessionCallback;
-import android.net.wifi.aware.IdentityChangedListener;
-import android.net.wifi.aware.PeerHandle;
-import android.net.wifi.aware.PublishConfig;
-import android.net.wifi.aware.PublishDiscoverySession;
-import android.net.wifi.aware.SubscribeConfig;
-import android.net.wifi.aware.SubscribeDiscoverySession;
-import android.net.wifi.aware.WifiAwareManager;
-import android.net.wifi.aware.WifiAwareSession;
 import android.os.Handler;
 import android.util.Log;
 
@@ -31,23 +18,23 @@ import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
-import org.sofwerx.sqan.manet.common.NetUtil;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
-import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.common.sockets.PacketParser;
-import org.sofwerx.sqan.manet.common.sockets.server.ClientHandler;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 /**
  * MANET built over the Bluetooth only primarily as a way of testing Bluetooth support architecture
@@ -56,13 +43,17 @@ import java.util.UUID;
  *  (https://developer.android.com/guide/topics/connectivity/bluetooth#java)
  *
  */
+@Deprecated
 public class BtManet extends AbstractManet implements BtSocketListener {
+    private static final int MAX_NUM_CONNECTIONS = 4; //Max connections that the BT mesh will support without a hop
     private static final String SERVICE_NAME = "sqan";
+    private static final String SQAN_APP_UUID_SEED = "sqan";
     private static final long TIME_TO_CONSIDER_STALE_DEVICE = 1000l * 60l * 5l;
     private BluetoothAdapter bluetoothAdapter;
     private Role role = Role.NONE;
     private HashMap<String,Long> nodes = new HashMap<>();
-    private final UUID thisDeviceUuid;
+    private final UUID thisAppUuid;
+    private AcceptThread acceptThread = null;
 
     private enum Role {HUB, SPOKE, NONE}
 
@@ -70,7 +61,14 @@ public class BtManet extends AbstractManet implements BtSocketListener {
         super(handler, context,listener);
         final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
-        thisDeviceUuid = getUUID(Config.getThisDevice());
+        byte[] uuidNameSeed = null;
+
+        try {
+            uuidNameSeed = SQAN_APP_UUID_SEED.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        thisAppUuid = UUID.nameUUIDFromBytes(uuidNameSeed);
     }
 
     @Override
@@ -84,8 +82,13 @@ public class BtManet extends AbstractManet implements BtSocketListener {
             passed = false;
         }
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            context.startActivity(enableBtIntent);
+            try {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                enableBtIntent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(enableBtIntent);
+            } catch (Exception ignore) {
+            }
+            passed = false;
         }
         return passed;
     }
@@ -106,21 +109,26 @@ public class BtManet extends AbstractManet implements BtSocketListener {
     @Override
     public void init() throws ManetException {
         isRunning.set(true);
-        AcceptThread acceptThread = new AcceptThread();
-        acceptThread.start();
+        setStatus(Status.ADVERTISING_AND_DISCOVERING);
+        connectToTeammates();
+        //TODO
+    }
+
+    private void connectToTeammates() {
         ArrayList<Config.SavedTeammate> teammates = Config.getSavedTeammates();
         if ((teammates != null) && !teammates.isEmpty()) {
             for (Config.SavedTeammate teammate:teammates) {
                 MacAddress mac = teammate.getBluetoothMac();
                 if ((mac != null) && mac.isValid()) {
-                    String macString = mac.toString();
-                    Log.d(Config.TAG,"Attempting to connect to "+macString);
-                    ConnectThread connectThread = new ConnectThread(bluetoothAdapter.getRemoteDevice(macString));
-                    connectThread.start();
+                    if ((BtSocketHandler.getNumConnections() < Math.min(teammates.size(),MAX_NUM_CONNECTIONS)) && !BtSocketHandler.isConnected(mac)) {
+                        String macString = mac.toString();
+                        Log.d(Config.TAG, "Attempting to connect to " + macString);
+                        ConnectThread connectThread = new ConnectThread(bluetoothAdapter.getRemoteDevice(macString));
+                        connectThread.start();
+                    }
                 }
             }
         }
-        //TODO
     }
 
     private void burst(AbstractPacket packet, String uuid) {
@@ -153,6 +161,7 @@ public class BtManet extends AbstractManet implements BtSocketListener {
     public void burst(final AbstractPacket packet) throws ManetException {
         if (handler != null) {
             handler.post(() -> {
+                BtSocketHandler.burst(packet);
                 //TODO iterate through connected nodes and burst
                 //else
                 //    Log.d(Config.TAG,"Tried to burst but no nodes available to receive");
@@ -189,7 +198,12 @@ public class BtManet extends AbstractManet implements BtSocketListener {
         //TODO
         setStatus(Status.OFF);
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
-        isRunning.set(true);
+        BtSocketHandler.removeAllConnections();
+        isRunning.set(false);
+        if (acceptThread != null) {
+            acceptThread.cancel();
+            acceptThread = null;
+        }
     }
 
     @Override
@@ -207,6 +221,13 @@ public class BtManet extends AbstractManet implements BtSocketListener {
                 Log.e(Config.TAG, "Unable to initialize "+getName()+": " + e.getMessage());
             }
         }
+
+        //AcceptThread isnt run immediately to allow the device to try to connect to existing peers first
+        if (acceptThread == null) {
+            acceptThread = new AcceptThread();
+            acceptThread.start();
+        }
+
         //clear out stale nodes
         BtSocketHandler.removeUnresponsiveConnections();
         if ((nodes != null) && !nodes.isEmpty()) {
@@ -220,6 +241,8 @@ public class BtManet extends AbstractManet implements BtSocketListener {
                 }
             }
         }
+        //and look for new connections
+        connectToTeammates();
     }
 
     /**
@@ -230,33 +253,37 @@ public class BtManet extends AbstractManet implements BtSocketListener {
         private final BluetoothServerSocket mmServerSocket;
 
         public AcceptThread() {
+            Log.d(Config.TAG,"AcceptThread constructor");
             // Use a temporary object that is later assigned to mmServerSocket
             // because mmServerSocket is final.
             BluetoothServerSocket tmp = null;
             try {
                 // MY_UUID is the app's UUID string, also used by the client code.
-                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, thisDeviceUuid);
+                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(SERVICE_NAME, thisAppUuid);
+                Log.d(Config.TAG,"RF Comm socket listener");
             } catch (IOException e) {
-                Log.e(Config.TAG, "Socket's listen() method failed", e);
+                Log.e(Config.TAG, "Socket's listen() method failed: "+e.getMessage());
             }
             mmServerSocket = tmp;
         }
 
         public void run() {
+            Log.d(Config.TAG,"AcceptThread.run()");
             BluetoothSocket socket = null;
             // Keep listening until exception occurs or a socket is returned.
             while (true) {
                 try {
                     socket = mmServerSocket.accept();
+                    Log.d(Config.TAG,"mmServerSocket accepted");
                 } catch (IOException e) {
-                    Log.e(Config.TAG, "Socket's accept() method failed", e);
+                    Log.e(Config.TAG, "Socket accept() method failed: " + e.getMessage());
                     break;
                 }
 
                 if (socket != null) {
                     // A connection was accepted. Perform work associated with
                     // the connection in a separate thread.
-                    manageMyConnectedSocket(socket);
+                    handleSocket(socket);
                     try {
                         mmServerSocket.close();
                     } catch (IOException e) {
@@ -277,10 +304,13 @@ public class BtManet extends AbstractManet implements BtSocketListener {
         }
     }
 
-    private void manageMyConnectedSocket(BluetoothSocket socket) {
+    private void handleSocket(BluetoothSocket socket) {
+        Log.d(Config.TAG,"handleSocket()");
         if (socket == null)
             return;
         BtSocketHandler h = new BtSocketHandler(socket, parser, this);
+        h.start();
+        setStatus(Status.CONNECTED);
     }
 
     private class ConnectThread extends Thread {
@@ -288,6 +318,7 @@ public class BtManet extends AbstractManet implements BtSocketListener {
         private final BluetoothDevice mmDevice;
 
         public ConnectThread(BluetoothDevice device) {
+            Log.d(Config.TAG,"ConnectThread created");
             // Use a temporary object that is later assigned to mmSocket
             // because mmSocket is final.
             BluetoothSocket tmp = null;
@@ -296,16 +327,17 @@ public class BtManet extends AbstractManet implements BtSocketListener {
             try {
                 // Get a BluetoothSocket to connect with the given BluetoothDevice.
                 // MY_UUID is the app's UUID string, also used in the server code.
-                tmp = device.createRfcommSocketToServiceRecord(thisDeviceUuid);
+                tmp = device.createRfcommSocketToServiceRecord(thisAppUuid);
+                Log.d(Config.TAG,"RF Comm Socket created");
             } catch (IOException e) {
-                Log.e(Config.TAG, "Socket's create() method failed", e);
+                Log.e(Config.TAG, "Socket's create() method failed" + e.getMessage());
             }
             mmSocket = tmp;
         }
 
         public void run() {
-            // Cancel discovery because it otherwise slows down the connection.
-            bluetoothAdapter.cancelDiscovery();
+            Log.d(Config.TAG,"ConnectThread.run()");
+            //bluetoothAdapter.cancelDiscovery(); //TODO discovery not initiated (and probably not needed)
 
             try {
                 // Connect to the remote device through the socket. This call blocks
@@ -314,18 +346,17 @@ public class BtManet extends AbstractManet implements BtSocketListener {
                 if (mmSocket.getRemoteDevice() != null)
                     Log.d(Config.TAG,"BT socket connected to "+mmSocket.getRemoteDevice().getName());
             } catch (IOException connectException) {
+                Log.d(Config.TAG,"Connect failure: "+connectException.getMessage());
                 // Unable to connect; close the socket and return.
                 try {
                     mmSocket.close();
                 } catch (IOException closeException) {
-                    Log.e(Config.TAG, "Could not close the client socket", closeException);
+                    Log.e(Config.TAG, "Could not close the client socket: " + closeException.getMessage());
                 }
                 return;
             }
 
-            // The connection attempt succeeded. Perform work associated with
-            // the connection in a separate thread.
-            manageMyConnectedSocket(mmSocket);
+            handleSocket(mmSocket);
         }
 
         // Closes the client socket and causes the thread to finish.
@@ -333,7 +364,7 @@ public class BtManet extends AbstractManet implements BtSocketListener {
             try {
                 mmSocket.close();
             } catch (IOException e) {
-                Log.e(Config.TAG, "Could not close the client socket", e);
+                Log.e(Config.TAG, "Could not close the client socket: " + e.getMessage());
             }
         }
     }

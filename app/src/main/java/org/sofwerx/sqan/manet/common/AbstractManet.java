@@ -8,7 +8,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
-import org.sofwerx.sqan.manet.bt.BtManet;
+import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
@@ -93,7 +93,7 @@ public abstract class AbstractManet {
                 return new WiFiDirectManet(handler, context, listener);
 
             case BT_ONLY:
-                return new BtManet(handler, context, listener);
+                return new BtManetV2(handler, context, listener);
 
             default:
                 return null;
@@ -209,7 +209,7 @@ public abstract class AbstractManet {
                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
                 }
                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected();
+                device.setConnected(0); //direct, no hops in between
                 Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
                 if (teammate != null)
                     teammate.update(device.getCallsign(), System.currentTimeMillis());
@@ -228,30 +228,35 @@ public abstract class AbstractManet {
             if (callsign == null)
                 callsign = "SqAN ID "+Integer.toString(packet.getOrigin());
             CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
-            device = new SqAnDevice();
-            Config.SavedTeammate saved = Config.getTeammate(packet.getOrigin());
-            if (saved != null)
-                device.setCallsign(saved.getCallsign());
-            device.setUUID(packet.getOrigin());
-            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-            device.setConnected();
-            if (listener != null)
-                listener.onDevicesChanged(device);
+            if (packet.getOrigin() > 0) {
+                device = new SqAnDevice(packet.getOrigin());
+                Config.SavedTeammate saved = Config.getTeammate(packet.getOrigin());
+                if (saved != null)
+                    device.setCallsign(saved.getCallsign());
+                device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+                device.setConnected(packet.getCurrentHopCount());
+                if (listener != null)
+                    listener.onDevicesChanged(device);
+            }
         } else {
+            if (packet instanceof HeartbeatPacket)
+                device.update(((HeartbeatPacket)packet).getDevice());
+            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
+            device.setConnected(0); //direct, no hops in between
             if (listener != null)
                 listener.onDevicesChanged(device);
-            device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-            device.setConnected();
         }
-        Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
-        if (teammate != null)
-            teammate.update(device.getCallsign(),System.currentTimeMillis());
-        if (listener != null)
-            listener.updateDeviceUi(device);
-        if (listener != null)
-            listener.onRx(packet);
-        if (packet instanceof DisconnectingPacket)
-            onDeviceLost(device,packet.isDirectFromOrigin());
+        if (device != null) {
+            Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
+            if (teammate != null)
+                teammate.update(device.getCallsign(), System.currentTimeMillis());
+            if (listener != null)
+                listener.updateDeviceUi(device);
+            if (listener != null)
+                listener.onRx(packet);
+            if (packet instanceof DisconnectingPacket)
+                onDeviceLost(device, packet.isDirectFromOrigin());
+        }
     }
 
     /**

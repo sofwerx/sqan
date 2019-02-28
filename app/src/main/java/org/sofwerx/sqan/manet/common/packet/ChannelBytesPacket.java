@@ -30,7 +30,7 @@ public class ChannelBytesPacket extends AbstractPacket {
             ByteBuffer buf = ByteBuffer.wrap(bytes);
             int channelBytesLen = buf.getInt();
             if (buf.remaining() < channelBytesLen) {
-                Log.e(Config.TAG,"Could not parse incoming channel bytes buffer; incomplete data");
+                Log.e(Config.TAG,"Could not processPacketAndNotifyManet incoming channel bytes buffer; incomplete data");
                 channel = null;
                 data = null;
                 return;
@@ -88,6 +88,13 @@ public class ChannelBytesPacket extends AbstractPacket {
     @Override
     protected int getType() {
         return PacketHeader.PACKET_TYPE_CHANNEL_BYTES;
+    }
+
+    @Override
+    public int getApproxSize() {
+        if (data == null)
+            return 0;
+        return data.length;
     }
 
     public byte[] getData() { return data; }
