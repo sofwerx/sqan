@@ -27,13 +27,12 @@ import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
-import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
 import org.sofwerx.sqan.util.CommsLog;
-import org.sofwerx.sqan.util.NetworkUtil;
+import org.sofwerx.sqan.util.NetUtil;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -153,20 +152,20 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             return;
         }
         if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
-            //TODO make some more sophisticated needs-based method rather than just cycling through different types of heartbeats
             if (lastHeartbeatLevel == 0)
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
-            else if (lastHeartbeatLevel == 1) {
+            /*if (lastHeartbeatLevel == 1) {
                 //FIXME PingPackets arent working
-                /*ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
-                if ((devices != null) && !devices.isEmpty()) {
-                    //randomly distribute ping requests
-                    int index = random.nextInt(devices.size());
-                    SqAnDevice device = devices.get(index);
-                    if (device.isActive())
-                        burst(new PingPacket(Config.getThisDevice().getUUID(),device.getUUID()));
-                }*/
-            } else
+                //ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+                //if ((devices != null) && !devices.isEmpty()) {
+                //    //randomly distribute ping requests
+                //    int index = random.nextInt(devices.size());
+                //    SqAnDevice device = devices.get(index);
+                //    if (device.isActive())
+                //        burst(new PingPacket(Config.getThisDevice().getUUID(),device.getUUID()));
+                //}
+            } */
+            else
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
             lastHeartbeatLevel++;
             if (lastHeartbeatLevel > 2)
@@ -280,7 +279,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                         Log.d(Config.TAG, "Shutting down the SqANService");
                         requestShutdown(intent.getBooleanExtra(EXTRA_KEEP_ACTIVITY,false));
                         return START_NOT_STICKY;
-                    } else if (action.equalsIgnoreCase(NetworkUtil.INTENT_CONNECTIVITY_CHANGED) || action.equalsIgnoreCase(NetworkUtil.INTENT_WIFI_CHANGED)) {
+                    } else if (action.equalsIgnoreCase(NetUtil.INTENT_CONNECTIVITY_CHANGED) || action.equalsIgnoreCase(NetUtil.INTENT_WIFI_CHANGED)) {
                         Log.d(Config.TAG, "Connectivity changed");
                         return START_STICKY;
                     }

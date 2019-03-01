@@ -140,28 +140,26 @@ public class Core {
         }
     }
 
-    public static void send(byte[] data, int destination, int origin) {
+    public static void send(final byte[] data, final int destination, final int origin) {
+        if (origin <= 0)
+            Log.d(TAG,"send() with an origin value of "+origin+" (this should not be)");
         synchronized (allSockets) {
             if ((data != null) && !allSockets.isEmpty()) {
-                ByteBuffer buf = ByteBuffer.allocate(data.length + 4);
-                buf.putInt(data.length);
-                buf.put(data);
-                final byte[] out = buf.array();
                 boolean sent = false;
                 int i=0;
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
                     if (socket.isApplicableToThisDevice(destination) || (destination == PacketHeader.BROADCAST_ADDRESS)) {
                         if (!socket.isThisDeviceOrigin(origin) && (socket.getDevice() != null)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
-                            try {
+                            //try {
                                 if (socket.isActive()) {
                                     Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
-                                    socket.write(out);
+                                    socket.write(data);
                                     sent = true;
                                     Log.d(TAG, data.length + "b sent over socket #" + socket.getBtSocketIdNum());
                                 } else
                                     Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
-                            } catch (IOException e) {
+                            /*} catch (IOException e) {
                                 Log.d(TAG, "Unable to send to SqAN ID " + ((destination == PacketHeader.BROADCAST_ADDRESS) ? "(All Node Broadcast)" : Integer.toString(destination)) + ": " + e.getMessage());
                                 if (e.getMessage().contains("Broken")) {
                                     Log.d(TAG, "Socket #" + socket.getBtSocketIdNum() + " being forcibly removed from current connections");
@@ -171,11 +169,16 @@ public class Core {
                                     }
                                     allSockets.remove(i);
                                     continue;
-                                    //allSockets.remove(socket);
                                 }
-                            }
-                        } else
-                            Log.d(TAG,"Skipping packet because device at Socket #"+socket.getBtSocketIdNum()+" is "+(socket.isThisDeviceOrigin(destination)?"the originator":"null"));
+                            }*/
+                        } else {
+                            if (socket.isThisDeviceOrigin(destination))
+                                Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is the originator");
+                            else if (socket.getDevice() == null)
+                                Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is null");
+                            else
+                                Log.e(TAG, "Skipping packet for an unknown reason at Socket #" + socket.getBtSocketIdNum() + " (this should not happen)");
+                        }
                     } else
                         Log.d(TAG,"Skipping packet because destination "+destination+" is not applicable to the device on Socket #"+socket.getBtSocketIdNum());
                     i++;
@@ -195,7 +198,7 @@ public class Core {
         try {
             // block until success
             Core.markConnecting(true);
-            success = clientSocket.connect(context);
+            success = clientSocket.connect();
             Core.markConnecting(false);
             if (success) {
                 clientSocket.startConnections();

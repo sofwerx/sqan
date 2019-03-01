@@ -20,7 +20,7 @@ public class PacketParser {
             Log.e(Config.TAG, "Could not process the packet as it was null");
             return null;
         } else
-            Log.d(Config.TAG,"Processed "+packet.getClass().getName());
+            Log.d(Config.TAG,"Processed "+packet.getClass().getSimpleName());
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
         if (device == null) {
             if (packet.getOrigin() > 0) {

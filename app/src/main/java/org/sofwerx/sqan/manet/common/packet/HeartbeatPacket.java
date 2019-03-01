@@ -20,6 +20,8 @@ public class HeartbeatPacket extends AbstractPacket {
 
     public HeartbeatPacket(int originUUID) {
         super(new PacketHeader(originUUID));
+        if (originUUID <= 0)
+            Log.e(Config.TAG,"trying to create Heartbeat packet with origin UUID of "+originUUID+" (this should not happen)");
         packetHeader.setType(getType());
         packetHeader.setTime(NetworkTime.getNetworkTimeNow());
         device = null;
@@ -76,7 +78,8 @@ public class HeartbeatPacket extends AbstractPacket {
                         } catch (UnsupportedEncodingException ignore) {
                         }
                     }
-                }
+                } else
+                    Log.e(Config.TAG,"trying to parse Heartbeat packet, but UUID was "+packetHeader.getOriginUUID()+" (this should never happen)");
             } catch (BufferOverflowException e) {
                 Log.e(Config.TAG,"Could not processPacketAndNotifyManet Heartbeat: "+e.getMessage());
             }

@@ -81,7 +81,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public int getMaximumPacketSize() {
-        return 64000; //TODO temp maximum
+        return BTSocket.MAX_PACKET_SIZE;
     }
 
     @Override
@@ -150,6 +150,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
             }
             packet.incrementHopCount();
         }
+        Log.d(Config.TAG,"Bursting "+packet.getClass().getSimpleName());
         burst(packet.toByteArray(), packet.getSqAnDestination(), packet.getOrigin());
         if (listener != null)
             listener.onTx(packet);
@@ -287,8 +288,12 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     }
 
     @Override
-    public void onError(int totalNumBytes, IOException e) {
-        Log.e(Config.TAG,"Read Error; "+"b read: "+e.getMessage());
-        //TODO
+    public void onError(IOException e) {
+        Log.e(Config.TAG,"Read Error: "+e.getMessage());
+    }
+
+    @Override
+    public void onPacketDropped() {
+        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error parsing data, packet dropped");
     }
 }

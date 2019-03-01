@@ -4,11 +4,12 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 
 import java.io.IOException;
 
-/**
- * Interface for BTSocket read listeners 
- */
 public interface ReadListener {
 	void onSuccess(AbstractPacket packet);
-	void onError(int totalNumBytes, IOException e);
+	void onError(IOException e);
 
+	/**
+	 * Used primarily for keeping track of error rates
+	 */
+	void onPacketDropped();
 }

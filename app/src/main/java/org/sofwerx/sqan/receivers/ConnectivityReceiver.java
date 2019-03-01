@@ -7,7 +7,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
-import org.sofwerx.sqan.util.NetworkUtil;
+import org.sofwerx.sqan.util.NetUtil;
 
 public class ConnectivityReceiver extends BroadcastReceiver {
     @Override
@@ -16,8 +16,8 @@ public class ConnectivityReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         if (action != null) {
             Log.d(Config.TAG, "ConnectivityReceiver launched, action: " + action);
-            //if (action.equalsIgnoreCase(NetworkUtil.INTENT_CONNECTIVITY_CHANGED) || action.equalsIgnoreCase(NetworkUtil.INTENT_WIFI_CHANGED)) {
-            if (action.equalsIgnoreCase(NetworkUtil.INTENT_CONNECTIVITY_CHANGED)) {
+            //if (action.equalsIgnoreCase(NetUtil.INTENT_CONNECTIVITY_CHANGED) || action.equalsIgnoreCase(NetUtil.INTENT_WIFI_CHANGED)) {
+            if (action.equalsIgnoreCase(NetUtil.INTENT_CONNECTIVITY_CHANGED)) {
                 intentForService.setAction(intent.getAction());
                 context.startService(intentForService);
             }
