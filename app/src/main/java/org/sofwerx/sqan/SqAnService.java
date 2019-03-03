@@ -18,6 +18,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 
+import org.sofwerx.sqan.ipc.IpcSaBroadcastTransmitter;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
@@ -44,7 +45,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
-    private long HELPER_INTERVAL = 1000l * 10l;
+    private final static long HELPER_INTERVAL = 1000l * 5l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
     private Random random = new Random();
 
@@ -67,7 +68,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private long nextDevicesCleanup = Long.MIN_VALUE;
     private LocationService locationService;
 
-    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 10l;
+    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
@@ -126,14 +127,17 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private final Runnable periodicHelper = new Runnable() {
         @Override
         public void run() {
-            checkForStaleDevices();
             manetOps.executePeriodicTasks();
             requestHeartbeat();
             if (System.currentTimeMillis() > nextDevicesCleanup) {
                 nextDevicesCleanup = System.currentTimeMillis() + INTERVAL_BETWEEN_DEVICES_CLEANUP;
                 SqAnDevice mergedDevice = SqAnDevice.dedup();
-                if ((mergedDevice != null) && (listener != null))
-                    listener.onNodesChanged(mergedDevice);
+                if (mergedDevice == null)
+                    checkForStaleDevices();
+                else {
+                    if (listener != null)
+                        listener.onNodesChanged(mergedDevice);
+                }
             }
             if (handler != null)
                 handler.postDelayed(this, HELPER_INTERVAL);
@@ -152,7 +156,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             return;
         }
         if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
-            if (lastHeartbeatLevel == 0)
+            //if (lastHeartbeatLevel == 0)
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
             /*if (lastHeartbeatLevel == 1) {
                 //FIXME PingPackets arent working
@@ -165,8 +169,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                 //        burst(new PingPacket(Config.getThisDevice().getUUID(),device.getUUID()));
                 //}
             } */
-            else
-                burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
+            //else
+            //    burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.BASIC));
             lastHeartbeatLevel++;
             if (lastHeartbeatLevel > 2)
                 lastHeartbeatLevel = 0;
@@ -473,9 +477,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
 
     @Override
     public void onLocationChanged(Location location) {
-        if (location != null) {
+        if (location != null)
             Config.getThisDevice().setLastLocation(new SpaceTime(location));
-        }
     }
 
     public class SqAnServiceBinder extends Binder {

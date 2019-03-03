@@ -73,7 +73,7 @@ public class SqAnDevice {
         return hopsAway;
     }
 
-    public static enum NodeRole { HUB, SPOKE, OFF }
+    public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
     /**
      * SqAnDevice
@@ -680,6 +680,8 @@ public class SqAnDevice {
     public void setLastConnect(long time) {
         lastConnect = time;
     }
+
+    public long getLastConnect() { return lastConnect; }
 
     /**
      * Is location data known for this device

@@ -43,12 +43,15 @@ import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
 public class MainActivity extends AppCompatActivity implements SqAnStatusListener {
     protected static final int REQUEST_DISABLE_BATTERY_OPTIMIZATION = 401;
     private final static long REPORT_PROBLEMS_DURATION = 1000l * 60l;
+    private final static long PERIODIC_REFRESH_INTERVAL = 1000l * 5l;
     private boolean permissionsNagFired = false; //used to request permissions from user
 
     protected boolean serviceBound = false;
@@ -65,6 +68,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private DevicesList devicesList;
     private long lastTxTotal = 0l;
     private Animation pingAnimation;
+    private Timer autoUpdate;
 
     private ArrayList<String> marqueeMessages = new ArrayList<>();
 
@@ -177,12 +181,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         if (device != null) {
             switch (device.getRoleWiFi()) {
                 case HUB:
-                    roleWiFi.setText("WiFi Hub");
+                    roleWiFi.setText("Hub");
                     roleWiFi.setVisibility(View.VISIBLE);
                     break;
 
                 case SPOKE:
-                    roleWiFi.setText("WiFi Spoke");
+                    roleWiFi.setText("Spoke");
                     roleWiFi.setVisibility(View.VISIBLE);
                     break;
 
@@ -191,12 +195,17 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             }
             switch (device.getRoleBT()) {
                 case HUB:
-                    roleBT.setText("BT Hub");
+                    roleBT.setText("Hub");
                     roleBT.setVisibility(View.VISIBLE);
                     break;
 
                 case SPOKE:
-                    roleBT.setText("BT Spoke");
+                    roleBT.setText("Spoke");
+                    roleBT.setVisibility(View.VISIBLE);
+                    break;
+
+                case BOTH:
+                    roleBT.setText("Hub & Spoke");
                     roleBT.setVisibility(View.VISIBLE);
                     break;
 
@@ -244,11 +253,27 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         updateStatusMarquee();
         devicesList.update(null);
         checkForLocationServices();
+        autoUpdate = new Timer();
+        autoUpdate.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                periodicHelper();
+            }
+        }, PERIODIC_REFRESH_INTERVAL, PERIODIC_REFRESH_INTERVAL);
+    }
+
+    private void periodicHelper() {
+        /*runOnUiThread(() -> {
+            updateTransmitText();
+            updateSysStatusText();
+            updateStatusMarquee();
+        });*/
     }
 
     @Override
     public void onPause() {
         super.onPause();
+        autoUpdate.cancel();
         unregisterListeners();
     }
 

@@ -343,7 +343,9 @@ public class BTSocket {
             if (shift > 0)
                 Log.w(TAG,getLogHeader()+" alignment byte not found where expected; packet start shifted by "+shift+"b");
         } catch (Exception e) {
-            throw new IOException(getLogHeader()+" Error in readInt(): "+e.getMessage());
+            keepGoing.set(false);
+            close();
+            throw new IOException(getLogHeader()+" Error in readAlignmentByte(): "+e.getMessage());
         }
     }
 

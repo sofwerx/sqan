@@ -20,6 +20,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.manet.common.MacAddress;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 
 public class Core {
@@ -150,8 +151,8 @@ public class Core {
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
                     if (socket.isApplicableToThisDevice(destination) || (destination == PacketHeader.BROADCAST_ADDRESS)) {
-                        if (!socket.isThisDeviceOrigin(origin) && (socket.getDevice() != null)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
-                            //try {
+                        if (!socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
+                            if (socket.getDevice() != null) {
                                 if (socket.isActive()) {
                                     Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
                                     socket.write(data);
@@ -159,26 +160,10 @@ public class Core {
                                     Log.d(TAG, data.length + "b sent over socket #" + socket.getBtSocketIdNum());
                                 } else
                                     Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
-                            /*} catch (IOException e) {
-                                Log.d(TAG, "Unable to send to SqAN ID " + ((destination == PacketHeader.BROADCAST_ADDRESS) ? "(All Node Broadcast)" : Integer.toString(destination)) + ": " + e.getMessage());
-                                if (e.getMessage().contains("Broken")) {
-                                    Log.d(TAG, "Socket #" + socket.getBtSocketIdNum() + " being forcibly removed from current connections");
-                                    try {
-                                        socket.close();
-                                    } catch (Exception ignore){
-                                    }
-                                    allSockets.remove(i);
-                                    continue;
-                                }
-                            }*/
-                        } else {
-                            if (socket.isThisDeviceOrigin(destination))
-                                Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is the originator");
-                            else if (socket.getDevice() == null)
+                            } else
                                 Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is null");
-                            else
-                                Log.e(TAG, "Skipping packet for an unknown reason at Socket #" + socket.getBtSocketIdNum() + " (this should not happen)");
-                        }
+                        } else
+                            Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is the originator");
                     } else
                         Log.d(TAG,"Skipping packet because destination "+destination+" is not applicable to the device on Socket #"+socket.getBtSocketIdNum());
                     i++;
@@ -327,12 +312,27 @@ public class Core {
 
     public static int getActiveClientsAndServerCount() {
         int active = 0;
+        boolean isClient = false;
+        boolean isServer = false;
         synchronized (allSockets) {
             for (BTSocket socket : allSockets) {
-                if (socket.isActive())
+                if (socket.isActive()) {
+                    isClient = isClient || (socket.getRole() == BTSocket.Role.CLIENT);
+                    isServer = isServer || (socket.getRole() == BTSocket.Role.SERVER);
                     active++;
+                }
             }
         }
+        SqAnDevice thisDevice = Config.getThisDevice();
+        if (isClient) {
+            if (isServer)
+                thisDevice.setRoleBT(SqAnDevice.NodeRole.BOTH);
+            else
+                thisDevice.setRoleBT(SqAnDevice.NodeRole.SPOKE);
+        } else if (isServer)
+            thisDevice.setRoleBT(SqAnDevice.NodeRole.HUB);
+        else
+            thisDevice.setRoleBT(SqAnDevice.NodeRole.OFF);
         return active;
     }
 

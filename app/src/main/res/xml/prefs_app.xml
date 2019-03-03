@@ -28,12 +28,24 @@
             android:defaultValue="2"
             android:entries="@array/listManetTypes"
             android:entryValues="@array/listManetTypesValues" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="Sharing with apps">
 
         <CheckBoxPreference
             android:key="ipccomms"
             android:title="Allow IPC Comms"
             android:summary="Accept and share Interprocess Communication from other apps. This allows other apps to send and receive data over SqAN."
             android:defaultValue="true"/>
+
+        <CheckBoxPreference
+            android:key="sa"
+            android:title="Share SA"
+            android:summary="Share Situational Awareness info (mesh devices location and health) with other apps."
+            android:defaultValue="true"
+            android:dependency="ipccomms"/>
+
     </PreferenceCategory>
 
     <PreferenceCategory

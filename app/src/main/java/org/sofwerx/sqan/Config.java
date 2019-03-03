@@ -25,6 +25,7 @@ public class Config {
     private final static String PREFS_DEBUG_MODE = "debugmode";
     private final static String PREFS_DEBUG_CONNECTION_MODE = "debugmx";
     private final static String PREFS_ALLOW_IPC_COMMS = "ipccomms";
+    private final static String PREFS_ALLOW_SA_BROADCAST = "sa";
     private final static String PREFS_UUID_EXTENDED = "uuid_extended";
     private final static String PREFS_UUID = "uuid";
     private final static String PREFS_CALLSIGN = "callsign";
@@ -33,15 +34,14 @@ public class Config {
     private final static String PREFS_SAVED_TEAM = "savedteam";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
+    private static boolean broadcastSa = true;
     private static boolean includeConnections = false;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
 
     public static void init(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
-        allowIpcComms = prefs.getBoolean(PREFS_ALLOW_IPC_COMMS,true);
-        includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
+        recheckPreferences(context);
 
         int uuid = prefs.getInt(PREFS_UUID,UuidUtil.getNewUUID());
         String uuidExtended = prefs.getString(PREFS_UUID_EXTENDED,UuidUtil.getNewExtendedUUID());
@@ -72,6 +72,14 @@ public class Config {
             savedTeammates = null;
     }
 
+    public static void recheckPreferences(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
+        allowIpcComms = prefs.getBoolean(PREFS_ALLOW_IPC_COMMS,true);
+        broadcastSa = prefs.getBoolean(PREFS_ALLOW_SA_BROADCAST,true);
+        includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
+    }
+
     public static void savePrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
@@ -87,6 +95,7 @@ public class Config {
     }
 
     public static boolean isAllowIpcComms() { return allowIpcComms; }
+    public static boolean isBroadcastSa() { return broadcastSa; }
     public static boolean isDebugMode() { return debugMode; }
     public static boolean isDebugConnections() { return includeConnections; }
     public static SqAnDevice getThisDevice() { return thisDevice; }

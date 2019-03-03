@@ -54,6 +54,7 @@ public class SettingsActivity extends Activity {
             builder.setMessage(R.string.prefs_manet_changed_description);
             final AlertDialog dialog = builder.create();
             dialog.show();
-        }
+        } else
+            Config.recheckPreferences(this);
     };
 }

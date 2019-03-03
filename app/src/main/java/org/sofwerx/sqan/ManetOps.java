@@ -6,6 +6,7 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
+import org.sofwerx.sqan.ipc.IpcSaBroadcastTransmitter;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.common.AbstractManet;
@@ -14,6 +15,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.ChannelBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
  * to bring the MANET code out of the SqAnService to improve readability.
  */
 public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroadcastListener {
+    private final static long MIN_SA_IPC_BROADCAST_DELAY = 250l; //dont do SA IPC broadcasts with any interval shorter than this
     private final SqAnService sqAnService;
     private AbstractManet manet;
     private static long transmittedByteTally = 0l;
@@ -36,6 +39,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     private Handler handler;
     private ManetOps manetOps;
     private boolean shouldBeActive = true;
+    private long nextEligibleSaIpcBroadcast = Long.MIN_VALUE;
 
     //for capturing overall up time analytics
     private static SqAnDevice.FullMeshCapability meshStatus = SqAnDevice.FullMeshCapability.DOWN;
@@ -233,6 +237,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     onDevicesChanged(outgoing);
                 } else
                     Log.d(Config.TAG,"Disconnect packet received, but unable to find corresponding device");
+            } else if (packet instanceof HeartbeatPacket){
+                ipcBroadcastIfNeeded();
             }
         }
     }
@@ -242,6 +248,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         if (sqAnService.listener != null)
             sqAnService.listener.onDataTransmitted();
         sqAnService.onPositiveComms();
+    }
+
+    private void ipcBroadcastIfNeeded() {
+        if ((System.currentTimeMillis() > nextEligibleSaIpcBroadcast) && Config.isBroadcastSa()) {
+            IpcSaBroadcastTransmitter.broadcast(sqAnService);
+            nextEligibleSaIpcBroadcast = System.currentTimeMillis() + MIN_SA_IPC_BROADCAST_DELAY;
+        }
     }
 
     @Override
@@ -329,6 +342,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Conduct any periodic housekeeping tasks
      */
     public void executePeriodicTasks() {
+        ipcBroadcastIfNeeded();
         evalutateMeshStatus();
         if (manet != null)
             manet.executePeriodicTasks();
