@@ -43,6 +43,7 @@ public class SqAnDevice {
     private NodeRole roleBT = NodeRole.OFF;
     private int hopsAway = 0;
     private long lastHopUpdate = Long.MIN_VALUE;
+    private ArrayList<RelayConnection> relays = new ArrayList<>();
 
     /**
      * Gets this device's bluetooth MAC address
@@ -72,6 +73,7 @@ public class SqAnDevice {
     public int getHopsAway() {
         return hopsAway;
     }
+    public void setHopsAway(int hops) { hopsAway = hops; }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -358,6 +360,45 @@ public class SqAnDevice {
         return status;
     }
 
+    /**
+     * Gets a map of what devices this device is connected to
+     * @return
+     */
+    public ArrayList<RelayConnection> getRelayConnections() {
+        return relays;
+    }
+
+    public int getActiveRelays() {
+        //TODO factor in some age consideration
+        if (relays == null)
+            return 0;
+        return relays.size();
+    }
+
+    public RelayConnection getConnection(int sqAnID) {
+        if (relays != null) {
+            for (RelayConnection relay:relays) {
+                if (relay.getSqAnID() == sqAnID)
+                    return relay;
+            }
+        }
+        return null;
+    }
+
+    public void updateRelayConnection(RelayConnection connection) {
+        if (connection == null)
+            return;
+        RelayConnection current = getConnection(connection.getSqAnID());
+        if (current == null)
+            relays.add(connection);
+        else
+            current.update(connection);
+    }
+
+    public void setRelayConnections(ArrayList<RelayConnection> relays) {
+        this.relays = relays;
+    }
+
     public boolean isActive() {
         return (status == Status.CONNECTED);
     }
@@ -502,6 +543,8 @@ public class SqAnDevice {
      */
     public static boolean add(SqAnDevice device) {
         if ((device == null) || (device.getUUID() == UNASSIGNED_UUID))
+            return false;
+        if ((Config.getThisDevice() != null) && (device.getUUID() == Config.getThisDevice().getUUID())) //dont add our own device
             return false;
         if (devices == null) {
             devices = new ArrayList<>();

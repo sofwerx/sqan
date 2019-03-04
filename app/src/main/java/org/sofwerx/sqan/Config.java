@@ -51,8 +51,9 @@ public class Config {
         edit.putString(PREFS_UUID_EXTENDED,uuidExtended);
         edit.putString(PREFS_CALLSIGN,callsign);
         edit.apply();
-        thisDevice = new SqAnDevice(uuid);
-        SqAnDevice.remove(thisDevice); //no need to list this device in the devices
+        thisDevice = new SqAnDevice();
+        thisDevice.setUUID(uuid);
+        SqAnDevice.remove(thisDevice); //dont list this device in the list of other devices
         thisDevice.setUuidExtended(uuidExtended);
         thisDevice.setCallsign(callsign);
         String rawTeam = prefs.getString(PREFS_SAVED_TEAM,null);
@@ -62,8 +63,12 @@ public class Config {
                 savedTeammates = new ArrayList<>();
                 for (int i=0;i<array.length();i++) {
                     JSONObject jsonTeammate = array.getJSONObject(i);
-                    if (jsonTeammate != null)
+                    if (jsonTeammate != null) {
+                        SavedTeammate teammate = new SavedTeammate(jsonTeammate);
+                        if (teammate.getSqAnAddress() == thisDevice.getUUID())
+                            continue;
                         savedTeammates.add(new SavedTeammate(jsonTeammate));
+                    }
                 }
             } catch (JSONException e) {
                 savedTeammates = null;
@@ -83,6 +88,7 @@ public class Config {
     public static void savePrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
+        updateSavedTeammates();
         if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
             JSONArray rawTeammates = new JSONArray();
             for (SavedTeammate teammate:savedTeammates) {
@@ -92,6 +98,33 @@ public class Config {
         } else
             edit.remove(PREFS_SAVED_TEAM);
         edit.apply();
+    }
+
+    private static void updateSavedTeammates() {
+        ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+        if (devices != null) {
+            for (SqAnDevice device:devices) {
+                if (device.getUUID() > 0) {
+                    SavedTeammate teammate = getTeammate(device.getUUID());
+                    if (teammate == null) {
+                        teammate = new SavedTeammate(device.getUUID(),device.getNetworkId());
+                        teammate.setCallsign(device.getCallsign());
+                        teammate.setBluetoothMac(device.getBluetoothMac());
+                        teammate.setLastContact(device.getLastConnect());
+                        savedTeammates.add(teammate);
+                    } else {
+                        if (device.getCallsign() != null)
+                            teammate.setCallsign(device.getCallsign());
+                        if (device.getBluetoothMac() != null)
+                            teammate.setBluetoothMac(device.getBluetoothMac());
+                        if (device.getNetworkId() != null)
+                            teammate.setNetID(device.getNetworkId());
+                        if (device.getLastConnect() > teammate.getLastContact())
+                            teammate.setLastContact(device.getLastConnect());
+                    }
+                }
+            }
+        }
     }
 
     public static boolean isAllowIpcComms() { return allowIpcComms; }
@@ -218,9 +251,6 @@ public class Config {
             this.lastContact = System.currentTimeMillis();
         }
 
-        public void setCallsign(String callsign) { this.callsign = callsign; }
-        public void setBluetoothMac(MacAddress mac) { this.bluetoothMac = mac; }
-
         public void update(SavedTeammate other) {
             if (other != null)
                 update(other.callsign, other.lastContact);
@@ -266,5 +296,9 @@ public class Config {
         public long getLastContact() { return lastContact; }
         public MacAddress getBluetoothMac() { return bluetoothMac; }
         public String getNetID() { return netID; }
+        public void setCallsign(String callsign) { this.callsign = callsign; }
+        public void setBluetoothMac(MacAddress mac) { this.bluetoothMac = mac; }
+        public void setNetID(String networkId) { this.netID = networkId; }
+        public void setLastContact(long time) { this.lastContact = time; }
     }
 }

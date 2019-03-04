@@ -4,6 +4,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.MacAddress;
+import org.sofwerx.sqan.manet.common.RelayConnection;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
@@ -11,6 +12,7 @@ import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import java.io.UnsupportedEncodingException;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 public class HeartbeatPacket extends AbstractPacket {
     private SqAnDevice device;
@@ -55,15 +57,26 @@ public class HeartbeatPacket extends AbstractPacket {
             try {
                 if (packetHeader.getOriginUUID() > 0) {
                     device = new SqAnDevice(packetHeader.getOriginUUID());
-                    if (buf.remaining() >= SpaceTime.SIZE_IN_BYTES) {
-                        byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
-                        buf.get(spaceTimeBytes);
-                        SpaceTime spaceTime = new SpaceTime();
-                        spaceTime.parse(spaceTimeBytes);
-                        if (!spaceTime.isValid())
-                            spaceTime = null;
-                        device.setLastLocation(spaceTime);
-                    } else
+                    if (buf.remaining() < SpaceTime.SIZE_IN_BYTES)
+                        return;
+                    byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
+                    buf.get(spaceTimeBytes);
+                    SpaceTime spaceTime = new SpaceTime();
+                    spaceTime.parse(spaceTimeBytes);
+                    if (!spaceTime.isValid())
+                        spaceTime = null;
+                    device.setLastLocation(spaceTime);
+                    if (buf.remaining() <4)
+                        return;
+                    int relaySize = buf.getInt();
+                    if (relaySize > 0) {
+                        byte[] relayBytes = new byte[RelayConnection.SIZE];
+                        for (int i=0;i<relaySize;i++) {
+                            buf.get(relayBytes);
+                            parseRelayConnection(new RelayConnection(relayBytes));
+                        }
+                    }
+                    if (buf.remaining() < 4)
                         return;
                     int callsignSize = buf.getInt();
                     if (callsignSize > 0) {
@@ -86,14 +99,87 @@ public class HeartbeatPacket extends AbstractPacket {
         }
     }
 
+    //FIXME hey dummy! you need to send the RelayConnections and then also figure out if an incoming packet needs to be relayed to this device based on its hop count
+
+    private void parseRelayConnection(RelayConnection relay) {
+        if (relay == null)
+            return;
+        SqAnDevice device = SqAnDevice.findByUUID(relay.getSqAnID());
+        if (device == null) {
+            device = new SqAnDevice(relay.getSqAnID());
+            device.setHopsAway(relay.getHops());
+            device.setLastConnect(relay.getLastConnection());
+        } else {
+            if (relay.getLastConnection() > device.getLastConnect()) {
+                device.setHopsAway(relay.getHops());
+                device.setLastConnect(relay.getLastConnection());
+            }
+        }
+    }
+
+    private void parseRelayConnections(ArrayList<RelayConnection> relays) {
+        if (relays == null)
+            return;
+        for (RelayConnection relay:relays) {
+            parseRelayConnection(relay);
+        }
+    }
+
+    private ArrayList<RelayConnection> getRelayConnections() {
+        ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+        if (devices == null)
+            return null;
+        ArrayList<RelayConnection> relays = new ArrayList<>();
+        for (SqAnDevice device:devices) {
+            relays.add(new RelayConnection(device.getUUID(),device.getHopsAway(),device.getLastConnect()));
+        }
+        return relays;
+    }
+
     public byte[] toByteArray() {
         byte[] superBytes = super.toByteArray();
+
+        boolean includePosition;
+        boolean includeRelays;
+        boolean includeCallsign;
 
         if ((detailLevel == null) || (detailLevel == DetailLevel.BASIC) || (device == null))
             return superBytes;
 
+        switch (detailLevel) {
+            case MEDIUM:
+                includePosition = true;
+                includeRelays = true;
+                includeCallsign = true;
+                break;
+
+            default:
+                includePosition = false;
+                includeRelays = false;
+                includeCallsign = false;
+        }
+
+        //for now at least, Callsign, Relays, and Position must have all the flags before it to be valid
+        if (includeCallsign && (!includeRelays || !includePosition)) {
+            Log.e(Config.TAG,"Invalid hearbeat request - check flags");
+            return null; //invalid
+        }
+        if (includeRelays && !includePosition) {
+            Log.e(Config.TAG,"Invalid hearbeat request - check flags");
+            return null; //invalid
+        }
+
+        byte[] spaceTimeBytes = null;
+        if (includePosition && (device.getLastLocation() != null)) {
+            SpaceTime spaceTime = device.getLastLocation();
+            if (spaceTime == null)
+                spaceTimeBytes = SpaceTime.toByteArrayEmptySpaceTime();
+            else
+                spaceTimeBytes = spaceTime.toByteArray();
+        }
+
         byte[] callsignBytes = null;
-        if (device.getCallsign() != null) {
+        if (includeCallsign && (device.getCallsign() != null)) {
             try {
                 callsignBytes = device.getCallsign().getBytes("UTF-8");
             } catch (UnsupportedEncodingException e) {
@@ -101,41 +187,51 @@ public class HeartbeatPacket extends AbstractPacket {
             }
         }
 
+        byte[] relayBytes = null;
+        if (includeRelays) {
+            ByteBuffer relayBuf;
+            ArrayList<RelayConnection> relays = getRelayConnections();
+            int nums = 0;
+            if (relays != null)
+                nums = relays.size();
+            relayBuf = ByteBuffer.allocate(4 + nums * RelayConnection.SIZE);
+            relayBuf.putInt(nums);
+            if (relays != null) {
+                for (RelayConnection relay:relays) {
+                    relayBuf.put(relay.toBytes());
+                }
+            }
+            relayBytes = relayBuf.array();
+        }
+
         int size;
         if (superBytes == null)
             size = 0;
         else
             size = superBytes.length;
-        switch (detailLevel) {
-            case BASIC:
-                size += 4;
-            case MEDIUM:
-                size += SpaceTime.SIZE_IN_BYTES;
-                size += 4 + 4;
-                if (callsignBytes != null)
-                    size += callsignBytes.length;
-                break;
+        if (includePosition && (spaceTimeBytes != null)) {
+            size += spaceTimeBytes.length;
+            if (includeRelays && (relayBytes != null)) {
+                size += relayBytes.length;
+                if (includeCallsign && (callsignBytes != null))
+                    size += 4 + callsignBytes.length;
+            }
         }
 
         ByteBuffer out = ByteBuffer.allocate(size);
 
-        if (superBytes != null)
+        if (superBytes != null) {
             out.put(superBytes);
-
-        switch (detailLevel) {
-            case MEDIUM:
-                SpaceTime spaceTime = device.getLastLocation();
-                if (spaceTime == null)
-                    out.put(SpaceTime.toByteArrayEmptySpaceTime());
-                else
-                    out.put(spaceTime.toByteArray());
-                if (callsignBytes == null)
-                    out.putInt(0);
-                else {
+        }
+        if (includePosition && (spaceTimeBytes != null)) {
+            out.put(spaceTimeBytes);
+            if (includeRelays && (relayBytes != null)) {
+                out.put(relayBytes);
+                if (includeCallsign && (callsignBytes != null)) {
                     out.putInt(callsignBytes.length);
                     out.put(callsignBytes);
                 }
-                break;
+            }
         }
 
         return out.array();
@@ -154,10 +250,7 @@ public class HeartbeatPacket extends AbstractPacket {
             case BASIC:
                 return 4;
             case MEDIUM:
-                int size = SpaceTime.SIZE_IN_BYTES + 4 + 4;
-                if ((device != null) && (device.getCallsign() != null))
-                    size += device.getCallsign().length();
-                return size;
+                return 72;
             default:
                 return 4;
         }

@@ -9,12 +9,13 @@
         android:id="@+id/deviceLink"
         android:layout_width="30dp"
         android:layout_height="match_parent"
-        android:src="@drawable/icon_link"
+        android:layout_marginBottom="8dp"
         android:paddingStart="2dp"
         android:paddingEnd="2dp"
+        android:src="@drawable/icon_link"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/deviceBackhaul"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <FrameLayout
         android:id="@+id/deviceFrameTypePing"
@@ -65,6 +66,28 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
+        android:id="@+id/deviceHops"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:drawableStart="@drawable/ic_hops"
+        android:gravity="center_vertical"
+        android:text="Hops"
+        app:layout_constraintEnd_toStartOf="@+id/deviceConnections"
+        app:layout_constraintStart_toStartOf="@+id/deviceDetails"
+        app:layout_constraintTop_toBottomOf="@id/deviceDetails" />
+
+    <TextView
+        android:id="@+id/deviceConnections"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:drawableStart="@drawable/ic_links"
+        android:gravity="center_vertical"
+        android:text="Connections"
+        app:layout_constraintStart_toEndOf="@+id/deviceHops"
+        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
+        app:layout_constraintTop_toBottomOf="@id/deviceDetails" />
+
+    <TextView
         android:id="@+id/deviceBackhaul"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -73,8 +96,9 @@
         android:drawableStart="@drawable/ic_backhaul_green"
         android:text="Backhaul"
         android:textColor="@color/white_hint_green"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/deviceDetails" />
+        app:layout_constraintStart_toEndOf="@+id/deviceConnections"
+        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <FrameLayout
         android:id="@+id/deviceLocationFrame"

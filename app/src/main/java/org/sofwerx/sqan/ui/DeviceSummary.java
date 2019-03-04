@@ -21,6 +21,7 @@ import java.io.StringWriter;
 
 public class DeviceSummary extends ConstraintLayout {
     private TextView callsign, uuid, description;
+    private TextView hops, links;
     private ImageView iconConnectivity;
     private ImageView iconPower;
     private ImageView iconLink;
@@ -63,6 +64,8 @@ public class DeviceSummary extends ConstraintLayout {
         textDistance = view.findViewById(R.id.deviceDistance);
         textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
         iconPing = view.findViewById(R.id.devicePing);
+        hops = view.findViewById(R.id.deviceHops);
+        links = view.findViewById(R.id.deviceConnections);
         pingAnimation = AnimationUtils.loadAnimation(context.getApplicationContext(), R.anim.ping);
     }
 
@@ -115,6 +118,28 @@ public class DeviceSummary extends ConstraintLayout {
             if (iconType != null)
                 iconType.setVisibility(VISIBLE);
             markerBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
+            if (device.getStatus() == SqAnDevice.Status.CONNECTED) {
+                int numHops = device.getHopsAway();
+                if (numHops < 0)
+                    hops.setVisibility(View.INVISIBLE);
+                else {
+                    hops.setVisibility(View.VISIBLE);
+                    if (numHops == 0)
+                        hops.setText("Direct");
+                    else
+                        hops.setText(numHops + " hop" + ((numHops > 1) ? "s" : ""));
+                }
+                int numLinks = device.getActiveRelays();
+                if (numLinks < 1)
+                    links.setVisibility(View.INVISIBLE);
+                else {
+                    links.setVisibility(View.VISIBLE);
+                    links.setText(numLinks + " connection" + ((numLinks > 1) ? "s" : ""));
+                }
+            } else {
+                hops.setVisibility(View.INVISIBLE);
+                links.setVisibility(View.INVISIBLE);
+            }
         } else {
             Log.e(Config.TAG,"DeviceSummary has been assigned a null device - this should never happen");
             callsign.setText("No sensor");
