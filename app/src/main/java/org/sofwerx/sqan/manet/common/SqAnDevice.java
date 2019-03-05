@@ -137,16 +137,18 @@ public class SqAnDevice {
             for (int i=0;i<devices.size();i++) {
                 if ((merged == null) && (i != inspectingIndex)) {
                     SqAnDevice other = devices.get(i);
-                    if (inspecting.networkId != null) {
-                        if (inspecting.networkId.equalsIgnoreCase(other.networkId)) {
-                            if (inspecting.lastConnect > other.lastConnect) {
-                                merged = inspecting;
-                                CommsLog.log(CommsLog.Entry.Category.STATUS,"Duplicate devices detected; "+other.uuid+" merged into "+inspecting.uuid);
-                                devices.remove(i);
-                            } else {
-                                merged = other;
-                                CommsLog.log(CommsLog.Entry.Category.STATUS,"Duplicate devices detected; "+inspecting.uuid+" merged into "+other.uuid);
-                                devices.remove(inspectingIndex);
+                    if ((other != null) && ((inspecting.uuid < 0) || (other.uuid < 0))) {
+                        if (inspecting.networkId != null) {
+                            if (inspecting.networkId.equalsIgnoreCase(other.networkId)) {
+                                if (inspecting.lastConnect > other.lastConnect) {
+                                    merged = inspecting;
+                                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + other.uuid + " merged into " + inspecting.uuid);
+                                    devices.remove(i);
+                                } else {
+                                    merged = other;
+                                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + inspecting.uuid + " merged into " + other.uuid);
+                                    devices.remove(inspectingIndex);
+                                }
                             }
                         }
                     }
