@@ -38,4 +38,10 @@
     <string name="forget_teammate_description">Forget this device? This cannot be undone and will require you to reconnect to the device before the device is able to join you on SqAN.</string>
     <string name="forget">Forget Device</string>
     <string name="keep">Keep Device</string>
+    <string name="bt_discovery_started">Bluetooth discovery started...</string>
+    <string name="bt_discovery_ended">Bluetooth discovery finished.</string>
+    <string name="bt_needed">Bluetooth must be enabled to use the bluetooth portion of SqAN.</string>
+    <string name="bt_discovery_canx">Without Bluetooth discovery, SqAN cannot find new bluetooth capable teammates.</string>
+    <string name="bt_start_discovery_on_other_devices">Do this on your other devices too</string>
+    <string name="bt_start_discovery_on_other_devices_narrative">This device will listen for %1$s for new teammates. You now need to do what you just did here (open teammate settings and then press Fix) on any other device you want to save as a teammate.</string>
 </resources>

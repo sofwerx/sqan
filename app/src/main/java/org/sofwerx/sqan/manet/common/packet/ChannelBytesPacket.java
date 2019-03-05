@@ -90,13 +90,6 @@ public class ChannelBytesPacket extends AbstractPacket {
         return PacketHeader.PACKET_TYPE_CHANNEL_BYTES;
     }
 
-    @Override
-    public int getApproxSize() {
-        if (data == null)
-            return 0;
-        return data.length;
-    }
-
     public byte[] getData() { return data; }
     public void setData(byte[] data) { this.data = data; }
 

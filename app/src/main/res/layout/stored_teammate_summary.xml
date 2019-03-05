@@ -36,7 +36,6 @@
 
     </LinearLayout>
 
-
     <ImageView
         android:id="@+id/teammateFix"
         android:layout_width="wrap_content"
@@ -62,7 +61,7 @@
         android:layout_height="match_parent"
         app:layout_constraintTop_toBottomOf="@id/teammateHeader"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/teammateFix"
+        app:layout_constraintEnd_toStartOf="@id/teammateForget"
         android:background="@drawable/bg_item_2_yellow">
 
         <TableRow

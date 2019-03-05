@@ -242,7 +242,7 @@ public abstract class AbstractManet {
             if (packet instanceof HeartbeatPacket)
                 device.update(((HeartbeatPacket)packet).getDevice());
             device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-            device.setConnected(0); //direct, no hops in between
+            device.setConnected(packet.getCurrentHopCount());
             if (listener != null)
                 listener.onDevicesChanged(device);
         }

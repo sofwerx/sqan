@@ -35,6 +35,21 @@ public class PacketHeader {
      */
     public final static int getSize() { return 4 + 4 + 4 + 4 + 8; }
 
+    /**
+     * Helper method to overwrite just the hop count and an existing byte[] version for a packet
+     * in order to reduce the computation and time needed to handle the packet when its being relayed
+     * @param data
+     */
+    public void incrementHopCount(byte[] data) {
+        if ((data != null) && (data.length >= getSize())) {
+            hopCount++;
+            data[4] = (byte) (hopCount >> 24);
+            data[5] = (byte) (hopCount >> 16);
+            data[6] = (byte) (hopCount >> 8);
+            data[7] = (byte) (hopCount);
+        }
+    }
+
     public long getTime() { return time; }
     public void setTime(long time) { this.time = time; }
     public int getOriginUUID() { return originUUID; }

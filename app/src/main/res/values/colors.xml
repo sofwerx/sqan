@@ -3,17 +3,17 @@
     <color name="trans_black">#80000000</color>
     <color name="black">#FF000000</color>
     <color name="light_grey">#FFAAAAAA</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="white">#FFFFFF</color>
     <color name="light_red">#FFFFAA00</color>
     <color name="red">#FFFF0000</color>
     <color name="bright_red">#FFFF7777</color>
-    <color name="green">#FF00FF00</color>
+    <color name="green">#00FF00</color>
     <color name="trans_red">#99FF0000</color>
     <color name="yellow">#FFFFFF00</color>
     <color name="trans_yellow">#55FFFF00</color>
     <color name="trans_blue">#55F9A825</color>
-    <color name="white_hint_green">#ccffcc</color>
+    <color name="white_hint_green">#CCFFCC</color>
     <color name="colorPrimary">#FF000000</color>
-    <color name="colorPrimaryDark">#FF000000</color>
-    <color name="colorAccent">#ffff00</color>
+    <color name="colorPrimaryDark">#000000</color>
+    <color name="colorAccent">#FFFF00</color>
 </resources>

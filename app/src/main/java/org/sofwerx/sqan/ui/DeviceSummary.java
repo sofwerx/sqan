@@ -20,6 +20,7 @@ import org.sofwerx.sqan.util.StringUtil;
 import java.io.StringWriter;
 
 public class DeviceSummary extends ConstraintLayout {
+    private final static long TIME_TO_SHOW_FORWARDING = 1000l * 15l; //how long after a forward operation should the forwarding icon be visible
     private TextView callsign, uuid, description;
     private TextView hops, links;
     private ImageView iconConnectivity;
@@ -28,7 +29,7 @@ public class DeviceSummary extends ConstraintLayout {
     private ImageView iconLoc;
     private ImageView iconType;
     private View markerBackhaul;
-    private ImageView iconPing;
+    private ImageView iconPing,iconForward;
     private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
     private boolean significant = false;
@@ -64,6 +65,7 @@ public class DeviceSummary extends ConstraintLayout {
         textDistance = view.findViewById(R.id.deviceDistance);
         textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
         iconPing = view.findViewById(R.id.devicePing);
+        iconForward = view.findViewById(R.id.deviceForward);
         hops = view.findViewById(R.id.deviceHops);
         links = view.findViewById(R.id.deviceConnections);
         pingAnimation = AnimationUtils.loadAnimation(context.getApplicationContext(), R.anim.ping);
@@ -140,6 +142,10 @@ public class DeviceSummary extends ConstraintLayout {
                 hops.setVisibility(View.INVISIBLE);
                 links.setVisibility(View.INVISIBLE);
             }
+            if (System.currentTimeMillis() > device.getLastForward() + TIME_TO_SHOW_FORWARDING)
+                iconForward.setVisibility(View.INVISIBLE);
+            else
+                iconForward.setVisibility(View.VISIBLE);
         } else {
             Log.e(Config.TAG,"DeviceSummary has been assigned a null device - this should never happen");
             callsign.setText("No sensor");
@@ -148,6 +154,9 @@ public class DeviceSummary extends ConstraintLayout {
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
             markerBackhaul.setVisibility(View.INVISIBLE);
+            hops.setVisibility(View.INVISIBLE);
+            links.setVisibility(View.INVISIBLE);
+            iconForward.setVisibility(View.INVISIBLE);
             if (iconType != null)
                 iconType.setVisibility(INVISIBLE);
         }

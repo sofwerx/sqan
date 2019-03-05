@@ -79,9 +79,9 @@ public class DevicesList extends ConstraintLayout {
         waitingViewText.setText("Looking for other SqAN nodes...");
     }
 
-    public void update(SqAnDevice device) {
+    public void update(final SqAnDevice device) {
         list.post(() -> {
-            if (device == null) {
+            if ((device == null) || (device.getUiSummary() == null)) {
                 ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
                 if ((devices == null) || devices.isEmpty()) {
                     adapter = null;
@@ -98,10 +98,8 @@ public class DevicesList extends ConstraintLayout {
                         }
                     }
                 }
-            } else {
-                if (device.getUiSummary() != null)
-                    device.getUiSummary().update(device);
-            }
+            } else
+                device.getUiSummary().update(device);
             updateListVisibility();
         });
     }

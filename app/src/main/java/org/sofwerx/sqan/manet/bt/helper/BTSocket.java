@@ -48,8 +48,11 @@ public class BTSocket {
     private long lastConnect = Long.MIN_VALUE;
 
     public void setDeviceIfNull(SqAnDevice device) {
-        if (this.device == null)
+        if (this.device == null) {
+            if ((mac != null) && (device != null))
+                device.setBluetoothMac(mac.toString());
             this.device = device;
+        }
     }
 
     public enum Role {SERVER,CLIENT};
@@ -211,15 +214,31 @@ public class BTSocket {
                                         readListener.onError(new IOException("Unable to processPacketAndNotifyManet Packet"));
                                 } else {
                                     SqAnDevice device = PacketParser.process(packet);
-                                    if (device != null)
+                                    if (device != null) {
+                                        device.addToDataTally(data.length);
                                         setDeviceIfNull(device);
+                                    }
                                     if (mReadListener != null)
                                         mReadListener.onSuccess(packet);
+                                    packet.incrementHopCount(data);
                                     if (thisDeviceEndpointRole == Role.SERVER) {
-                                        Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT clients connected to this device");
-                                        packet.incrementHopCount();
-                                        data = packet.toByteArray();
-                                        Core.send(data, packet.getSqAnDestination(), packet.getOrigin());
+                                        Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT client connected to this device (this device is hub)");
+                                        //device.setLastForward(System.currentTimeMillis());
+                                        Core.send(data, packet.getSqAnDestination(), packet.getOrigin(),true);
+                                    } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
+                                        ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+                                        if (devices != null) {
+                                            for (SqAnDevice tgt:devices) {
+                                                if (tgt.getUUID() != packet.getOrigin()) {
+                                                    //for directly connected devices, forward traffic when our hop count is better
+                                                    if ((tgt.getHopsAway() == 0) && (packet.getCurrentHopCount() < tgt.getHopsToDevice(packet.getOrigin()))) {
+                                                        Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT client connected to this device");
+                                                        device.setLastForward(System.currentTimeMillis());
+                                                        Core.send(data, tgt.getUUID(), packet.getOrigin());
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -240,58 +259,6 @@ public class BTSocket {
             readThread.start();
         }
     }
-
-    /*public void readAsyncPacket(final ReadListener readListener) {
-        synchronized (readThreadLock) {
-            if (readThread==null) {
-                readThread = Executors.newWorkStealingPool(Core.MAX_NUM_CONNECTIONS);
-                Log.d(TAG, getLogHeader()+" readThread created");
-            }
-        }
-        Log.d(TAG,getLogHeader()+" readAsyncPacket() called");
-        readThread.execute(() -> {
-            Log.d(TAG,getLogHeader()+" readAsyncPacket() readThread.execute() called");
-            int totalNumBytes = 0;
-            while(keepGoing.get()) {
-                Log.d(TAG,getLogHeader()+" readAsyncPacket() readThread.execute() while(keepGoing) loop top");
-                try {
-                    byte[] data = readPacketData();
-                    if (data == null)
-                        Log.e(TAG, getLogHeader() + " readPacketData produced null data");
-                    else {
-                        Log.d(TAG, getLogHeader() + " readPacketData returned " + data.length + "b");
-                        lastConnect = System.currentTimeMillis();
-                        final AbstractPacket packet = AbstractPacket.newFromBytes(data);
-                        if (packet == null) {
-                            if (readListener != null)
-                                readListener.onError(data.length, new IOException("Unable to processPacketAndNotifyManet Packet"));
-                        } else {
-                            SqAnDevice device = PacketParser.process(packet);
-                            if (device != null)
-                                setDeviceIfNull(device);
-                            if (mReadListener != null)
-                                mReadListener.onSuccess(packet);
-                            if (thisDeviceEndpointRole == Role.SERVER) {
-                                Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT clients connected to this device");
-                                packet.incrementHopCount();
-                                data = packet.toByteArray();
-                                Core.send(data, packet.getSqAnDestination(), packet.getOrigin());
-                            }
-                        }
-                    }
-                } catch (PacketDropException e) {
-                    Log.e(TAG, getLogHeader()+" read error: " + e.getMessage());
-                    if (readListener != null)
-                        readListener.onPacketDropped();
-                } catch (IOException e) {
-                    Log.e(TAG, getLogHeader()+" read error: " + e.getMessage());
-                    if (readListener != null)
-                        readListener.onError(totalNumBytes, e);
-                    return;
-                }
-            }
-        });
-    }*/
 
     public boolean isActive() {
         if ((socket != null) && socket.isConnected())
@@ -335,10 +302,6 @@ public class BTSocket {
                     shift++;
                 }
                 found = inStream.read() == ALIGNMENT_BYTE_B;
-                //if (inStream.read() == ALIGNMENT_BYTE_B) {
-                //    if (inStream.read() == ALIGNMENT_BYTE_C)
-                //        found = (inStream.read() == ALIGNMENT_BYTE_D);
-                //}
             }
             if (shift > 0)
                 Log.w(TAG,getLogHeader()+" alignment byte not found where expected; packet start shifted by "+shift+"b");
@@ -428,7 +391,6 @@ public class BTSocket {
 
     /**
      * Attempt to connect to a remote BT device (blocking).
-     * Note that this method will cancel a running discovery session, if any.
      */
     public boolean connect() throws IOException {
         Log.i(TAG, getLogHeader()+" connecting..");
@@ -458,7 +420,6 @@ public class BTSocket {
             try {
                 socket.close();
             } catch (Exception e) {
-                // no op
             }
             socket = null;
         }
@@ -474,13 +435,6 @@ public class BTSocket {
                 writeThread = null;
             }
         }
-        /*synchronized (readThreadLock) {
-            if (readThread != null) {
-                try { readThread.shutdown(); } catch(Exception e) {}
-                readThread = null;
-            }
-        }*/
-
     }
 
     /**

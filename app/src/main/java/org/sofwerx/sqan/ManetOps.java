@@ -57,7 +57,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 handler = new Handler(manetThread.getLooper());
                 int manetType = 0;
                 try {
-                    manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(sqAnService).getString(Config.PREFS_MANET_ENGINE,"2"));
+                    manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(sqAnService).getString(Config.PREFS_MANET_ENGINE,"4"));
                 } catch (NumberFormatException e) {
                 }
                 switch (manetType) {

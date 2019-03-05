@@ -25,7 +25,7 @@
             android:key="manetType"
             android:title="Core Approach"
             android:summary="This is the underlying engine that powers the MANET. Changing this requires a restart."
-            android:defaultValue="2"
+            android:defaultValue="4"
             android:entries="@array/listManetTypes"
             android:entryValues="@array/listManetTypesValues" />
     </PreferenceCategory>

@@ -6,11 +6,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.preference.PreferenceManager;
 import android.provider.Settings;
 import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
@@ -33,10 +35,12 @@ import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
+import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
+import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
@@ -62,13 +66,14 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
     private TextView statusMarquee, textOverall;
-    private TextView roleWiFi, roleBT, roleBackhaul;
+    private TextView roleWiFi, roleBT, roleBackhaul, textLocation;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
     private View offlineStamp;
     private DevicesList devicesList;
     private long lastTxTotal = 0l;
     private Animation pingAnimation;
     private Timer autoUpdate;
+    private boolean nagAboutPreferredManet = true;
 
     private ArrayList<String> marqueeMessages = new ArrayList<>();
 
@@ -114,6 +119,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         iconSysInfo = findViewById(R.id.mainSysStatusInfo);
         iconSysStatus = findViewById(R.id.mainSysStatusIcon);
         iconPing = findViewById(R.id.mainPing);
+        textLocation = findViewById(R.id.mainLocation);
         iconMainTx = findViewById(R.id.mainIconTxStatus);
         statusMarquee = findViewById(R.id.mainStatusMarquee);
         textOverall = findViewById(R.id.mainDescribeOverall);
@@ -146,6 +152,24 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateActiveIndicator();
         });
         devicesList = findViewById(R.id.mainDevicesList);
+    }
+
+    private void updateLocation() {
+        SqAnDevice device = Config.getThisDevice();
+        if (device == null)
+            textLocation.setVisibility(View.INVISIBLE);
+        else {
+            SpaceTime space = device.getLastLocation();
+            if (space == null)
+                textLocation.setVisibility(View.INVISIBLE);
+            else {
+                if (space.hasAccuracy())
+                    textLocation.setText("±"+Math.round(space.getAccuracy())+"m");
+                else
+                    textLocation.setText(null);
+                textLocation.setVisibility(View.VISIBLE);
+            }
+        }
     }
 
     private void updateStatusMarquee() {
@@ -253,6 +277,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         updateStatusMarquee();
         devicesList.update(null);
         checkForLocationServices();
+        updateLocation();
         autoUpdate = new Timer();
         autoUpdate.schedule(new TimerTask() {
             @Override
@@ -263,11 +288,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void periodicHelper() {
-        /*runOnUiThread(() -> {
-            updateTransmitText();
-            updateSysStatusText();
-            updateStatusMarquee();
-        });*/
+        runOnUiThread(() -> {
+            updateLocation();
+            onNodesChanged(null);
+            //updateTransmitText();
+            //updateSysStatusText();
+            //updateStatusMarquee();
+        });
     }
 
     @Override
@@ -376,6 +403,36 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             finish();
     }
 
+    private void checkForSettingsIssues() {
+        //see if we're using the preferred MANET (currently "Bluetooth Only")
+        if (nagAboutPreferredManet) {
+            if ((sqAnService != null) && (sqAnService.getManetOps() != null)) {
+                AbstractManet manet = sqAnService.getManetOps().getManet();
+                if ((manet == null) || (manet instanceof BtManetV2)) {
+                    //ignore as this is the recommended option
+                } else {
+                    nagAboutPreferredManet = false;
+                    new AlertDialog.Builder(this)
+                            .setTitle("Not the recommended core approach")
+                            .setMessage("You are not currently using the recommended core MANET approach (Bluetooth Only). Do you want to switch approaches (you will need to start the app again)?")
+                            .setPositiveButton("Switch to Bluetooth Only", (dialog, which) -> {
+                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+                                SharedPreferences.Editor edit = prefs.edit();
+                                edit.putString(Config.PREFS_MANET_ENGINE,"4");
+                                edit.commit();
+                                if (serviceBound && (sqAnService != null))
+                                    sqAnService.requestShutdown(false);
+                                else {
+                                    disconnectBackend();
+                                    MainActivity.this.finish();
+                                }
+                            })
+                            .setNegativeButton("Ignore", (dialog, which) -> dialog.cancel()).create().show();
+                }
+            }
+        }
+    }
+
     protected ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
@@ -393,6 +450,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 updateMainStatus(sqAnService.getManetOps().getStatus());
             else
                 updateMainStatus(Status.ERROR);
+            checkForSettingsIssues();
         }
 
         @Override

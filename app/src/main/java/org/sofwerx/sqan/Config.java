@@ -100,7 +100,7 @@ public class Config {
         edit.apply();
     }
 
-    private static void updateSavedTeammates() {
+    public static void updateSavedTeammates() {
         ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
         if (devices != null) {
             for (SqAnDevice device:devices) {
@@ -282,12 +282,14 @@ public class Config {
 
         public void parseJSON(JSONObject obj) {
             if (obj != null) {
-                callsign = obj.optString("callsign");
+                callsign = obj.optString("callsign",null);
                 netID = obj.optString("netID");
                 sqAnAddress = obj.optInt("sqAnAddress",PacketHeader.BROADCAST_ADDRESS);
                 lastContact = obj.optLong("lastContact",Long.MIN_VALUE);
                 String bluetoothMacString = obj.optString("btMac",null);
                 bluetoothMac = MacAddress.build(bluetoothMacString);
+                if ((callsign != null) && (callsign.length() == 0))
+                    callsign = null;
             }
         }
 

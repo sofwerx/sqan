@@ -17,10 +17,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
-    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
+    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 30l;
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
-    private final static long TIME_TO_STALE = 1000l * 60l;
+    public final static long TIME_TO_STALE = 1000l * 60l;
     private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     private static ArrayList<SqAnDevice> devices;
     private int uuid; //this is the persistent SqAN ID for this device
@@ -28,7 +28,6 @@ public class SqAnDevice {
     private String uuidExtended; //this is the persistent ID for this device used solely to look for conflicts
     private MacAddress bluetoothMac;
     private String networkId; //this is the transient MANET ID for this device
-    //private int sqanAddress; //this is the transient SqAN address for this device; usually a translation of the IPV4 address
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
     private Status status = Status.OFFLINE;
@@ -43,6 +42,7 @@ public class SqAnDevice {
     private NodeRole roleBT = NodeRole.OFF;
     private int hopsAway = 0;
     private long lastHopUpdate = Long.MIN_VALUE;
+    private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
 
     /**
@@ -74,6 +74,18 @@ public class SqAnDevice {
         return hopsAway;
     }
     public void setHopsAway(int hops) { hopsAway = hops; }
+
+    /**
+     * Sets the last time our device forwarded a packet to this device
+     * @param time
+     */
+    public void setLastForward(long time) { lastForwardedToThisDevice = time; }
+
+    /**
+     * Gets the last time our device forwarded a packet to this device
+     * @return
+     */
+    public long getLastForward() { return lastForwardedToThisDevice; }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -146,6 +158,21 @@ public class SqAnDevice {
         return merged;
     }
 
+    private void cullOldRelayConnections() {
+        if (relays != null) {
+            int i = 0;
+            RelayConnection relay;
+            while (i<relays.size()) {
+                relay = relays.get(i);
+                if (System.currentTimeMillis() > relay.getLastConnection() + TIME_TO_STALE) {
+                    Log.d(Config.TAG,"Removing old relay info from "+callsign+" to SqAn ID "+relay.getSqAnID());
+                    relays.remove(i);
+                } else
+                    i++;
+            }
+        }
+    }
+
     /**
      * Remove old devices from the roster
      * @return
@@ -166,6 +193,8 @@ public class SqAnDevice {
             } else {
                 if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
                     device.status = Status.STALE;
+                else
+                    device.cullOldRelayConnections();
                 if (device.status == Status.STALE) {
                     CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
                     devices.remove(i);
@@ -239,7 +268,14 @@ public class SqAnDevice {
     }
 
     public void setLastLocation(SpaceTime lastLocation) {
-        this.lastLocation = lastLocation;
+        if (this.lastLocation == null)
+            this.lastLocation = lastLocation;
+        else {
+            if (lastLocation == null)
+                return;
+            if (lastLocation.getTime() > this.lastLocation.getTime())
+                this.lastLocation = lastLocation;
+        }
     }
 
     /**
@@ -369,7 +405,6 @@ public class SqAnDevice {
     }
 
     public int getActiveRelays() {
-        //TODO factor in some age consideration
         if (relays == null)
             return 0;
         return relays.size();
@@ -451,6 +486,8 @@ public class SqAnDevice {
             if ((lastLocation == null) || !lastLocation.isValid() || (other.lastLocation.getTime() > lastLocation.getTime()))
                 lastLocation = other.lastLocation;
         }
+        if (other.relays != null)
+            relays = other.relays;
         if (uuid > 0) {
             if (other.uuid < 0) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,other.networkId+" was a duplicate; information merged into "+uuid);
@@ -580,11 +617,13 @@ public class SqAnDevice {
      * @param other
      * @return the device (or null if the device is not found)
      */
-    public static SqAnDevice find(SqAnDevice other) {
+    public static SqAnDevice find(final SqAnDevice other) {
         if ((other != null) && (devices != null) && !devices.isEmpty()) {
-            for (SqAnDevice device : devices) {
-                if (device.isSame(other))
-                    return device;
+            synchronized (devices) {
+                for (SqAnDevice device : devices) {
+                    if ((device != null) && device.isSame(other))
+                        return device;
+                }
             }
         }
         return null;
@@ -692,6 +731,21 @@ public class SqAnDevice {
      */
     public void addToDataTally(int sizeInBytes) {
         rxDataTally += sizeInBytes;
+    }
+
+    /**
+     * How many hops does it take for this device to reach a specific other device
+     * @param sqAnID
+     * @return the number of hops it takes to reach the specific device, or Integer.MAX_VALUE if this device does not have a connection
+     */
+    public int getHopsToDevice(int sqAnID) {
+        if (relays != null) {
+            for (RelayConnection relay:relays) {
+                if (relay.getSqAnID() == sqAnID)
+                    return relay.getHops();
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 
     /**

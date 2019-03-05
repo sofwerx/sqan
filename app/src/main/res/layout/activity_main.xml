@@ -172,6 +172,18 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/mainTextTemp" />
 
+                <TextView
+                    android:id="@+id/mainLocation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:drawableStart="@drawable/icon_location"
+                    android:gravity="center_vertical"
+                    android:text="error"
+                    android:textColor="@color/white_hint_green"
+                    app:layout_constraintBottom_toBottomOf="@+id/mainTextSysStatus"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/mainSysStatusInfo" />
+
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <FrameLayout

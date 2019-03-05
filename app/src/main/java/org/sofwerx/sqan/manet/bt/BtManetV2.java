@@ -23,6 +23,7 @@ import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.TeammateConnectionPlanner;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.util.CommsLog;
@@ -43,7 +44,6 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     private static final long TIME_BETWEEN_TEAMMATE_CHECKS = 1000l * 15l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
     private static final String SERVICE_NAME = "SqAN";
-    private static final long TIME_TO_CONSIDER_STALE_DEVICE = 1000l * 60l * 5l;
     private BluetoothAdapter bluetoothAdapter;
     private long nextTeammateCheck = Long.MIN_VALUE;
 
@@ -94,7 +94,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public void init() throws ManetException {
-        Log.d(Config.TAG,"BtManet init()");
+        Log.d(Config.TAG,"BtManetV2 init()");
         isRunning.set(true);
         setStatus(Status.ADVERTISING_AND_DISCOVERING);
         connectToTeammates();
@@ -102,20 +102,25 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     }
 
     private void connectToTeammates() {
-        Log.d(Config.TAG,"BtManet.connectToTeammates()");
+        Log.d(Config.TAG,"BtManetV2.connectToTeammates()");
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         if (!Core.isAtMaxConnections()) {
-            ArrayList<Config.SavedTeammate> teammates = Config.getSavedTeammates();
+            ArrayList<Config.SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
+            int pendingConnections = Core.getActiveClientsCount();
+            int active = Core.getActiveClientsAndServerCount();
             if ((teammates != null) && !teammates.isEmpty()) {
                 for (Config.SavedTeammate teammate : teammates) {
-                    //FIXME prefer connections that are not already reached by another means (i.e. have a lower priority connection attempt if we're already connected by WiFi)
-                    MacAddress mac = teammate.getBluetoothMac();
-                    if ((mac != null) && !Core.isMacConnected(mac)) {
-                        String macString = mac.toString();
-                        Log.d(Config.TAG, "Teammate " + macString + " is not connected yet");
-                        BluetoothDevice device = getDevice(macString);
-                        if (device != null)
-                            Core.connectAsClientAsync(context, device, BtManetV2.this);
+                    //when there are few (i.e. 2 or less) connections, try to connect with everyone, otherwise just try to connect with a few priority devices
+                    if ((active < 3) || (pendingConnections < Core.MAX_NUM_CONNECTIONS)) {
+                        MacAddress mac = teammate.getBluetoothMac();
+                        if ((mac != null) && !Core.isMacConnected(mac)) {
+                            String macString = mac.toString();
+                            Log.d(Config.TAG, "Teammate " + macString + " is not connected yet");
+                            BluetoothDevice device = getDevice(macString);
+                            pendingConnections++;
+                            if (device != null)
+                                Core.connectAsClientAsync(context, device, BtManetV2.this);
+                        }
                     }
                 }
             }
@@ -210,18 +215,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
         //clear out stale nodes
         Core.removeUnresponsiveConnections();
-        //BtSocketHandler.removeUnresponsiveConnections();
-        /*if ((nodes != null) && !nodes.isEmpty()) {
-            Iterator it = nodes.entrySet().iterator();
-            long timeToConsiderStale = System.currentTimeMillis() + TIME_TO_CONSIDER_STALE_DEVICE;
-            while (it.hasNext()) {
-                Map.Entry pair = (Map.Entry)it.next();
-                if ((long)pair.getValue() > timeToConsiderStale) {
-                    it.remove();
-                    //TODO consider notifying the link that the culling has occurred
-                }
-            }
-        }*/
+
         //and look for new connections
         if (System.currentTimeMillis() > nextTeammateCheck)
             connectToTeammates();

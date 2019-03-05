@@ -56,7 +56,9 @@ public class HeartbeatPacket extends AbstractPacket {
             ByteBuffer buf = ByteBuffer.wrap(bytes);
             try {
                 if (packetHeader.getOriginUUID() > 0) {
-                    device = new SqAnDevice(packetHeader.getOriginUUID());
+                    device = SqAnDevice.findByUUID(packetHeader.getOriginUUID());
+                    if (device == null)
+                        device = new SqAnDevice(packetHeader.getOriginUUID());
                     if (buf.remaining() < SpaceTime.SIZE_IN_BYTES)
                         return;
                     byte[] spaceTimeBytes = new byte[SpaceTime.SIZE_IN_BYTES];
@@ -73,7 +75,7 @@ public class HeartbeatPacket extends AbstractPacket {
                         byte[] relayBytes = new byte[RelayConnection.SIZE];
                         for (int i=0;i<relaySize;i++) {
                             buf.get(relayBytes);
-                            parseRelayConnection(new RelayConnection(relayBytes));
+                            device.updateRelayConnection(new RelayConnection(relayBytes));
                         }
                     }
                     if (buf.remaining() < 4)
@@ -99,39 +101,14 @@ public class HeartbeatPacket extends AbstractPacket {
         }
     }
 
-    //FIXME hey dummy! you need to send the RelayConnections and then also figure out if an incoming packet needs to be relayed to this device based on its hop count
-
-    private void parseRelayConnection(RelayConnection relay) {
-        if (relay == null)
-            return;
-        SqAnDevice device = SqAnDevice.findByUUID(relay.getSqAnID());
-        if (device == null) {
-            device = new SqAnDevice(relay.getSqAnID());
-            device.setHopsAway(relay.getHops());
-            device.setLastConnect(relay.getLastConnection());
-        } else {
-            if (relay.getLastConnection() > device.getLastConnect()) {
-                device.setHopsAway(relay.getHops());
-                device.setLastConnect(relay.getLastConnection());
-            }
-        }
-    }
-
-    private void parseRelayConnections(ArrayList<RelayConnection> relays) {
-        if (relays == null)
-            return;
-        for (RelayConnection relay:relays) {
-            parseRelayConnection(relay);
-        }
-    }
-
     private ArrayList<RelayConnection> getRelayConnections() {
         ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
         if (devices == null)
             return null;
         ArrayList<RelayConnection> relays = new ArrayList<>();
         for (SqAnDevice device:devices) {
-            relays.add(new RelayConnection(device.getUUID(),device.getHopsAway(),device.getLastConnect()));
+            if (System.currentTimeMillis() < device.getLastConnect() + SqAnDevice.TIME_TO_STALE)
+                relays.add(new RelayConnection(device.getUUID(),device.getHopsAway(),device.getLastConnect()));
         }
         return relays;
     }
@@ -161,16 +138,16 @@ public class HeartbeatPacket extends AbstractPacket {
 
         //for now at least, Callsign, Relays, and Position must have all the flags before it to be valid
         if (includeCallsign && (!includeRelays || !includePosition)) {
-            Log.e(Config.TAG,"Invalid hearbeat request - check flags");
+            Log.e(Config.TAG,"Invalid heartbeat request - check flags");
             return null; //invalid
         }
         if (includeRelays && !includePosition) {
-            Log.e(Config.TAG,"Invalid hearbeat request - check flags");
+            Log.e(Config.TAG,"Invalid heartbeat request - check flags");
             return null; //invalid
         }
 
         byte[] spaceTimeBytes = null;
-        if (includePosition && (device.getLastLocation() != null)) {
+        if (includePosition) {
             SpaceTime spaceTime = device.getLastLocation();
             if (spaceTime == null)
                 spaceTimeBytes = SpaceTime.toByteArrayEmptySpaceTime();
@@ -240,20 +217,6 @@ public class HeartbeatPacket extends AbstractPacket {
     @Override
     protected int getType() {
         return PacketHeader.PACKET_TYPE_HEARTBEAT;
-    }
-
-    @Override
-    public int getApproxSize() {
-        if (detailLevel == null)
-            return 4;
-        switch (detailLevel) {
-            case BASIC:
-                return 4;
-            case MEDIUM:
-                return 72;
-            default:
-                return 4;
-        }
     }
 
     @Override

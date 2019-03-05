@@ -142,6 +142,17 @@ public class Core {
     }
 
     public static void send(final byte[] data, final int destination, final int origin) {
+        send(data, destination, origin,false);
+    }
+
+    /**
+     * Sends data to another destination
+     * @param data
+     * @param destination
+     * @param origin
+     * @param clientsOnly true == only send this to sockets where I am the hub
+     */
+    public static void send(final byte[] data, final int destination, final int origin, boolean clientsOnly) {
         if (origin <= 0)
             Log.d(TAG,"send() with an origin value of "+origin+" (this should not be)");
         synchronized (allSockets) {
@@ -154,10 +165,13 @@ public class Core {
                         if (!socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
                             if (socket.getDevice() != null) {
                                 if (socket.isActive()) {
-                                    Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
-                                    socket.write(data);
-                                    sent = true;
-                                    Log.d(TAG, data.length + "b sent over socket #" + socket.getBtSocketIdNum());
+                                    if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
+                                        Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
+                                        socket.write(data);
+                                        sent = true;
+                                        Log.d(TAG, data.length + "b sent over socket #" + socket.getBtSocketIdNum());
+                                    } else
+                                        Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
                                 } else
                                     Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
                             } else

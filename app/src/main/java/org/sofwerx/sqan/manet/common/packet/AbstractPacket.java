@@ -20,6 +20,17 @@ public abstract class AbstractPacket {
         this.packetHeader = packetHeader;
     }
 
+    /**
+     * Helper method to overwrite just the hop count and an existing byte[] version for a packet
+     * in order to reduce the computation and time needed to handle the packet when its being relayed
+     * @param data
+     */
+    public void incrementHopCount(byte[] data) {
+        if (packetHeader == null)
+            return;
+        packetHeader.incrementHopCount(data);
+    }
+
     public void incrementHopCount() {
         if (packetHeader != null)
             packetHeader.incrementHopCount();
@@ -157,11 +168,4 @@ public abstract class AbstractPacket {
             packetHeader.setDestination(uuid);
         }
     }
-
-    /**
-     * Size reporting for the sake of measuring data flow only; items like headers may not be fully accounted
-     * for. Should NOT be used to do any bytewise operations
-     * @return
-     */
-    public abstract int getApproxSize();
 }

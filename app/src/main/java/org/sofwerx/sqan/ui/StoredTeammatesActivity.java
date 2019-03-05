@@ -1,31 +1,69 @@
 package org.sofwerx.sqan.ui;
 
+import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
+
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.snackbar.Snackbar;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.manet.bt.Discovery;
+import org.sofwerx.sqan.util.StringUtil;
+
+import java.util.Set;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 public class StoredTeammatesActivity extends AppCompatActivity implements StoredTeammateChangeListener {
     private StoredTeammatesList teammatesList;
     private Discovery btDiscovery;
+    private FloatingActionButton fabFix;
+    private CoordinatorLayout coordinatorLayout;
+    private BluetoothAdapter bluetoothAdapter;
+    private View viewSearching;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_stored_teammates);
+        coordinatorLayout = findViewById(R.id.storedTeammatesCoordinator);
         teammatesList = findViewById(R.id.storedTeammatesList);
+        fabFix = findViewById(R.id.storedTeammatesRepair);
+        viewSearching = findViewById(R.id.storedTeammatesFindOthers);
+        fabFix.setOnClickListener(v -> repair());
+        final BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+        bluetoothAdapter = bluetoothManager.getAdapter();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        intentFilter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+        registerReceiver(receiver,intentFilter);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        Config.updateSavedTeammates();
         updateDisplay();
     }
 
     private void updateDisplay() {
+        fabFix.setEnabled(!bluetoothAdapter.isDiscovering());
+        viewSearching.setVisibility(bluetoothAdapter.isDiscovering()?View.VISIBLE:View.GONE);
         teammatesList.update(null);
         int num = Config.getNumberOfSavedTeammates();
         if (num < 1)
@@ -40,6 +78,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
 
     @Override
     public void onDestroy() {
+        unregisterReceiver(receiver);
         if (btDiscovery != null) {
             btDiscovery.stopDiscovery();
             btDiscovery.stopAdvertising();
@@ -58,6 +97,11 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
         runOnUiThread(() -> updateDisplay());
     }
 
+    private void repair() {
+        fabFix.setEnabled(false);
+        onDiscoveryNeeded();
+    }
+
     @Override
     public void onDiscoveryNeeded() {
         if (btDiscovery == null)
@@ -66,34 +110,51 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
         btDiscovery.startDiscovery();
     }
 
-    /*public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.menu_main, menu);
-        return true;
-    }
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
 
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        switch (id) {
-            case R.id.action_about:
-                startActivity(new Intent(this, AboutActivity.class));
-                return true;
-
-            case R.id.action_settings:
-                startActivity(new Intent(this, SettingsActivity.class));
-                return true;
+            if (action.equals(BluetoothAdapter.ACTION_DISCOVERY_STARTED)) {
+                Snackbar.make(coordinatorLayout, R.string.bt_discovery_started, Snackbar.LENGTH_LONG).show();
+            } else if (action.equals(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)) {
+                Snackbar.make(coordinatorLayout, R.string.bt_discovery_ended, Snackbar.LENGTH_LONG).show();
+            //} else if (action.equals(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)) {
+            //    String mode = intent.getStringExtra(BluetoothAdapter.EXTRA_SCAN_MODE);
+            //    Toast.makeText(StoredTeammatesActivity.this,"Mode is "+mode,Toast.LENGTH_LONG).show();
+            }
+            runOnUiThread(() -> updateDisplay());
         }
+    };
 
-        return super.onOptionsItemSelected(item);
-    }*/
-
-    /*@Override
-    public void onActivityResult(int requestCode, int resultCode, final Intent data) {
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        Log.d(Config.TAG, "Result : " + requestCode + " " + resultCode);
+
         switch (requestCode) {
-            case REQUEST_DISABLE_BATTERY_OPTIMIZATION:
-                Config.setNeverAskBatteryOptimize(this);
+            case Discovery.REQUEST_DISCOVERY:
+                if (resultCode == RESULT_OK) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle(R.string.bt_start_discovery_on_other_devices);
+                    builder.setMessage(getResources().getString(R.string.bt_start_discovery_on_other_devices_narrative, StringUtil.toDuration(((long)Discovery.DISCOVERY_DURATION_SECONDS)*1000l)));
+                    //builder.setPositiveButton(R.string.ok, (dialog, which) -> {
+                    //    dismiss();
+                    //});
+                    final AlertDialog dialog = builder.create();
+                    dialog.setCanceledOnTouchOutside(true);
+                    dialog.show();
+                } else if (resultCode == RESULT_CANCELED)
+                    Snackbar.make(coordinatorLayout, R.string.bt_discovery_canx, Snackbar.LENGTH_LONG).show();
+                updateDisplay();
+                break;
+
+            case Discovery.REQUEST_ENABLE_BLUETOOTH:
+                if (resultCode == RESULT_OK) {
+                    //ignore for now
+                } else if (resultCode == RESULT_CANCELED)
+                    Snackbar.make(coordinatorLayout, R.string.bt_needed, Snackbar.LENGTH_LONG).show();
                 break;
         }
-    }*/
+    }
 }

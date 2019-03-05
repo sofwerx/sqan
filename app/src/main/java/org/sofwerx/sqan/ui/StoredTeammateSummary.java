@@ -3,6 +3,7 @@ package org.sofwerx.sqan.ui;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -26,10 +27,13 @@ import java.io.StringWriter;
 import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+import static android.app.Activity.RESULT_OK;
+
 public class StoredTeammateSummary extends ConstraintLayout {
     private final static long RECENT_TIME = 1000l * 60l * 60l * 24l * 5l;
     private TextView callsign, uuid, bt, wifi, last;
-    private ImageView iconTrash, iconFix;
+    private ImageView iconTrash;
+    private ImageView iconFix;
     private ImageView iconBt, iconWiFi, iconLast;
     private StoredTeammateChangeListener listener;
     private Config.SavedTeammate teammate;
@@ -82,10 +86,10 @@ public class StoredTeammateSummary extends ConstraintLayout {
                     })
                     .setPositiveButton(R.string.keep, (dialog, which) -> dialog.dismiss()).create().show());
         }
-        iconFix.setOnClickListener(v -> {
+        /*iconFix.setOnClickListener(v -> {
             if (listener != null)
                 listener.onDiscoveryNeeded();
-        });
+        });*/
     }
 
     public void update(Config.SavedTeammate teammate) {
@@ -116,17 +120,14 @@ public class StoredTeammateSummary extends ConstraintLayout {
                 bt.setText(btMac.toString());
                 iconBt.setColorFilter(getResources().getColor(R.color.green));
             }
-            if (teammate.getNetID() == null) {
+            if ((teammate.getNetID() == null) || (teammate.getNetID().length() == 0)) {
                 wifi.setText(null);
-                iconWiFi.setColorFilter(getResources().getColor(R.color.light_grey));
+                iconWiFi.setColorFilter(getResources().getColor(R.color.bright_red));
             } else {
                 wifi.setText(teammate.getNetID());
                 iconWiFi.setColorFilter(getResources().getColor(R.color.green));
             }
-            if (activity == null)
-                iconFix.setVisibility(View.INVISIBLE);
-            else
-                iconFix.setVisibility(needsRepair?View.VISIBLE:View.INVISIBLE);
+            iconFix.setVisibility(needsRepair?View.VISIBLE:View.INVISIBLE);
         } else
             Log.e(Config.TAG,"StoredTeammateSummary has been assigned a null teammate - this should never happen");
     }

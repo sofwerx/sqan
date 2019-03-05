@@ -32,8 +32,6 @@ public class PacketParser {
             if (packet.getCurrentHopCount() < hops)
                 device.setConnected(packet.getCurrentHopCount());
         }
-        if (device != null)
-            device.addToDataTally(packet.getApproxSize());
         return device;
     }
 
