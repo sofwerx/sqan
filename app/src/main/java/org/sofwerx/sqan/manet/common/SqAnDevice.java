@@ -504,8 +504,10 @@ public class SqAnDevice {
         int sum = 0;
 
         for (SqAnDevice device:devices) {
-            if (device.status == Status.CONNECTED)
-                sum++;
+            if (device != null) {
+                if (device.status == Status.CONNECTED)
+                    sum++;
+            }
         }
 
         return sum;

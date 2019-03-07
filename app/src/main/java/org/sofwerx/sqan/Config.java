@@ -167,7 +167,7 @@ public class Config {
     }
 
     public static SavedTeammate getTeammate(int sqAnAddress) {
-        if (sqAnAddress == PacketHeader.BROADCAST_ADDRESS)
+        if ((sqAnAddress < 0) || (sqAnAddress == PacketHeader.BROADCAST_ADDRESS))
             return null;
         if (savedTeammates != null) {
             for (SavedTeammate teammate:savedTeammates) {

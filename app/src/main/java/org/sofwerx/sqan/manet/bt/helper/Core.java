@@ -82,7 +82,7 @@ public class Core {
                 } else {
                     if (ALLOW_FAILOVER_OPTIONS) {
                         Log.d(TAG, "Failover 1: first supported UUID");
-                        UUID[] uuids = getSupportedUuids(context, device);
+                        UUID[] uuids = getSupportedUuids(device);
                         if (uuids != null && uuids.length > 0) {
                             serviceUuid = uuids[0];
                             sock = createClientSocket(device, secure, serviceUuid);
@@ -237,12 +237,31 @@ public class Core {
         }
     }
 
+    public static boolean isSqAnSupported(BluetoothDevice device) {
+        if (appUuid == null) {
+            Log.e(TAG, "isSqAnSupported cannot examine "+device.getName()+" yet as Core.init() has not been called");
+            return false;
+        }
+        UUID[] uuids = getSupportedUuids(device);
+        if (uuids != null) {
+            Log.d(TAG, uuids.length+" UUIDs provided for "+device.getName());
+            for (UUID uuid : uuids) {
+                if (uuid.equals(appUuid))
+                    return true;
+            }
+        } else
+            Log.d(TAG, "No UUIDs provided for "+device.getName());
+        return false;
+    }
+
     /**
      * Returns the supported features (UUIDs) of the remote device (no discovery!)
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @SuppressLint("NewApi")
-    public static UUID[] getSupportedUuids(Context context, BluetoothDevice device) {
+    public static UUID[] getSupportedUuids(BluetoothDevice device) {
+        if (device == null)
+            return null;
         ParcelUuid[] pUuids = null;
         if (android.os.Build.VERSION.SDK_INT >= VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
             pUuids = device.getUuids();
