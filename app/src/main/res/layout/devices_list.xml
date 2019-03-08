@@ -18,18 +18,26 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_gravity="center">
-        <TextView
-            android:id="@+id/devicesNoDevicesText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Looking for other PLUGS..."
-            android:textColor="@color/white"/>
+        android:layout_gravity="center"
+        android:background="@drawable/bg_item_2_yellow">
 
         <ImageView
             android:id="@+id/imageView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_notification" />
+
+        <TextView
+            android:id="@+id/devicesNoDevicesText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Looking for active devices..."
+            android:textColor="@color/white"/>
+
+        <ProgressBar
+            style="?android:attr/progressBarStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
     </LinearLayout>
 </FrameLayout>

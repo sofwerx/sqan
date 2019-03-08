@@ -142,10 +142,6 @@ public class DeviceSummary extends ConstraintLayout {
                 hops.setVisibility(View.INVISIBLE);
                 links.setVisibility(View.INVISIBLE);
             }
-            if (System.currentTimeMillis() > device.getLastForward() + TIME_TO_SHOW_FORWARDING)
-                iconForward.setVisibility(View.INVISIBLE);
-            else
-                iconForward.setVisibility(View.VISIBLE);
         } else {
             Log.e(Config.TAG,"DeviceSummary has been assigned a null device - this should never happen");
             callsign.setText("No sensor");
@@ -188,7 +184,7 @@ public class DeviceSummary extends ConstraintLayout {
                 iconLink.setImageResource(R.drawable.icon_link_old);
                 iconLink.setVisibility(View.VISIBLE);
                 setBackgroundResource(R.drawable.bg_item_2_grey);
-                unavailable = false;
+                unavailable = true;
                 break;
 
             default:
@@ -209,6 +205,9 @@ public class DeviceSummary extends ConstraintLayout {
                 textDistance.setVisibility(View.INVISIBLE);
             if (textDistanceAccuracy != null)
                 textDistanceAccuracy.setVisibility(View.INVISIBLE);
+            hops.setVisibility(View.INVISIBLE);
+            links.setVisibility(View.INVISIBLE);
+            iconForward.setVisibility(View.INVISIBLE);
         } else {
             callsign.setTextColor(getContext().getResources().getColor(R.color.yellow));
             uuid.setTextColor(getContext().getResources().getColor(R.color.white));
@@ -244,6 +243,10 @@ public class DeviceSummary extends ConstraintLayout {
                         textDistanceAccuracy.setVisibility(View.INVISIBLE);
                 }
             }
+            if (System.currentTimeMillis() > device.getLastForward() + TIME_TO_SHOW_FORWARDING)
+                iconForward.setVisibility(View.INVISIBLE);
+            else
+                iconForward.setVisibility(View.VISIBLE);
         }
     }
 

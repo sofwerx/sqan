@@ -350,17 +350,6 @@ public class WiFiAwareManet extends AbstractManet {
     }
 
     @Override
-    public void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
-        if (device == null)
-            burst(packet);
-        else {
-            PeerHandle peerHandle = findPeer(device.getNetworkId());
-            if (peerHandle != null)
-                burst(packet,peerHandle);
-        }
-    }
-
-    @Override
     public void connect() throws ManetException {
         //TODO
     }

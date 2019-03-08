@@ -93,11 +93,6 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void burst(final AbstractPacket packet) {
-        burst(packet,null);
-    }
-
-    @Override
-    public void burst(final AbstractPacket packet, SqAnDevice device) {
         if (packet == null)
             return; //nothing to send
         byte[] bytes = packet.toByteArray();
@@ -106,17 +101,13 @@ public class NearbyConnectionsManet extends AbstractManet {
             return; //nothing to send but that seems like an error
         }
         final List<String> devices;
-        if (device == null)
             devices = SqAnDevice.getActiveDevicesNetworkIds();
-        else
-            devices = null;
-        if (((device == null) || (device.getNetworkId() == null)) && (devices == null)) {
+        if (devices == null) {
             CommsLog.log(CommsLog.Entry.Category.COMMS, "Packet intended to be sent, but I am not connected to any devices yet.");
             return; //no one to send the burst to
         }
 
         //temp
-        if (device == null) {
             StringWriter outTemp = new StringWriter();
             boolean first = true;
             for (String deviceNetId : devices) {
@@ -127,7 +118,6 @@ public class NearbyConnectionsManet extends AbstractManet {
                 outTemp.append(deviceNetId);
             }
             Log.d(Config.TAG, "Sending burst to: " + outTemp.toString());
-        }
         //temp
 
         final int bytesSent = bytes.length;
@@ -138,7 +128,6 @@ public class NearbyConnectionsManet extends AbstractManet {
             return;
         }
 
-        if (device == null) {
             //This will broadcast to all active devices
             Nearby.getConnectionsClient(context).sendPayload(devices, Payload.fromBytes(bytes))
                     .addOnSuccessListener(aVoid -> {
@@ -161,9 +150,8 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 listener.onDevicesChanged(null);
                         }
                     });
-        } else {
             //This will broadcast to one device
-            Nearby.getConnectionsClient(context).sendPayload(device.getNetworkId(), Payload.fromBytes(bytes))
+            /*Nearby.getConnectionsClient(context).sendPayload(device.getNetworkId(), Payload.fromBytes(bytes))
                     .addOnSuccessListener(aVoid -> {
                         CommsLog.log(CommsLog.Entry.Category.COMMS, StringUtil.toDataSize(bytesSent) + " sent to " + device.getNetworkId());
                         setStatus(Status.CONNECTED);
@@ -179,7 +167,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             listener.onStatus(status);
                         }
                     });
-        }
+        }*/
     }
 
     private void segmentAndBurst(AbstractPacket packet) {
@@ -466,7 +454,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 if (pingPacket.isAPingRequest()) {
                                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + deviceId);
                                     pingPacket.setMidpointLocalTime(System.currentTimeMillis());
-                                    burst(pingPacket,device);
+                                    burst(pingPacket);
                                 } else {
                                     device.addLatencyMeasurement(pingPacket.getLatency());
                                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency "+Long.toString(pingPacket.getLatency())+"ms) from " + deviceId);

@@ -104,20 +104,12 @@ public class DevicesList extends ConstraintLayout {
         });
     }
 
-    /*public void setList(ArrayList<SqAnDevice> devices) {
-        this.devices = devices;
-        if (devices != null) {
-            adapter = new DevicesListArrayAdapter(activity, devices);
-            list.setAdapter(adapter);
-        }
-        updateListVisibility();
-    }*/
-
     private void updateListVisibility() {
         ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
         if ((devices != null) && !devices.isEmpty()) {
             list.setVisibility(View.VISIBLE);
-            waitingView.setVisibility(View.INVISIBLE);
+            boolean active = SqAnDevice.hasAtLeastOneActiveConnection();
+            waitingView.setVisibility(active?View.INVISIBLE:View.VISIBLE);
         } else {
             list.setVisibility(View.INVISIBLE);
             waitingView.setVisibility(View.VISIBLE);

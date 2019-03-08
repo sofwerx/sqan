@@ -232,8 +232,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             Log.d(Config.TAG,"Cannot send null packet");
     }
 
-    @Override
-    public void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
+    private void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
         Log.d(Config.TAG,"Packet burst...");
         if (packet != null) {
             boolean sent = false;

@@ -45,7 +45,8 @@ public class BTSocket {
     private ReadListener readListener;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
     private int id = connectionCounter.incrementAndGet();
-    private long lastConnect = Long.MIN_VALUE;
+    private long lastConnectInbound = Long.MIN_VALUE;
+    private long lastConnectOutbound = Long.MIN_VALUE;
 
     public void setDeviceIfNull(SqAnDevice device) {
         if (this.device == null) {
@@ -59,7 +60,6 @@ public class BTSocket {
 
     private Thread readThread;
     private static ArrayList<Thread> readThreads = new ArrayList();
-    //private static ExecutorService readThread;
     private static ExecutorService writeThread;
 
     //private static final Object readThreadLock = new Object();
@@ -95,7 +95,8 @@ public class BTSocket {
             Log.d(TAG, getLogHeader()+" match to existing device "+((device.getCallsign()==null)?"":"("+device.getCallsign()+") ")+"found");
         }
         Core.registerForCleanup(this);
-        lastConnect = System.currentTimeMillis();
+        lastConnectInbound = System.currentTimeMillis();
+        lastConnectOutbound = System.currentTimeMillis();
     }
 
     public void startConnections() {
@@ -207,7 +208,7 @@ public class BTSocket {
                                 Log.e(TAG, getLogHeader() + " readPacketData produced null data");
                             else {
                                 Log.d(TAG, getLogHeader() + " readPacketData returned " + data.length + "b");
-                                lastConnect = System.currentTimeMillis();
+                                lastConnectInbound = System.currentTimeMillis();
                                 final AbstractPacket packet = AbstractPacket.newFromBytes(data);
                                 if (packet == null) {
                                     if (readListener != null)
@@ -218,12 +219,10 @@ public class BTSocket {
                                         device.addToDataTally(data.length);
                                         setDeviceIfNull(device);
                                     }
-                                    if (mReadListener != null)
-                                        mReadListener.onSuccess(packet);
                                     packet.incrementHopCount(data);
                                     if (thisDeviceEndpointRole == Role.SERVER) {
-                                        Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT client connected to this device (this device is hub)");
-                                        //device.setLastForward(System.currentTimeMillis());
+                                        Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT spoke connected to this device (this device is hub)");
+                                        device.setLastForward(System.currentTimeMillis());
                                         Core.send(data, packet.getSqAnDestination(), packet.getOrigin(),true);
                                     } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
                                         ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
@@ -232,7 +231,7 @@ public class BTSocket {
                                                 if (tgt.getUUID() != packet.getOrigin()) {
                                                     //for directly connected devices, forward traffic when our hop count is better
                                                     if ((tgt.getHopsAway() == 0) && (packet.getCurrentHopCount() < tgt.getHopsToDevice(packet.getOrigin()))) {
-                                                        Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT client connected to this device");
+                                                        Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT hub connected to this device");
                                                         device.setLastForward(System.currentTimeMillis());
                                                         Core.send(data, tgt.getUUID(), packet.getOrigin());
                                                     }
@@ -240,6 +239,8 @@ public class BTSocket {
                                             }
                                         }
                                     }
+                                    if (mReadListener != null)
+                                        mReadListener.onSuccess(packet);
                                 }
                             }
                         } catch (PacketDropException e) {
@@ -335,7 +336,6 @@ public class BTSocket {
             if (checksum != calculatedChecksum)
                 throw new PacketDropException(getLogHeader()+" received a packet that did not have the proper checksum ("+calculatedChecksum+" expected but "+checksum+" received)");
             else {
-                lastConnect = System.currentTimeMillis();
                 Log.d(TAG, getLogHeader() + " readPacketData() received data");
                 return data;
             }
@@ -374,8 +374,7 @@ public class BTSocket {
                 outStream.write(data);
                 byte checksum = NetUtil.getChecksum(data);
                 outStream.write(checksum);
-                Log.d(TAG, getLogHeader() + " wrote checksum " + checksum);
-                lastConnect = System.currentTimeMillis();
+                lastConnectOutbound = System.currentTimeMillis();
             } catch (IOException e) {
                 Log.d(TAG, getLogHeader()+" writeThread error: "+e.getMessage());
                 if (e != null) {
@@ -477,11 +476,12 @@ public class BTSocket {
      * @return
      */
     public boolean isStale() {
-        if (lastConnect > 0l) {
-            if (System.currentTimeMillis() > lastConnect + MIN_TIME_BEFORE_TESTING_STALE) {
+        if (lastConnectInbound > 0l) {
+            if (System.currentTimeMillis() > lastConnectInbound + MIN_TIME_BEFORE_TESTING_STALE) {
                 if ((outStream == null) || (inStream == null))
                     return true;
-                return (System.currentTimeMillis() > lastConnect + MAX_TIME_BEFORE_STALE);
+                return (System.currentTimeMillis() > lastConnectInbound + MAX_TIME_BEFORE_STALE) ||
+                        (System.currentTimeMillis() > lastConnectOutbound + MAX_TIME_BEFORE_STALE);
             }
         }
         return false;

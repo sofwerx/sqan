@@ -42,10 +42,12 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
  */
 public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceConnectionListener, ReadListener {
     private static final long TIME_BETWEEN_TEAMMATE_CHECKS = 1000l * 15l;
+    private static final long OLD_DEVICE_CHECK_INTERVAL = 1000l * 60l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
     private static final String SERVICE_NAME = "SqAN";
     private BluetoothAdapter bluetoothAdapter;
     private long nextTeammateCheck = Long.MIN_VALUE;
+    private long nextOldDeviceCheck = Long.MIN_VALUE;
 
     public BtManetV2(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
@@ -162,16 +164,6 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     }
 
     @Override
-    public void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
-        //FIXME this needs to be looked at again and incorporate hop counts and maybe routing or this method might be dropped from the abstractManet
-        if (device == null)
-            burst(packet);
-        else {
-            //TODO find peer and burst
-        }
-    }
-
-    @Override
     public void connect() throws ManetException {
         //TODO
     }
@@ -214,7 +206,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         }
 
         //clear out stale nodes
-        Core.removeUnresponsiveConnections();
+        if (System.currentTimeMillis() > nextOldDeviceCheck) {
+            nextOldDeviceCheck = System.currentTimeMillis() + OLD_DEVICE_CHECK_INTERVAL;
+            Core.removeUnresponsiveConnections();
+            SqAnDevice.cullOldDevices();
+        }
 
         //and look for new connections
         if (System.currentTimeMillis() > nextTeammateCheck)

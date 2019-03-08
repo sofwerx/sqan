@@ -42,6 +42,7 @@ import java.util.Random;
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
  */
 public class SqAnService extends Service implements LocationService.LocationUpdateListener {
+    private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
@@ -66,6 +67,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private long lastPositiveOutgoingComms = Long.MIN_VALUE;
     private int lastHeartbeatLevel = 0;
     private long nextDevicesCleanup = Long.MIN_VALUE;
+    private long nextAvailableHeartbeat = Long.MIN_VALUE; //prevent multiple heartbeats from firing in close succession
     private LocationService locationService;
 
     private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
@@ -156,6 +158,11 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             return;
         }
         if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
+            if (System.currentTimeMillis() < nextAvailableHeartbeat) {
+                Log.d(Config.TAG,"A heartbeat was just requested so this heartbeat request is being skipped.");
+                return;
+            }
+            nextAvailableHeartbeat = System.currentTimeMillis() + MIN_TIME_BETWEEN_HEARTBEATS;
             //if (lastHeartbeatLevel == 0)
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
             /*if (lastHeartbeatLevel == 1) {
@@ -402,7 +409,10 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     public void notifyStatusChange(String message) {
         createNotificationChannel();
         Notification.Builder builder;
-        builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
+        else
+            builder = new Notification.Builder(this);
         if (LocationService.isLocationEnabled(this)) {
             PendingIntent pendingIntent = null;
             try {
@@ -458,18 +468,19 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     }
 
     private void createNotificationChannel() {
-        if ((channel == null) && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)) {
-            CharSequence name;
-            String description;
-            int importance;
-            name = getString(R.string.channel_name);
-            description = getString(R.string.channel_description);
-            importance = NotificationManager.IMPORTANCE_LOW;
-
-            channel = new NotificationChannel(NOTIFICATION_CHANNEL, name, importance);
-            channel.setDescription(description);
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (channel == null) {
+                CharSequence name;
+                String description;
+                int importance;
+                name = getString(R.string.channel_name);
+                description = getString(R.string.channel_description);
+                importance = NotificationManager.IMPORTANCE_LOW;
+                channel = new NotificationChannel(NOTIFICATION_CHANNEL, name, importance);
+                channel.setDescription(description);
+                NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(channel);
+            }
         }
     }
 

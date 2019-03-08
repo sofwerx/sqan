@@ -6,6 +6,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 
 public class PacketParser {
     private final AbstractManet manet;
@@ -19,8 +20,12 @@ public class PacketParser {
         if (packet == null) {
             Log.e(Config.TAG, "Could not process the packet as it was null");
             return null;
-        } else
-            Log.d(Config.TAG,"Processed "+packet.getClass().getSimpleName());
+        } else {
+            if (packet instanceof HeartbeatPacket)
+                Log.d(Config.TAG,"Processed Heartbeat from SqAN ID "+packet.getOrigin()+", "+packet.getCurrentHopCount()+" hops");
+            else
+                Log.d(Config.TAG, "Processed " + packet.getClass().getSimpleName());
+        }
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
         if (device == null) {
             if (packet.getOrigin() > 0) {

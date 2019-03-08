@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
-    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 30l;
+    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     public final static long TIME_TO_STALE = 1000l * 60l;
@@ -45,6 +45,16 @@ public class SqAnDevice {
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
 
+    public static boolean hasAtLeastOneActiveConnection() {
+        if (devices != null) {
+            for (SqAnDevice device:devices) {
+                if ((device != null) && device.isActive())
+                    return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Gets this device's bluetooth MAC address
      * @return
@@ -71,7 +81,9 @@ public class SqAnDevice {
      * @return
      */
     public int getHopsAway() {
-        return hopsAway;
+        if (isActive())
+            return hopsAway;
+        return Integer.MAX_VALUE;
     }
     public void setHopsAway(int hops) { hopsAway = hops; }
 
@@ -184,15 +196,11 @@ public class SqAnDevice {
             return false;
 
         boolean culled = false;
+        synchronized (devices) {
 
-        int i=0;
-        while (i<devices.size()) {
-            SqAnDevice device = devices.get(i);
-            if (device.networkId == null) {
-                CommsLog.log(CommsLog.Entry.Category.STATUS, "Device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed (no network ID)");
-                devices.remove(i);
-                culled = true;
-            } else {
+            int i = 0;
+            while (i < devices.size()) {
+                SqAnDevice device = devices.get(i);
                 if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
                     device.status = Status.STALE;
                 else
@@ -203,6 +211,33 @@ public class SqAnDevice {
                     culled = true;
                 } else
                     i++;
+            }
+
+            //move inactive devices to the bottom
+            boolean passed = false;
+            SqAnDevice devA;
+            SqAnDevice devA1;
+            while (!passed) {
+                passed = true;
+                for (int a=devices.size()-1;a>0;a--) {
+                    devA = devices.get(a);
+                    devA1 = devices.get(a-1);
+                    if (devA == null) {
+                        devices.remove(a);
+                        passed = false;
+                        break;
+                    }
+                    if (devA1 == null) {
+                        devices.remove(a-1);
+                        passed = false;
+                        break;
+                    }
+                    if (!devA1.isActive() && devA.isActive()) {
+                        devices.set(a-1,devA);
+                        devices.set(a,devA1);
+                        passed = false;
+                    }
+                }
             }
         }
 
@@ -409,7 +444,13 @@ public class SqAnDevice {
     public int getActiveRelays() {
         if (relays == null)
             return 0;
-        return relays.size();
+        int sum = 0;
+        long cutoffTime = System.currentTimeMillis() - TIME_TO_CONSIDER_HOP_COUNT_STALE;
+        for (RelayConnection relay:relays) {
+            if ((relay.getHops() == 0) && (relay.getLastConnection() > cutoffTime))
+                sum++;
+        }
+        return sum;
     }
 
     public RelayConnection getConnection(int sqAnID) {
@@ -594,7 +635,9 @@ public class SqAnDevice {
         }
         SqAnDevice existing = find(device);
         if (existing == null) {
-            devices.add(device);
+            synchronized (devices) {
+                devices.add(device);
+            }
             return true;
         } else {
             existing.update(device);
@@ -681,7 +724,7 @@ public class SqAnDevice {
     public static SqAnDevice findByBtMac(MacAddress mac) {
         if ((mac != null) && (devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
-                if (mac.isEqual(device.bluetoothMac))
+                if ((device != null) && (mac.isEqual(device.bluetoothMac)))
                     return device;
             }
         }
@@ -717,15 +760,24 @@ public class SqAnDevice {
      * @return overall mesh status
      */
     public static FullMeshCapability getFullMeshStatus() {
-        if ((devices == null) || devices.isEmpty())
-            return FullMeshCapability.DOWN;
+        if (devices != null) {
+            boolean anyActive = false;
+            boolean allActive = true;
+            for (SqAnDevice device : devices) {
+                if (device.status == Status.CONNECTED)
+                    anyActive = true;
+                else
+                    allActive = false;
+            }
 
-        for (SqAnDevice device:devices) {
-            if (device.status != Status.CONNECTED)
-                return FullMeshCapability.DEGRADED;
+            if (anyActive) {
+                if (allActive)
+                    return FullMeshCapability.UP;
+                else
+                    return FullMeshCapability.DEGRADED;
+            }
         }
-
-        return FullMeshCapability.UP;
+        return FullMeshCapability.DOWN;
     }
 
     /**

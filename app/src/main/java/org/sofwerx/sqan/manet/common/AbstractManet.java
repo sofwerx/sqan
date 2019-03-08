@@ -147,14 +147,6 @@ public abstract class AbstractManet {
     public abstract void burst(AbstractPacket packet) throws ManetException;
 
     /**
-     * Send a pack over the MANET to a specific device
-     * @param packet
-     * @param device
-     * @throws ManetException
-     */
-    public abstract void burst(AbstractPacket packet, SqAnDevice device) throws ManetException;
-
-    /**
      * Connect to the MANET (i.e. start communicating with other nodes on the network)
      */
     public abstract void connect() throws ManetException;
@@ -195,11 +187,11 @@ public abstract class AbstractManet {
                 }
                 PingPacket pingPacket = (PingPacket) packet;
                 if (pingPacket.isAPingRequest() || (pingPacket.getOrigin() != Config.getThisDevice().getUUID())) {
-                    pingPacket.setDestination(pingPacket.getOrigin());
+                    pingPacket.setDestination(device.getUUID());
                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping request from " + device.getUUID());
                     pingPacket.setMidpointLocalTime(System.currentTimeMillis());
                     try {
-                        burst(pingPacket, device);
+                        burst(pingPacket);
                     } catch (ManetException e) {
                         CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Error handling Ping request " + e.getMessage());
                         return;
