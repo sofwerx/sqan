@@ -1,33 +1,20 @@
 package org.sofwerx.sqan.ui;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
-import android.net.wifi.p2p.WifiP2pManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
-import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
-import org.sofwerx.sqan.manet.common.SqAnDevice;
-import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
-
-import java.io.StringWriter;
 
 import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
-
-import static android.app.Activity.RESULT_OK;
 
 public class StoredTeammateSummary extends ConstraintLayout {
     private final static long RECENT_TIME = 1000l * 60l * 60l * 24l * 5l;
@@ -37,7 +24,6 @@ public class StoredTeammateSummary extends ConstraintLayout {
     private ImageView iconBt, iconWiFi, iconLast;
     private StoredTeammateChangeListener listener;
     private Config.SavedTeammate teammate;
-    private Activity activity;
 
     public StoredTeammateSummary(@NonNull Context context) {
         super(context);
@@ -55,8 +41,6 @@ public class StoredTeammateSummary extends ConstraintLayout {
     }
 
     private void init(Context context) {
-        if (context instanceof Activity)
-            activity = (Activity)context;
         View view = inflate(context,R.layout.stored_teammate_summary,this);
         callsign = view.findViewById(R.id.teammateCallsign);
         uuid = view.findViewById(R.id.teammateUUID);

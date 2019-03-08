@@ -6,11 +6,9 @@ import android.content.ContextWrapper;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
-import org.sofwerx.sqan.manet.common.SqAnDevice;
 
 import java.util.ArrayList;
 
@@ -38,25 +36,11 @@ public class StoredTeammatesList extends ConstraintLayout {
         init(context);
     }
 
-    public void onPause() {
-        //if (devices != null) {
-            //for (SqAnDevice device:devices) {
-            //    device.setDisplayInterface(null);
-            //}
-        //}
-    }
-
-    public void onResume() {
-        if (adapter != null)
-            adapter.notifyDataSetChanged();
-    }
-
     private Activity getActivity() {
         Context context = getContext();
         while (context instanceof ContextWrapper) {
-            if (context instanceof Activity) {
+            if (context instanceof Activity)
                 return (Activity)context;
-            }
             context = ((ContextWrapper)context).getBaseContext();
         }
         return null;
@@ -68,38 +52,28 @@ public class StoredTeammatesList extends ConstraintLayout {
         list.setVisibility(View.INVISIBLE);
         activity = getActivity();
         list.setOnItemClickListener((parent, view1, position, id) -> {
-            if (adapter != null) {
+            /*if (adapter != null) {
                 Config.SavedTeammate device = adapter.getItem(position);
-                if (device != null) {
-                    //TODO
-                }
-            }
+                if (device != null)
+                    //ignore for now
+            }*/
         });
         waitingView = view.findViewById(R.id.teammatesNoDevices);
-        //TextView waitingViewText = view.findViewById(R.id.teammatesNoDevicesText);
-        //waitingViewText.setText("Looking for other SqAN nodes...");
     }
 
-    public void update(Config.SavedTeammate device) {
+    public void update() {
         list.post(() -> {
-            //if (device == null) {
-                ArrayList<Config.SavedTeammate> devices = Config.getSavedTeammates();
-                if ((devices == null) || devices.isEmpty()) {
-                    adapter = null;
-                    list.setAdapter(null);
-                } else {
-                    if (adapter == null) {
-                        adapter = new StoredTeammatesListArrayAdapter(activity, devices);
-                        list.setAdapter(adapter);
-                    } else {
-                        if (device == null)
-                            adapter.notifyDataSetChanged();
-                        else {
-                            adapter.notifyDataSetChanged();
-                        }
-                    }
-                }
-            //}
+            ArrayList<Config.SavedTeammate> devices = Config.getSavedTeammates();
+            if ((devices == null) || devices.isEmpty()) {
+                adapter = null;
+                list.setAdapter(null);
+            } else {
+                if (adapter == null) {
+                    adapter = new StoredTeammatesListArrayAdapter(activity, devices);
+                    list.setAdapter(adapter);
+                } else
+                        adapter.notifyDataSetChanged();
+            }
             updateListVisibility();
         });
     }

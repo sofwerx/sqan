@@ -130,7 +130,6 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     }
 
     private void burst(final byte[] bytes, final int destination, final int origin) {
-        //FIXME trying to stop flood during testing
         if (bytes == null) {
             Log.d(Config.TAG, "Cannot send empty byte array");
             return;

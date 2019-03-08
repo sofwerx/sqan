@@ -64,7 +64,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
     private void updateDisplay() {
         fabFix.setEnabled(!bluetoothAdapter.isDiscovering());
         viewSearching.setVisibility(bluetoothAdapter.isDiscovering()?View.VISIBLE:View.GONE);
-        teammatesList.update(null);
+        teammatesList.update();
         int num = Config.getNumberOfSavedTeammates();
         if (num < 1)
             setTitle("No Stored Teammates");
@@ -138,9 +138,6 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
                     AlertDialog.Builder builder = new AlertDialog.Builder(this);
                     builder.setTitle(R.string.bt_start_discovery_on_other_devices);
                     builder.setMessage(getResources().getString(R.string.bt_start_discovery_on_other_devices_narrative, StringUtil.toDuration(((long)Discovery.DISCOVERY_DURATION_SECONDS)*1000l)));
-                    //builder.setPositiveButton(R.string.ok, (dialog, which) -> {
-                    //    dismiss();
-                    //});
                     final AlertDialog dialog = builder.create();
                     dialog.setCanceledOnTouchOutside(true);
                     dialog.show();

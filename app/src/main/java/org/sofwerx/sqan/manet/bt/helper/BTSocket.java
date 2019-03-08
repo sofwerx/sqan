@@ -220,20 +220,25 @@ public class BTSocket {
                                         setDeviceIfNull(device);
                                     }
                                     packet.incrementHopCount(data);
-                                    if (thisDeviceEndpointRole == Role.SERVER) {
-                                        Log.d(TAG, getLogHeader() + " relaying "+packet.getClass().getSimpleName()+" to BT spoke connected to this device (this device is hub)");
-                                        device.setLastForward(System.currentTimeMillis());
-                                        Core.send(data, packet.getSqAnDestination(), packet.getOrigin(),true);
-                                    } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
-                                        ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
-                                        if (devices != null) {
-                                            for (SqAnDevice tgt:devices) {
-                                                if (tgt.getUUID() != packet.getOrigin()) {
-                                                    //for directly connected devices, forward traffic when our hop count is better
-                                                    if ((tgt.getHopsAway() == 0) && (packet.getCurrentHopCount() < tgt.getHopsToDevice(packet.getOrigin()))) {
-                                                        Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT hub connected to this device");
-                                                        device.setLastForward(System.currentTimeMillis());
-                                                        Core.send(data, tgt.getUUID(), packet.getOrigin());
+                                    final int hopCount = packet.getCurrentHopCount();
+                                    if ((hopCount <= SqAnDevice.getActiveConnections())) {
+                                        if (thisDeviceEndpointRole == Role.SERVER) {
+                                            if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination())) {
+                                                Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT spoke connected to this device (this device is hub)");
+                                                device.setLastForward(System.currentTimeMillis());
+                                                Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);
+                                            }
+                                        } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
+                                            ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+                                            if (devices != null) {
+                                                for (SqAnDevice tgt : devices) {
+                                                    if (tgt.getUUID() != packet.getOrigin()) {
+                                                        //for directly connected devices, forward traffic when our hop count is better
+                                                        if ((tgt.getHopsAway() == 0) && (hopCount < tgt.getHopsToDevice(packet.getOrigin()))) {
+                                                            Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT hub connected to this device");
+                                                            tgt.setLastForward(System.currentTimeMillis());
+                                                            Core.send(data, tgt.getUUID(), packet.getOrigin());
+                                                        }
                                                     }
                                                 }
                                             }

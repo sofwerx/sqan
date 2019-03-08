@@ -29,12 +29,14 @@ public class IpcSaBroadcastTransmitter {
         ArrayList<SqAnDevice> otherDevices = SqAnDevice.getDevices();
         if (otherDevices != null) {
             for (SqAnDevice other:otherDevices) {
-                lastLocation = other.getLastLocation();
-                if ((lastLocation != null) && lastLocation.isValid()) {
-                    broadcast.add(new BftDevice(other.getUUID(),other.getCallsign(),lastLocation.getLatitude(),
-                            lastLocation.getLongitude(),lastLocation.getAltitude(),lastLocation.getAccuracy(),lastLocation.getTime()));
-                } else {
-                    broadcast.add(new BftDevice(other.getUUID(),other.getCallsign(),other.getLastConnect()));
+                if (other != null) {
+                    lastLocation = other.getLastLocation();
+                    if ((lastLocation != null) && lastLocation.isValid()) {
+                        broadcast.add(new BftDevice(other.getUUID(), other.getCallsign(), lastLocation.getLatitude(),
+                                lastLocation.getLongitude(), lastLocation.getAltitude(), lastLocation.getAccuracy(), lastLocation.getTime()));
+                    } else {
+                        broadcast.add(new BftDevice(other.getUUID(), other.getCallsign(), other.getLastConnect()));
+                    }
                 }
             }
         }

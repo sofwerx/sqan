@@ -229,8 +229,15 @@ public class Config {
     public static ArrayList<SavedTeammate> getSavedTeammates() { return savedTeammates; }
 
     public static void removeTeammate(SavedTeammate teammate) {
-        if ((teammate != null) && (savedTeammates != null))
+        if ((teammate != null) && (savedTeammates != null)) {
+            int uuid = teammate.getSqAnAddress();
             savedTeammates.remove(teammate);
+            if (uuid > 0) {
+                SqAnDevice device = SqAnDevice.findByUUID(uuid);
+                if (device != null)
+                    SqAnDevice.remove(device);
+            }
+        }
     }
 
     public static class SavedTeammate {

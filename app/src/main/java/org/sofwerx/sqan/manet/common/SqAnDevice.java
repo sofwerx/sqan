@@ -197,31 +197,32 @@ public class SqAnDevice {
 
         boolean culled = false;
         synchronized (devices) {
-
             int i = 0;
             while (i < devices.size()) {
                 SqAnDevice device = devices.get(i);
-                if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
-                    device.status = Status.STALE;
-                else
-                    device.cullOldRelayConnections();
-                if (device.status == Status.STALE) {
-                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
+                if (device == null)
                     devices.remove(i);
-                    culled = true;
-                } else
-                    i++;
+                else {
+                    if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
+                        device.status = Status.STALE;
+                    else
+                        device.cullOldRelayConnections();
+                    if (device.status == Status.STALE) {
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
+                        devices.remove(i);
+                        culled = true;
+                    } else
+                        i++;
+                }
             }
 
             //move inactive devices to the bottom
             boolean passed = false;
-            SqAnDevice devA;
-            SqAnDevice devA1;
             while (!passed) {
                 passed = true;
                 for (int a=devices.size()-1;a>0;a--) {
-                    devA = devices.get(a);
-                    devA1 = devices.get(a-1);
+                    final SqAnDevice devA = devices.get(a);
+                    final SqAnDevice devA1 = devices.get(a-1);
                     if (devA == null) {
                         devices.remove(a);
                         passed = false;
@@ -490,7 +491,7 @@ public class SqAnDevice {
             return null;
         ArrayList<String> active = new ArrayList<>();
         for (SqAnDevice device:devices) {
-            if (device.isActive())
+            if ((device != null) && device.isActive())
                 active.add(device.networkId);
         }
         if (active.isEmpty())
@@ -543,10 +544,9 @@ public class SqAnDevice {
         if ((devices == null) || devices.isEmpty())
             return 0;
         int sum = 0;
-
-        for (SqAnDevice device:devices) {
-            if (device != null) {
-                if (device.status == Status.CONNECTED)
+        synchronized (devices) {
+            for (SqAnDevice device : devices) {
+                if ((device != null) && (device.status == Status.CONNECTED))
                     sum++;
             }
         }
@@ -623,7 +623,7 @@ public class SqAnDevice {
      * @param device
      * @return true == a new devices was added; false == this is a null or existing device
      */
-    public static boolean add(SqAnDevice device) {
+    public static boolean add(final SqAnDevice device) {
         if ((device == null) || (device.getUUID() == UNASSIGNED_UUID))
             return false;
         if ((Config.getThisDevice() != null) && (device.getUUID() == Config.getThisDevice().getUUID())) //dont add our own device
@@ -646,7 +646,7 @@ public class SqAnDevice {
         return false;
     }
 
-    public static void remove(SqAnDevice device) {
+    public static void remove(final SqAnDevice device) {
         if (devices != null) {
             devices.remove(device);
             if (devices.isEmpty())
@@ -684,7 +684,7 @@ public class SqAnDevice {
     public static SqAnDevice findByUUID(int uuid) {
         if ((devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
-                if (device.isSame(uuid))
+                if ((device != null) && device.isSame(uuid))
                     return device;
             }
         }
@@ -699,7 +699,7 @@ public class SqAnDevice {
     public static SqAnDevice findByNetworkID(String networkId) {
         if ((networkId != null) && (devices != null) && !devices.isEmpty()) {
             for (SqAnDevice device : devices) {
-                if ((device.networkId != null) && device.networkId.equalsIgnoreCase(networkId))
+                if ((device != null) && (device.networkId != null) && device.networkId.equalsIgnoreCase(networkId))
                     return device;
             }
         }
@@ -761,20 +761,24 @@ public class SqAnDevice {
      */
     public static FullMeshCapability getFullMeshStatus() {
         if (devices != null) {
-            boolean anyActive = false;
-            boolean allActive = true;
-            for (SqAnDevice device : devices) {
-                if (device.status == Status.CONNECTED)
-                    anyActive = true;
-                else
-                    allActive = false;
-            }
+            synchronized (devices) {
+                boolean anyActive = false;
+                boolean allActive = true;
+                for (SqAnDevice device : devices) {
+                    if (device != null) {
+                        if (device.status == Status.CONNECTED)
+                            anyActive = true;
+                        else
+                            allActive = false;
+                    }
+                }
 
-            if (anyActive) {
-                if (allActive)
-                    return FullMeshCapability.UP;
-                else
-                    return FullMeshCapability.DEGRADED;
+                if (anyActive) {
+                    if (allActive)
+                        return FullMeshCapability.UP;
+                    else
+                        return FullMeshCapability.DEGRADED;
+                }
             }
         }
         return FullMeshCapability.DOWN;
