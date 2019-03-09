@@ -106,9 +106,12 @@ public class HeartbeatPacket extends AbstractPacket {
         if (devices == null)
             return null;
         ArrayList<RelayConnection> relays = new ArrayList<>();
-        for (SqAnDevice device:devices) {
-            if (System.currentTimeMillis() < device.getLastConnect() + SqAnDevice.TIME_TO_STALE)
-                relays.add(new RelayConnection(device.getUUID(),device.getHopsAway(),device.getLastConnect()));
+        synchronized (devices) {
+            for (SqAnDevice device : devices) {
+                //if (System.currentTimeMillis() < device.getLastConnect() + SqAnDevice.TIME_TO_STALE)
+                if (device.isActive())
+                    relays.add(new RelayConnection(device.getUUID(), device.getHopsAway(), device.getLastConnect()));
+            }
         }
         return relays;
     }

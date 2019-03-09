@@ -40,13 +40,12 @@ public class PacketHeader {
      * in order to reduce the computation and time needed to handle the packet when its being relayed
      * @param data
      */
-    public void incrementHopCount(byte[] data) {
+    public static void setHopCount(int newHopCount,byte[] data) {
         if ((data != null) && (data.length >= getSize())) {
-            hopCount++;
-            data[4] = (byte) (hopCount >> 24);
-            data[5] = (byte) (hopCount >> 16);
-            data[6] = (byte) (hopCount >> 8);
-            data[7] = (byte) (hopCount);
+            data[4] = (byte) (newHopCount >> 24);
+            data[5] = (byte) (newHopCount >> 16);
+            data[6] = (byte) (newHopCount >> 8);
+            data[7] = (byte) (newHopCount);
         }
     }
 

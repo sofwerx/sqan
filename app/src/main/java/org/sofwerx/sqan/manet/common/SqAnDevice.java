@@ -17,11 +17,12 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
-    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
+    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 20l;
+    public final static long TIME_TO_STALE = 1000l * 60l;
+    private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
+    private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
-    public final static long TIME_TO_STALE = 1000l * 60l;
-    private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     private static ArrayList<SqAnDevice> devices;
     private int uuid; //this is the persistent SqAN ID for this device
     private String callsign; //this is the callsign which also acts as the domain name for this device
@@ -178,7 +179,7 @@ public class SqAnDevice {
             RelayConnection relay;
             while (i<relays.size()) {
                 relay = relays.get(i);
-                if (System.currentTimeMillis() > relay.getLastConnection() + TIME_TO_STALE) {
+                if (System.currentTimeMillis() > relay.getLastConnection() + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
                     Log.d(Config.TAG,"Removing old relay info from "+callsign+" to SqAn ID "+relay.getSqAnID());
                     relays.remove(i);
                 } else
@@ -205,9 +206,9 @@ public class SqAnDevice {
                 else {
                     if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
                         device.status = Status.STALE;
-                    else
-                        device.cullOldRelayConnections();
+                    device.cullOldRelayConnections();
                     if (device.status == Status.STALE) {
+                        if ((System.currentTimeMillis() > device.lastConnect +TIME_TO_REMOVE_STALE))
                         CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
                         devices.remove(i);
                         culled = true;
@@ -532,6 +533,8 @@ public class SqAnDevice {
         }
         if (other.relays != null)
             relays = other.relays;
+        else
+            cullOldRelayConnections();
         if (uuid > 0) {
             if (other.uuid < 0) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,other.networkId+" was a duplicate; information merged into "+uuid);
@@ -799,6 +802,8 @@ public class SqAnDevice {
      * @return the number of hops it takes to reach the specific device, or Integer.MAX_VALUE if this device does not have a connection
      */
     public int getHopsToDevice(int sqAnID) {
+        if (sqAnID == uuid)
+            return -1;
         if (relays != null) {
             for (RelayConnection relay:relays) {
                 if (relay.getSqAnID() == sqAnID)

@@ -272,10 +272,13 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     }
 
     private void checkForStaleDevices() {
-        if (StatusHelper.isActive(manetOps.getStatus()) && (SqAnDevice.getActiveConnections() != numDevicesInLastNotification))
-            notifyStatusChange(Status.CHANGING_MEMBERSHIP,null);
+        if (SqAnDevice.getActiveConnections() != numDevicesInLastNotification) {
+            if (StatusHelper.isActive(manetOps.getStatus()))
+                notifyStatusChange(Status.CHANGING_MEMBERSHIP, null);
+            else
+                notifyStatusChange(null);
+        }
 
-        //TODO actually do something other than show their stale status
         if (listener != null)
             listener.onNodesChanged(null);
     }

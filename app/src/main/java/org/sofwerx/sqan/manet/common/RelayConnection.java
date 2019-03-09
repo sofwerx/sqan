@@ -69,7 +69,7 @@ public class RelayConnection {
         }
     }
 
-    public void update(RelayConnection other) {
+    public void update(final RelayConnection other) {
         if (other.lastConnection > lastConnection) {
             hops = other.hops;
             lastConnection = other.lastConnection;

@@ -106,6 +106,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     private void connectToTeammates() {
         Log.d(Config.TAG,"BtManetV2.connectToTeammates()");
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
+        boolean addedNewCheck = false;
         if (!Core.isAtMaxConnections()) {
             ArrayList<Config.SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
             int pendingConnections = Core.getActiveClientsCount();
@@ -119,14 +120,18 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                             String macString = mac.toString();
                             Log.d(Config.TAG, "Teammate " + macString + " is not connected yet");
                             BluetoothDevice device = getDevice(macString);
-                            pendingConnections++;
-                            if (device != null)
+                            if (device != null) {
+                                pendingConnections++;
                                 Core.connectAsClientAsync(context, device, BtManetV2.this);
+                                addedNewCheck = true;
+                            }
                         }
                     }
                 }
             }
         }
+        if (!addedNewCheck)
+            Log.d(Config.TAG,"No teammates found without a current connection or connection attempt");
     }
 
     private void burst(final byte[] bytes, final int destination, final int origin) {
@@ -154,7 +159,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                 Log.d(Config.TAG,"Packet dropped - exceeded max hop count.");
                 return;
             }
-            packet.incrementHopCount();
+            //packet.incrementHopCount();
         }
         Log.d(Config.TAG,"Bursting "+packet.getClass().getSimpleName());
         burst(packet.toByteArray(), packet.getSqAnDestination(), packet.getOrigin());

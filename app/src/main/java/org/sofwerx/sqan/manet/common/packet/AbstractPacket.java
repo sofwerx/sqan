@@ -20,17 +20,6 @@ public abstract class AbstractPacket {
         this.packetHeader = packetHeader;
     }
 
-    /**
-     * Helper method to overwrite just the hop count and an existing byte[] version for a packet
-     * in order to reduce the computation and time needed to handle the packet when its being relayed
-     * @param data
-     */
-    public void incrementHopCount(byte[] data) {
-        if (packetHeader == null)
-            return;
-        packetHeader.incrementHopCount(data);
-    }
-
     public void incrementHopCount() {
         if (packetHeader != null)
             packetHeader.incrementHopCount();

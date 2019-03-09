@@ -92,9 +92,11 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
                         String channel = bundle.getString(PACKET_CHANNEL,null);
                         AbstractPacket packet;
                         if (channel == null) {
+                            Log.d(Config.TAG,"Received raw data packet from IPC");
                             packet = new RawBytesPacket(new PacketHeader(Config.getThisDevice().getUUID()));
                             ((RawBytesPacket) packet).setData(bytes);
                         } else {
+                            Log.d(Config.TAG,"Received packet from channel "+channel);
                             packet = new ChannelBytesPacket(new PacketHeader(Config.getThisDevice().getUUID()));
                             ((ChannelBytesPacket) packet).setChannel(channel);
                             ((ChannelBytesPacket) packet).setData(bytes);

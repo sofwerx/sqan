@@ -20,6 +20,7 @@ import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketDropException;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.util.NetUtil;
@@ -219,12 +220,14 @@ public class BTSocket {
                                         device.addToDataTally(data.length);
                                         setDeviceIfNull(device);
                                     }
-                                    packet.incrementHopCount(data);
-                                    final int hopCount = packet.getCurrentHopCount();
+                                    if (mReadListener != null)
+                                        mReadListener.onSuccess(packet);
+                                    final int hopCount = packet.getCurrentHopCount()+1;
+                                    PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
                                         if (thisDeviceEndpointRole == Role.SERVER) {
-                                            if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination())) {
-                                                Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT spoke connected to this device (this device is hub)");
+                                            if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
+                                                Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (spoke connected to this hub)");
                                                 device.setLastForward(System.currentTimeMillis());
                                                 Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);
                                             }
@@ -233,9 +236,9 @@ public class BTSocket {
                                             if (devices != null) {
                                                 for (SqAnDevice tgt : devices) {
                                                     if (tgt.getUUID() != packet.getOrigin()) {
-                                                        //for directly connected devices, forward traffic when our hop count is better
-                                                        if ((tgt.getHopsAway() == 0) && (hopCount < tgt.getHopsToDevice(packet.getOrigin()))) {
-                                                            Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName() + " to BT hub connected to this device");
+                                                        //for directly connected devices, forward traffic when our hop count is same or better
+                                                        if ((tgt.getHopsAway() == 0) && (hopCount <= tgt.getHopsToDevice(packet.getOrigin()))) {
+                                                            Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (hub for this device)");
                                                             tgt.setLastForward(System.currentTimeMillis());
                                                             Core.send(data, tgt.getUUID(), packet.getOrigin());
                                                         }
@@ -244,8 +247,6 @@ public class BTSocket {
                                             }
                                         }
                                     }
-                                    if (mReadListener != null)
-                                        mReadListener.onSuccess(packet);
                                 }
                             }
                         } catch (PacketDropException e) {
