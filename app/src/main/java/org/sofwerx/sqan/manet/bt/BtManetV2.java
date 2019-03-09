@@ -159,7 +159,6 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                 Log.d(Config.TAG,"Packet dropped - exceeded max hop count.");
                 return;
             }
-            //packet.incrementHopCount();
         }
         Log.d(Config.TAG,"Bursting "+packet.getClass().getSimpleName());
         burst(packet.toByteArray(), packet.getSqAnDestination(), packet.getOrigin());
