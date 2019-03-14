@@ -15,6 +15,7 @@ public class PacketHeader {
     public final static int PACKET_TYPE_PING = 1;
     protected final static int PACKET_TYPE_RAW_BYTES = 2;
     protected final static int PACKET_TYPE_CHANNEL_BYTES = 3;
+    protected final static int PACKET_TYPE_VPN_BYTES = 5;
     public final static int PACKET_TYPE_DISCONNECTING = 4;
     private long time; //timestamps are used as a message index as well
     private int packetType; //TODO eventually combine packetType and hopCount into one int with some other flags
@@ -27,6 +28,7 @@ public class PacketHeader {
     public PacketHeader(int originUUID) {
         this();
         this.originUUID = originUUID;
+        time = System.currentTimeMillis();
     }
 
     /**

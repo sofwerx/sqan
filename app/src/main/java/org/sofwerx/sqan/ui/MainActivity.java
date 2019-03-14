@@ -9,6 +9,7 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.net.VpnService;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -44,6 +45,7 @@ import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -451,6 +453,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             else
                 updateMainStatus(Status.ERROR);
             checkForSettingsIssues();
+            if (Config.isVpnEnabled()) {
+                Intent intent = VpnService.prepare(MainActivity.this);
+                if (intent != null)
+                    startActivityForResult(intent, SqAnService.REQUEST_ENABLE_VPN);
+            }
+
         }
 
         @Override
@@ -538,6 +546,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         switch (requestCode) {
             case REQUEST_DISABLE_BATTERY_OPTIMIZATION:
                 Config.setNeverAskBatteryOptimize(this);
+                break;
+
+            case SqAnService.REQUEST_ENABLE_VPN:
+                if (serviceBound && (sqAnService != null))
+                    SqAnVpnService.start(sqAnService);
+                else
+                    SqAnVpnService.start(MainActivity.this);
                 break;
         }
     }
@@ -628,5 +643,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     @Override
     public void onSystemReady(boolean isReady) {
         runOnUiThread(() -> updateSysStatusText());
+    }
+
+    @Override
+    public void onConflict(SqAnDevice conflictingDevice) {
+        //FIXME do something other than toast this
+        Toast.makeText(this,"Error: this device has the same identifier as "+conflictingDevice.getCallsign(),Toast.LENGTH_LONG).show();
     }
 }

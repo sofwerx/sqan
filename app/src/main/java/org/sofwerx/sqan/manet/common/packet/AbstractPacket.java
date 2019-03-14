@@ -114,6 +114,10 @@ public abstract class AbstractPacket {
                 packet = new DisconnectingPacket(packetHeader);
                 break;
 
+            case PacketHeader.PACKET_TYPE_VPN_BYTES:
+                packet = new VpnPacket(packetHeader);
+                break;
+
             //TODO case PacketHeader.PACKET_TYPE_CHALLENGE:
         }
 

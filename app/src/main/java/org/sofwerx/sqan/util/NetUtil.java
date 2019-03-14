@@ -77,11 +77,29 @@ public class NetUtil {
 
     }
 
+    public static final byte[] longToByteArray(long value) {
+        return new byte[] {
+                (byte)(value >>> 56),
+                (byte)(value >>> 48),
+                (byte)(value >>> 40),
+                (byte)(value >>> 32),
+                (byte)(value >>> 24),
+                (byte)(value >>> 16),
+                (byte)(value >>> 8),
+                (byte)value};
+    }
+
     public static final byte[] intToByteArray(int value) {
         return new byte[] {
                 (byte)(value >>> 24),
                 (byte)(value >>> 16),
                 (byte)(value >>> 8),
                 (byte)value};
+    }
+
+    public static final int byteArrayToInt(byte[] bytes) {
+        if ((bytes == null) || (bytes.length != 4))
+            return 0;
+        return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
     }
 }

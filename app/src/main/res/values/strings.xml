@@ -44,4 +44,8 @@
     <string name="bt_discovery_canx">Without Bluetooth discovery, SqAN cannot find new bluetooth capable teammates.</string>
     <string name="bt_start_discovery_on_other_devices">Do this on your other devices too</string>
     <string name="bt_start_discovery_on_other_devices_narrative">This device will listen for %1$s for new teammates. You now need to do what you just did here (open teammate settings and then press Fix) on any other device you want to save as a teammate.</string>
+    <string name="disconnected">VPN Disconnected</string>
+    <string name="connecting">VPN Connecting</string>
+    <string name="connected">VPN Connected</string>
+    <string name="prefs_vpn_changed_description">Shutdown SqAN completely to change the VPN status.</string>
 </resources>

@@ -1,27 +1,15 @@
-package org.sofwerx.sqan.manet.common.sockets;
+package org.sofwerx.sqan.util;
 
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.util.NetUtil;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
 
 public class AddressUtil {
-
-    /**
-     * Should this InetAddress receive a message to this SqAN address
-     * @param sqanAddress
-     * @param address
-     * @return
-     */
-    /*public static boolean isApplicableAddress(int sqanAddress, InetAddress address) {
-        if (address == null)
-            return false;
-        return isApplicableAddress(sqanAddress,getSqAnAddress(address));
-    }*/
-
     /**
      * Should this InetAddress receive a message to this SqAN address
      * @param sqanAddress
@@ -35,11 +23,11 @@ public class AddressUtil {
     }
 
     /**
-     * Converts an InetAddress into a SqAN address
+     * Converts an InetAddress into an int
      * @param address
      * @return
      */
-    /*public static int getSqAnAddress(InetAddress address) {
+    public static int getIpv4ToInt(InetAddress address) {
         if (!(address instanceof Inet4Address))
             Log.e(Config.TAG,"SqAN addresses can currently only map to IPV4 addresses");
         int destination = 0;
@@ -47,5 +35,29 @@ public class AddressUtil {
             destination = destination << 8 | (b & 0xFF);
         }
         return destination;
-    }*/
+    }
+
+    public static String intToIpv4String(int i) {
+        return ((i >> 24 ) & 0xFF) + "." +
+                ((i >> 16 ) & 0xFF) + "." +
+                ((i >>  8 ) & 0xFF) + "." +
+                ( i        & 0xFF);
+    }
+
+    /**
+     * Creates the 169.254.x.x address for this device on the VPN
+     * @param sqanId
+     * @return
+     */
+    public static int getSqAnVpnIpv4Address(int sqanId) {
+        byte[] ipv4 = new byte[4];
+        ipv4[0] = (byte)0xA9; //169
+        ipv4[1] = (byte)0xFE; //254
+        byte[] idBytes = NetUtil.intToByteArray(sqanId);
+        ipv4[2] = idBytes[2];
+        ipv4[3] = idBytes[3];
+        return NetUtil.byteArrayToInt(ipv4);
+    }
+
+    public final static String VPN_NET_MASK = "169.254.0.0";
 }

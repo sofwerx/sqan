@@ -14,11 +14,12 @@ public class StatusHelper {
      */
     public static boolean isActive(Status status) {
         switch (status) {
-            case ADVERTISING_AND_DISCOVERING:
+            //case ADVERTISING_AND_DISCOVERING:
+            //case ADVERTISING:
+            //case DISCOVERING:
             case CONNECTED:
             case CHANGING_MEMBERSHIP:
                 return true;
-            //TODO put in other cases here
 
             default:
                 return false;

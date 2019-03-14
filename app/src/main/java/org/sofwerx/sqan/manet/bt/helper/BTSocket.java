@@ -21,12 +21,12 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketDropException;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
-import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
+import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.util.NetUtil;
 
 public class BTSocket {
-    public final static int MAX_PACKET_SIZE = 1024; //FIXME arbitrary picked size
+    public final static int MAX_PACKET_SIZE = 65400; //FIXME arbitrary picked size
     private final static long MIN_TIME_BEFORE_TESTING_STALE = 1000l * 10l;
     private final static long MAX_TIME_BEFORE_STALE = 1000l * 60l * 5l;
     private static final boolean READ_ONCE = true;

@@ -19,6 +19,7 @@ import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.util.Admin;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqan.vpn.LiteWebServer;
 
 import java.io.StringWriter;
 
@@ -95,6 +96,13 @@ public class AboutActivity extends Activity {
         out.append(" (");
         out.append(Config.getThisDevice().getUuidExtended());
         out.append(')');
+        if (Config.isVpnEnabled()) {
+            String address = Config.getThisDevice().getVpnIpv4AddressString();
+            out.append("\r\nVPN IPV4 address ");
+            out.append(address);
+            if (Config.isVpnHostLandingPage())
+                out.append("\r\nActing as a web server at " + address + ":" + LiteWebServer.PORT);
+        }
         uuid.setText(out.toString());
         Bundle extras = getIntent().getExtras();
         if ((extras != null) && extras.getBoolean("logs"))

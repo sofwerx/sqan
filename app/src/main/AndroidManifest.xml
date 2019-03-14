@@ -27,7 +27,13 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service android:name="org.sofwerx.sqan.SqAnService" />
-
+        <service
+            android:name="org.sofwerx.sqan.vpn.SqAnVpnService"
+            android:permission="android.permission.BIND_VPN_SERVICE" >
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
         <activity android:name=".ui.MainActivity"
             android:launchMode="singleTask"
             android:resizeableActivity="true">

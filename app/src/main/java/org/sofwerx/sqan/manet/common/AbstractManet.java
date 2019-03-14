@@ -14,6 +14,7 @@ import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
+import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;

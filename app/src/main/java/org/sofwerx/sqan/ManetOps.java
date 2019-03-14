@@ -17,6 +17,7 @@ import org.sofwerx.sqan.manet.common.packet.ChannelBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
+import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
@@ -239,6 +240,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     Log.d(Config.TAG,"Disconnect packet received, but unable to find corresponding device");
             } else if (packet instanceof HeartbeatPacket){
                 ipcBroadcastIfNeeded();
+            } else if (packet instanceof VpnPacket) {
+                sqAnService.onRxVpnPacket((VpnPacket)packet);
             }
         }
     }

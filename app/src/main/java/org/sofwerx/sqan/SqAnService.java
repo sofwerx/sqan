@@ -7,6 +7,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
+import android.net.VpnService;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -28,20 +29,26 @@ import org.sofwerx.sqan.manet.common.issues.SqAnAppIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
+import org.sofwerx.sqan.ui.MainActivity;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
+import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 import java.util.ArrayList;
 import java.util.Random;
+
+import static android.app.Activity.RESULT_OK;
 
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
  */
 public class SqAnService extends Service implements LocationService.LocationUpdateListener {
+    public static final int REQUEST_ENABLE_VPN = 421;
     private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
@@ -69,6 +76,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private long nextDevicesCleanup = Long.MIN_VALUE;
     private long nextAvailableHeartbeat = Long.MIN_VALUE; //prevent multiple heartbeats from firing in close succession
     private LocationService locationService;
+    private SqAnVpnService vpnService;
 
     private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
@@ -90,6 +98,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         }
     }
 
+    public static SqAnService getInstance() { return thisService; }
+
     //FIXME build an intent receiver to send/receive ChannelBytePackets as a way to use SqAN over IPC
 
     @Override
@@ -106,6 +116,11 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         locationService.start();
         handler = new Handler();
         handler.postDelayed(periodicHelper,HELPER_INTERVAL);
+        if (Config.isVpnEnabled()) {
+            Intent intent = VpnService.prepare(this);
+            if (intent == null)
+                SqAnVpnService.start(this);
+        }
     }
 
     @Override
@@ -134,12 +149,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             if (System.currentTimeMillis() > nextDevicesCleanup) {
                 nextDevicesCleanup = System.currentTimeMillis() + INTERVAL_BETWEEN_DEVICES_CLEANUP;
                 SqAnDevice mergedDevice = SqAnDevice.dedup();
-                if (mergedDevice == null)
-                    checkForStaleDevices();
-                else {
-                    if (listener != null)
-                        listener.onNodesChanged(mergedDevice);
-                }
+                checkForStaleDevices();
             }
             if (handler != null)
                 handler.postDelayed(this, HELPER_INTERVAL);
@@ -277,10 +287,19 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                 notifyStatusChange(Status.CHANGING_MEMBERSHIP, null);
             else
                 notifyStatusChange(null);
+            checkForCollisions();
         }
 
         if (listener != null)
             listener.onNodesChanged(null);
+    }
+
+    private void checkForCollisions() {
+        SqAnDevice conflictingDevice = Config.getThisDevice().getConflictingDevice();
+        if (conflictingDevice != null) {
+            if (listener != null)
+                listener.onConflict(conflictingDevice);
+        }
     }
 
     @Override
@@ -340,6 +359,9 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             } catch (Exception e) {
             }
         }
+        Intent intent = new Intent(this, SqAnVpnService.class);
+        intent.setAction(SqAnVpnService.ACTION_DISCONNECT);
+        startService(intent);
         CommsLog.clear();
         Config.savePrefs(this);
         if (handler == null) {
@@ -493,6 +515,20 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     public void onLocationChanged(Location location) {
         if (location != null)
             Config.getThisDevice().setLastLocation(new SpaceTime(location));
+    }
+
+    public void onRxVpnPacket(VpnPacket packet) {
+        if (packet != null) {
+            if (vpnService != null)
+                vpnService.onReceived(packet.getData());
+            else {
+                //TODO notify the user if there's a lot of VPN traffic data coming in but our VPN isn't on
+            }
+        }
+    }
+
+    public void setVpnService(SqAnVpnService sqAnVpnService) {
+        vpnService = sqAnVpnService;
     }
 
     public class SqAnServiceBinder extends Binder {

@@ -28,6 +28,19 @@
             android:defaultValue="4"
             android:entries="@array/listManetTypes"
             android:entryValues="@array/listManetTypesValues" />
+
+        <CheckBoxPreference
+            android:key="vpnmode"
+            android:title="VPN Mode"
+            android:summary="SqAN will capture all data going to IP addresses that start with 169.254.x.x and forward them in the mesh."
+            android:defaultValue="true"/>
+
+        <CheckBoxPreference
+            android:key="vpn404"
+            android:dependency="vpnmode"
+            android:title="Host a VPN page"
+            android:summary="Host a web page on this device that provides basic device stats."
+            android:defaultValue="true"/>
     </PreferenceCategory>
 
     <PreferenceCategory

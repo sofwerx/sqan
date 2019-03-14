@@ -5,7 +5,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
-import org.sofwerx.sqan.manet.common.sockets.AddressUtil;
+import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.util.CommsLog;

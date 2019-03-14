@@ -32,10 +32,14 @@ public class Config {
     public final static String PREFS_MANET_ENGINE = "manetType";
     public final static String PREF_CLEAR_TEAM = "clearteam";
     private final static String PREFS_SAVED_TEAM = "savedteam";
+    public final static String PREFS_VPN_MODE = "vpnmode";
+    private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean broadcastSa = true;
     private static boolean includeConnections = false;
+    private static boolean vpnMode = true;
+    private static boolean vpnLandingPage = true;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
 
@@ -83,6 +87,16 @@ public class Config {
         allowIpcComms = prefs.getBoolean(PREFS_ALLOW_IPC_COMMS,true);
         broadcastSa = prefs.getBoolean(PREFS_ALLOW_SA_BROADCAST,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
+        vpnMode = prefs.getBoolean(PREFS_VPN_MODE,true);
+        vpnLandingPage = prefs.getBoolean(PREFS_VPN_MODE,true);
+    }
+
+    public static boolean isVpnEnabled() {
+        return vpnMode;
+    }
+
+    public static boolean isVpnHostLandingPage() {
+        return vpnLandingPage;
     }
 
     public static void savePrefs(Context context) {

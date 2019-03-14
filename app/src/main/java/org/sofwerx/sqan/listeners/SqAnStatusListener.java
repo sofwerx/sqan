@@ -32,4 +32,10 @@ public interface SqAnStatusListener {
      * @param isReady true == the system is ready for the selected MANET
      */
     void onSystemReady(boolean isReady);
+
+    /**
+     * Called when a conflict is found in IDs with another device
+     * @param conflictingDevice
+     */
+    void onConflict(SqAnDevice conflictingDevice);
 }

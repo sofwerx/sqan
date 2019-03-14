@@ -1,14 +1,12 @@
 package org.sofwerx.sqan.manet.common;
 
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.location.Location;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
+import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
 
@@ -54,6 +52,21 @@ public class SqAnDevice {
             }
         }
         return false;
+    }
+
+    /**
+     * Gets any device that has an ID conflict with this device
+     * @return null == no device is in conflict
+     */
+    public SqAnDevice getConflictingDevice() {
+        int thisIpv4Address = getVpnIpv4AddressInt();
+        if ((devices != null) && !devices.isEmpty()) {
+            for (SqAnDevice device:devices) {
+                if (device.getVpnIpv4AddressInt() == thisIpv4Address)
+                    return device;
+            }
+        }
+        return null;
     }
 
     /**
@@ -334,22 +347,6 @@ public class SqAnDevice {
 
     public void setUiSummary(DeviceSummary deviceSummary) { this.uiSummary = deviceSummary; }
     public DeviceSummary getUiSummary() { return uiSummary; }
-
-    /**
-     * Gets the SqAN address. This is the transient address that is usually the integer equivalent
-     * of the IPV4 address for this device as seen by SqAN. Used primarily for streaming and
-     * multi-hop routing.
-     * @return
-     */
-    //public int getSqanAddress() { return sqanAddress; }
-
-    /**
-     * Gets the SqAN address. This is the transient address that is usually the integer equivalent
-     * of the IPV4 address for this device as seen by SqAN. Used primarily for streaming and
-     * multi-hop routing.
-     * @return
-     */
-    //public void setSqanAddress(int sqanAddress) { this.sqanAddress = sqanAddress; }
 
     /**
      * ONLINE == device is visible but not ready to receive network packets
@@ -928,4 +925,31 @@ public class SqAnDevice {
      * @param roleBT
      */
     public void setRoleBT(NodeRole roleBT) { this.roleBT = roleBT; }
+
+    /**
+     * Gets the int representation of this device's IPV4 IP address when using the SqAN VPN
+     * @return
+     */
+    public int getVpnIpv4AddressInt() {
+        return AddressUtil.getSqAnVpnIpv4Address(uuid);
+    }
+
+    /**
+     * Gets the string representation of this device's IPV4 IP address when using the SqAN VPN
+     * @return
+     */
+    public String getVpnIpv4AddressString() {
+        return AddressUtil.intToIpv4String(getVpnIpv4AddressInt());
+    }
+
+    /**
+     * Checks if there is an IP address collision between these two devices
+     * @param other
+     * @return
+     */
+    public boolean isVpnIpv4CollisionWith(SqAnDevice other) {
+        if (other == null)
+            return false;
+        return getVpnIpv4AddressInt() == other.getVpnIpv4AddressInt();
+    }
 }
