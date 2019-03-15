@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.util.AddressUtil;
@@ -15,11 +16,12 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
-    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 20l;
+    private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static long TIME_TO_STALE = 1000l * 60l;
     private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
     private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
+    public final static int BROADCAST_IP = AddressUtil.getSqAnVpnIpv4Address(PacketHeader.BROADCAST_ADDRESS);
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     private static ArrayList<SqAnDevice> devices;
     private int uuid; //this is the persistent SqAN ID for this device
@@ -43,6 +45,7 @@ public class SqAnDevice {
     private long lastHopUpdate = Long.MIN_VALUE;
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
+    private int ipV4Address = Integer.MIN_VALUE;
 
     public static boolean hasAtLeastOneActiveConnection() {
         if (devices != null) {
@@ -692,6 +695,21 @@ public class SqAnDevice {
     }
 
     /**
+     * Finds a device in the list of devices based on the int representation of an IPV4 address
+     * @param ip
+     * @return the device (or null if UUID is not found)
+     */
+    public static SqAnDevice findByIpv4IP(int ip) {
+        if ((devices != null) && !devices.isEmpty()) {
+            for (SqAnDevice device : devices) {
+                if ((device != null) && (ip == device.getVpnIpv4AddressInt()))
+                    return device;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Finds a device in the list of devices based on NetworkID
      * @param networkId
      * @return the device (or null if not found)
@@ -931,7 +949,9 @@ public class SqAnDevice {
      * @return
      */
     public int getVpnIpv4AddressInt() {
-        return AddressUtil.getSqAnVpnIpv4Address(uuid);
+        if (ipV4Address == Integer.MIN_VALUE)
+            ipV4Address = AddressUtil.getSqAnVpnIpv4Address(uuid);
+        return ipV4Address;
     }
 
     /**

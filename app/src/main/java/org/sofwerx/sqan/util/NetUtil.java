@@ -8,7 +8,10 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
+
+import java.io.StringWriter;
 
 public class NetUtil {
     public enum ConnectionType {WIFI,MOBILE,NOT_CONNECTED};
@@ -99,7 +102,155 @@ public class NetUtil {
 
     public static final int byteArrayToInt(byte[] bytes) {
         if ((bytes == null) || (bytes.length != 4))
-            return 0;
+            return Integer.MIN_VALUE;
         return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
+    }
+
+    /**
+     * Provides a string listing of the byte values in this array for debug purposes
+     * @param bytes
+     * @return
+     */
+    public static String getStringOfBytesForDebug(byte[] bytes) {
+        if (bytes == null)
+            return null;
+        StringWriter out = new StringWriter();
+
+        boolean first = true;
+        for (byte b:bytes) {
+            if (first)
+                first = false;
+            else
+                out.append(' ');
+            out.append(Integer.toString(b));
+        }
+
+        return out.toString();
+    }
+
+    /**
+     * Gets the Int value at a particular offset in an IP Packet
+     * @param packet
+     * @param offset
+     * @return Int value or Int.MIN_VALUE if something went wrong
+     */
+    public static int getIntInIpPacket(byte[] packet, int offset) {
+        if ((packet == null) || (offset < 0) || (offset + 4 > packet.length))
+            return Integer.MIN_VALUE;
+        byte[] intBytes = new byte[4];
+        for (int i=0;i<4;i++) {
+            intBytes[i] = packet[offset+i];
+        }
+        return byteArrayToInt(intBytes);
+    }
+
+    /**
+     * Parse an IP packet to get the source IP address
+     * @param packet
+     * @return
+     */
+    public static int getSourceIpFromIpPacket(byte[] packet) {
+        int ip = getIntInIpPacket(packet,12);
+        if (ip == Integer.MIN_VALUE)
+            return SqAnDevice.BROADCAST_IP;
+        return ip;
+    }
+
+    /**
+     * Parse an IP packet to get the destination IP address
+     * @param packet
+     * @return
+     */
+    public static int getDestinationIpFromIpPacket(byte[] packet) {
+        int ip = getIntInIpPacket(packet,16);
+        if (ip == Integer.MIN_VALUE)
+            return SqAnDevice.BROADCAST_IP;
+        return ip;
+    }
+
+
+    public static enum DscpType {
+        Network_Control,
+        Telephony,
+        Signaling,
+        Multimedia_Conferencing,
+        Real_Time_Interactive,
+        Multimedia_Streaming,
+        Broadcast_Video,
+        Low_Latency_Data,
+        OAM,
+        High_Throughput_Data,
+        Standard,
+        Low_Priority_Data,
+        UNKNOWN
+    }
+
+    /**
+     * Gets the DCP type based on the BSCP byte
+     * @param dscp
+     * @return type or UNKNOWN
+     */
+    public static DscpType getDscpType(byte dscp) {
+        switch (dscp & MASK_DSCP) {
+            case ((byte)0b110000):
+                return DscpType.Network_Control;
+
+            case ((byte)0b101110):
+                return DscpType.Telephony;
+
+            case ((byte)0b101000):
+                return DscpType.Signaling;
+
+            case ((byte)0b100010):
+            case ((byte)0b100100):
+            case ((byte)0b100110):
+                return DscpType.Multimedia_Conferencing;
+
+            case ((byte)0b100000):
+                return DscpType.Real_Time_Interactive;
+
+            case ((byte)0b011010):
+            case ((byte)0b0111000):
+            case ((byte)0b011110):
+                return DscpType.Multimedia_Streaming;
+
+            case ((byte)0b011000):
+                return DscpType.Broadcast_Video;
+
+            case ((byte)0b010010):
+            case ((byte)0b010100):
+            case ((byte)0b010110):
+                return DscpType.Low_Latency_Data;
+
+            case ((byte)0b010000):
+                return DscpType.OAM;
+
+            case ((byte)0b001010):
+            case ((byte)0b001100):
+            case ((byte)0b001110):
+                return DscpType.High_Throughput_Data;
+
+            case ((byte)0b000000):
+                return DscpType.Standard;
+
+            case ((byte)0b001000):
+                return DscpType.Low_Priority_Data;
+
+            default:
+                return DscpType.UNKNOWN;
+        }
+    }
+
+    private final static byte MASK_DSCP = (byte)0b11111100;
+    /**
+     * Parse an IP packet to get the DSCP
+     * @param packet
+     * @return
+     */
+    public static byte getDscpFromIpPacket(byte[] packet) {
+        if ((packet == null) || (packet.length < 4))
+            return Byte.MIN_VALUE;
+        byte dscpByte = packet[1];
+        return (byte)(dscpByte & MASK_DSCP);
     }
 }

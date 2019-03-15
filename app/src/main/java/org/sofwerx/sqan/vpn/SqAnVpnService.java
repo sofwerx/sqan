@@ -34,11 +34,22 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
     public static final String ACTION_DISCONNECT = "org.sofwerx.sqan.vpn.STOP";
     private FileOutputStream out;
     private Handler mHandler;
+    private int lastMessage = R.string.disconnected;
 
-    public static void start(@NonNull Context context) {
-        Intent intent = new Intent(context, SqAnVpnService.class);
-        intent.setAction(SqAnVpnService.ACTION_CONNECT);
-        context.startService(intent);
+    public static void start(final Context context) {
+        if (context != null) {
+            Intent intent = new Intent(context, SqAnVpnService.class);
+            intent.setAction(SqAnVpnService.ACTION_CONNECT);
+            context.startService(intent);
+        }
+    }
+
+    public static void stop(final Context context) {
+        if (context != null) {
+            Intent intent = new Intent(context, SqAnVpnService.class);
+            intent.setAction(SqAnVpnService.ACTION_DISCONNECT);
+            context.startService(intent);
+        }
     }
 
     public void onReceived(final byte[] data) {
@@ -93,12 +104,14 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
     @Override
     public boolean handleMessage(Message message) {
         Toast.makeText(this, message.what, Toast.LENGTH_SHORT).show();
+        lastMessage = message.what;
         if (message.what != R.string.disconnected)
             updateForegroundNotification(message.what);
         return true;
     }
 
     private void connect() {
+        Config.setVpnEnabled(true);
         updateForegroundNotification(R.string.connecting);
         mHandler.sendEmptyMessage(R.string.connecting);
         startConnection(new SqAnVpnConnection(this, mNextConnectionId.getAndIncrement()));
@@ -149,7 +162,8 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
             webServer.stop();
             webServer = null;
         }
-        mHandler.sendEmptyMessage(R.string.disconnected);
+        if (lastMessage != R.string.disconnected)
+            mHandler.sendEmptyMessage(R.string.disconnected);
         setConnectingThread(null);
         setConnection(null);
         stopForeground(true);

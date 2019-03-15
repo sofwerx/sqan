@@ -50,9 +50,11 @@ import static android.app.Activity.RESULT_OK;
 public class SqAnService extends Service implements LocationService.LocationUpdateListener {
     public static final int REQUEST_ENABLE_VPN = 421;
     private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
+    private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 50l;
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
+    private final static int SQAN_NOTIFICATION_VPN_ACTIVITY_BUT_NOT_ON = 71;
     private final static long HELPER_INTERVAL = 1000l * 5l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
     private Random random = new Random();
@@ -75,8 +77,10 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private int lastHeartbeatLevel = 0;
     private long nextDevicesCleanup = Long.MIN_VALUE;
     private long nextAvailableHeartbeat = Long.MIN_VALUE; //prevent multiple heartbeats from firing in close succession
+    private long nextMandatoryHeartbeat = Long.MIN_VALUE;
     private LocationService locationService;
     private SqAnVpnService vpnService;
+    private int missedVpnPacketCount = 0;
 
     private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
@@ -167,12 +171,13 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
             return;
         }
-        if (System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) {
+        if ((System.currentTimeMillis() > lastPositiveOutgoingComms + MAX_INTERVAL_BETWEEN_COMMS) || (System.currentTimeMillis() > nextMandatoryHeartbeat)) {
             if (System.currentTimeMillis() < nextAvailableHeartbeat) {
                 Log.d(Config.TAG,"A heartbeat was just requested so this heartbeat request is being skipped.");
                 return;
             }
             nextAvailableHeartbeat = System.currentTimeMillis() + MIN_TIME_BETWEEN_HEARTBEATS;
+            nextMandatoryHeartbeat = System.currentTimeMillis() + MAX_TIME_BETWEEN_HEARTBEATS;
             //if (lastHeartbeatLevel == 0)
                 burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
             /*if (lastHeartbeatLevel == 1) {
@@ -359,9 +364,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             } catch (Exception e) {
             }
         }
-        Intent intent = new Intent(this, SqAnVpnService.class);
-        intent.setAction(SqAnVpnService.ACTION_DISCONNECT);
-        startService(intent);
+        SqAnVpnService.stop(this);
         CommsLog.clear();
         Config.savePrefs(this);
         if (handler == null) {
@@ -485,6 +488,42 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         startForeground(SQAN_NOTIFICATION_ID,builder.build());
     }
 
+    public void notifyVpnTraffic(SqAnDevice device) {
+        createNotificationChannel();
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
+        else
+            builder = new Notification.Builder(this);
+        PendingIntent pendingIntent = null;
+        try {
+            Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqan.ui.SettingsActivity"));
+            pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        builder.setContentIntent(pendingIntent);
+        builder.setContentTitle("VPN Traffic Detected");
+        builder.setSmallIcon(R.drawable.ic_vpn);
+        String text;
+        if ((device == null) || (device.getCallsign() == null))
+            text = "SqAN is sending you VPN traffic, but you do not currently have VPN enabled";
+        else
+            text = device.getCallsign()+" is sending you VPN traffic, but you do not currently have VPN enabled";
+
+        builder.setContentText(text);
+
+        builder.setAutoCancel(true);
+
+        Intent intentAction = new Intent(this, SqAnVpnService.class);
+        intentAction.setAction(SqAnVpnService.ACTION_CONNECT);
+        PendingIntent pIntentVpn = PendingIntent.getService(this, 0, intentAction, PendingIntent.FLAG_UPDATE_CURRENT);
+        builder.addAction(R.drawable.ic_vpn, "Turn on VPN", pIntentVpn);
+
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        notificationManager.notify(SQAN_NOTIFICATION_VPN_ACTIVITY_BUT_NOT_ON, builder.build());
+    }
+
     public void notifyStatusChange(Status status, String message) {
         if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
             lastNotifiedStatus = status;
@@ -522,7 +561,9 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             if (vpnService != null)
                 vpnService.onReceived(packet.getData());
             else {
-                //TODO notify the user if there's a lot of VPN traffic data coming in but our VPN isn't on
+                missedVpnPacketCount++;
+                if (missedVpnPacketCount == 2)
+                    notifyVpnTraffic(SqAnDevice.findByUUID(packet.getOrigin()));
             }
         }
     }

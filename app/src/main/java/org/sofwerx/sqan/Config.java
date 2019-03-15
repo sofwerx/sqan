@@ -103,6 +103,8 @@ public class Config {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
         updateSavedTeammates();
+        if (vpnMode)
+            edit.putBoolean(PREFS_VPN_MODE,true);
         if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
             JSONArray rawTeammates = new JSONArray();
             for (SavedTeammate teammate:savedTeammates) {
@@ -252,6 +254,10 @@ public class Config {
                     SqAnDevice.remove(device);
             }
         }
+    }
+
+    public static void setVpnEnabled(boolean b) {
+        vpnMode = true;
     }
 
     public static class SavedTeammate {

@@ -28,7 +28,10 @@
             android:defaultValue="4"
             android:entries="@array/listManetTypes"
             android:entryValues="@array/listManetTypesValues" />
+    </PreferenceCategory>
 
+    <PreferenceCategory
+        android:title="VPN">
         <CheckBoxPreference
             android:key="vpnmode"
             android:title="VPN Mode"
@@ -39,7 +42,7 @@
             android:key="vpn404"
             android:dependency="vpnmode"
             android:title="Host a VPN page"
-            android:summary="Host a web page on this device that provides basic device stats."
+            android:summary="Host a web page on this device that provides basic device stats. Primarily used for checking connectivity."
             android:defaultValue="true"/>
     </PreferenceCategory>
 

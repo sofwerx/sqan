@@ -11,6 +11,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.util.AddressUtil;
+import org.sofwerx.sqan.util.NetUtil;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,7 +30,7 @@ public class SqAnVpnConnection implements Runnable {
     private final int id;
     private PendingIntent configureIntent;
     private OnEstablishListener listener;
-    private AtomicBoolean keepGoing = new AtomicBoolean(true);
+    private final AtomicBoolean keepGoing = new AtomicBoolean(true);
 
     public interface OnEstablishListener {
         void onEstablish(ParcelFileDescriptor tunInterface);
@@ -68,12 +69,23 @@ public class SqAnVpnConnection implements Runnable {
                 int length = in.read(packet.array());
                 if (length > 0) {
                     packet.limit(length);
-                    VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
-                    //FIXME add the destination address
                     packet.rewind();
                     byte[] rawBytes = new byte[length];
                     packet.get(rawBytes);
+                    VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
+                    int destinationIp = NetUtil.getDestinationIpFromIpPacket(rawBytes);
+                    byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
+                    if (destinationIp != SqAnDevice.BROADCAST_IP) {
+                        SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
+                        if (device == null)
+                            Log.d(getTag(),"VpnPacket destined for an IP address that I do not recognize - broadcasting this message to all devices");
+                        else {
+                            Log.d(getTag(),"VpnPacket (DSCP "+NetUtil.getDscpType(dscp).name()+") being forwarded to "+device.getCallsign());
+                            outgoing.setDestination(device.getUUID());
+                        }
+                    }
                     outgoing.setData(rawBytes);
+                    Log.d(getTag(),"Outgoing bytes: "+ NetUtil.getStringOfBytesForDebug(rawBytes));
                     sqAnService.burst(outgoing);
 
                     packet.clear();
@@ -81,7 +93,10 @@ public class SqAnVpnConnection implements Runnable {
                     idle = false;
                 }
             } catch (IOException e) {
-                Log.e(getTag(),"IOException: "+e.getMessage());
+                String message = e.getMessage();
+                Log.e(getTag(),"IOException: "+message);
+                if ((pfd == null) || ((message != null) && message.contains("EBADF")))
+                    keepGoing.set(false);
             } catch (BufferUnderflowException e) {
                 Log.e(getTag(),"BufferUnderflowException: "+e.getMessage());
             }

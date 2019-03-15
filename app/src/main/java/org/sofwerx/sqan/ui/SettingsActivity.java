@@ -12,6 +12,8 @@ import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 public class SettingsActivity extends Activity {
     @Override
@@ -48,6 +50,7 @@ public class SettingsActivity extends Activity {
 
     private SharedPreferences.OnSharedPreferenceChangeListener listener = (sharedPreferences, key) -> {
         Log.d(Config.TAG,"Preference changed: "+key);
+        Config.recheckPreferences(this);
         if (Config.PREFS_MANET_ENGINE.equalsIgnoreCase(key)) {
             AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);
             builder.setTitle(R.string.shutdown_required);
@@ -55,12 +58,10 @@ public class SettingsActivity extends Activity {
             final AlertDialog dialog = builder.create();
             dialog.show();
         } else if (Config.PREFS_VPN_MODE.equalsIgnoreCase(key)) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);
-            builder.setTitle(R.string.shutdown_required);
-            builder.setMessage(R.string.prefs_vpn_changed_description);
-            final AlertDialog dialog = builder.create();
-            dialog.show();
-        } else
-            Config.recheckPreferences(this);
+            if (Config.isVpnEnabled())
+                SqAnVpnService.start(SqAnService.getInstance());
+            else
+                SqAnVpnService.stop(SqAnService.getInstance());
+        }
     };
 }
