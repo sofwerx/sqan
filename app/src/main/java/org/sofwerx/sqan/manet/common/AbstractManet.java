@@ -202,7 +202,7 @@ public abstract class AbstractManet {
                     CommsLog.log(CommsLog.Entry.Category.COMMS, "Received ping (round trip latency " + Long.toString(pingPacket.getLatency()) + "ms) from " + device.getUUID());
                 }
                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected(0); //direct, no hops in between
+                device.setConnected(0, isBluetoothBased(), isWiFiBased()); //direct, no hops in between
                 Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
                 if (teammate != null)
                     teammate.update(device.getCallsign(), System.currentTimeMillis());
@@ -227,7 +227,10 @@ public abstract class AbstractManet {
                 if (saved != null)
                     device.setCallsign(saved.getCallsign());
                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-                device.setConnected(packet.getCurrentHopCount());
+                if (packet.getCurrentHopCount() == 0)
+                    device.setConnected(0,isBluetoothBased(),isWiFiBased());
+                else
+                    device.setConnected(packet.getCurrentHopCount(),false,false);
                 if (listener != null)
                     listener.onDevicesChanged(device);
             }
@@ -235,7 +238,10 @@ public abstract class AbstractManet {
             if (packet instanceof HeartbeatPacket)
                 device.update(((HeartbeatPacket)packet).getDevice());
             device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
-            device.setConnected(packet.getCurrentHopCount());
+            if (packet.getCurrentHopCount() == 0)
+                device.setConnected(0,isBluetoothBased(),isWiFiBased());
+            else
+                device.setConnected(packet.getCurrentHopCount(),false,false);
             if (listener != null)
                 listener.onDevicesChanged(device);
         }
@@ -251,6 +257,9 @@ public abstract class AbstractManet {
                 onDeviceLost(device, packet.isDirectFromOrigin());
         }
     }
+
+    protected abstract boolean isBluetoothBased();
+    protected abstract boolean isWiFiBased();
 
     /**
      * This device's hub (if this MANET is in a spoke/hub architecture) has become disconnected

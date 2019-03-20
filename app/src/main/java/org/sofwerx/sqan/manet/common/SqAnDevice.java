@@ -7,6 +7,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
+import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
@@ -22,6 +23,7 @@ public class SqAnDevice {
     private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     public final static int BROADCAST_IP = AddressUtil.getSqAnVpnIpv4Address(PacketHeader.BROADCAST_ADDRESS);
+    private final static int MAX_RELAY_CONNECTIONS_TO_SAVE = 20;
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     private static ArrayList<SqAnDevice> devices;
     private int uuid; //this is the persistent SqAN ID for this device
@@ -42,10 +44,13 @@ public class SqAnDevice {
     private NodeRole roleWiFi = NodeRole.OFF;
     private NodeRole roleBT = NodeRole.OFF;
     private int hopsAway = 0;
+    private boolean directBt = false;
+    private boolean directWiFi = false;
     private long lastHopUpdate = Long.MIN_VALUE;
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
     private int ipV4Address = Integer.MIN_VALUE;
+    private TransportPreference preferredTransport = TransportPreference.AGNOSTIC;
 
     public static boolean hasAtLeastOneActiveConnection() {
         if (devices != null) {
@@ -102,7 +107,46 @@ public class SqAnDevice {
             return hopsAway;
         return Integer.MAX_VALUE;
     }
-    public void setHopsAway(int hops) { hopsAway = hops; }
+
+    public void setHopsAway(int hops, boolean directBt, boolean directWiFi) {
+        hopsAway = hops;
+        if (hopsAway == 0) {
+            this.directBt = directBt;
+            this.directWiFi = directWiFi;
+        }
+    }
+
+    /**
+     * Is this device directly connected via WiFi
+     * @return
+     */
+    public boolean isDirectWiFi() {
+        if (hopsAway == 0)
+            return directWiFi;
+        return false;
+    }
+
+    /**
+     * Sets if this device directly connected via WiFi
+     * @param directWiFi
+     */
+    public void setDirectWiFi(boolean directWiFi) { this.directWiFi = directWiFi; }
+
+    /**
+     * Is this device directly connected via Bluetooth
+     * @return
+     */
+    public boolean isDirectBt() {
+        if (hopsAway == 0)
+            return directBt;
+        return false;
+    }
+
+    /**
+     * Sets if this device directly connected via Bluetooth
+     * @param directBt
+     */
+    public void setDirectBt(boolean directBt) { this.directBt = directBt; }
 
     /**
      * Sets the last time our device forwarded a packet to this device
@@ -115,6 +159,10 @@ public class SqAnDevice {
      * @return
      */
     public long getLastForward() { return lastForwardedToThisDevice; }
+
+    public TransportPreference getPreferredTransport() {
+        return preferredTransport;
+    }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -191,16 +239,116 @@ public class SqAnDevice {
 
     private void cullOldRelayConnections() {
         if (relays != null) {
-            int i = 0;
-            RelayConnection relay;
-            while (i<relays.size()) {
-                relay = relays.get(i);
-                if (System.currentTimeMillis() > relay.getLastConnection() + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
-                    Log.d(Config.TAG,"Removing old relay info from "+callsign+" to SqAn ID "+relay.getSqAnID());
-                    relays.remove(i);
-                } else
-                    i++;
+            synchronized (relays) {
+                RelayConnection worst = null;
+                int i = 0;
+                RelayConnection relay;
+                while (i < relays.size()) {
+                    relay = relays.get(i);
+                    if (System.currentTimeMillis() > relay.getLastConnection() + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
+                        Log.d(Config.TAG, "Removing old relay info from " + callsign + " to SqAn ID " + relay.getSqAnID());
+                        relays.remove(i);
+                    } else {
+                        if (worst == null)
+                            worst = relay;
+                        else {
+                            if (relay.getHops() > worst.getHops())
+                                worst = relay;
+                            else if (relay.getLastConnection() < worst.getLastConnection())
+                                worst = relay;
+                        }
+                        i++;
+                    }
+                }
+                if ((relays.size() > MAX_RELAY_CONNECTIONS_TO_SAVE) && (worst != null))
+                    relays.remove(worst);
             }
+        }
+    }
+
+    /**
+     * Updates the preferred routing for each device based on current connectivity. This
+     * logic will probably need a bit of tweaking
+     */
+    public static void updateDeviceRoutePreferences() {
+        if ((devices == null) || devices.isEmpty())
+            return;
+        for (SqAnDevice device:devices) {
+            if (device.isActive()) {
+                if (device.directWiFi)
+                    device.addPreferWiFi();
+                else
+                    device.removePreferWiFi();
+                if (device.directWiFi && (System.currentTimeMillis() < device.lastConnect + TIME_TO_STALE/2)) //very fresh device, prefer WiFi)
+                    device.removePreferBt();
+                else {
+                    if (device.directBt)
+                        device.addPreferBt();
+                    else
+                        device.removePreferBt();
+                }
+            } else
+                device.preferredTransport = TransportPreference.AGNOSTIC;
+        }
+    }
+
+    /**
+     * Updates this device's routing preference to include WiFi
+     */
+    public void addPreferWiFi() {
+        switch (preferredTransport) {
+            case BLUETOOTH:
+            case BOTH:
+                preferredTransport = TransportPreference.BOTH;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.WIFI;
+        }
+    }
+
+    /**
+     * Updates this device's routing preference to include BT
+     */
+    public void addPreferBt() {
+        switch (preferredTransport) {
+            case WIFI:
+            case BOTH:
+                preferredTransport = TransportPreference.BOTH;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.BLUETOOTH;
+        }
+    }
+
+    /**
+     * Updates this device's routing preference to exclude WiFI
+     */
+    public void removePreferWiFi() {
+        switch (preferredTransport) {
+            case BOTH:
+            case BLUETOOTH:
+                preferredTransport = TransportPreference.BLUETOOTH;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.AGNOSTIC;
+        }
+    }
+
+    /**
+     * Updates this device's routing preference to exclude BT
+     */
+    public void removePreferBt() {
+        switch (preferredTransport) {
+            case BOTH:
+            case WIFI:
+                preferredTransport = TransportPreference.WIFI;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.AGNOSTIC;
         }
     }
 
@@ -469,9 +617,11 @@ public class SqAnDevice {
         if (connection == null)
             return;
         RelayConnection current = getConnection(connection.getSqAnID());
-        if (current == null)
+        if (current == null) {
+            if (relays.size() > MAX_RELAY_CONNECTIONS_TO_SAVE)
+                cullOldRelayConnections();
             relays.add(connection);
-        else
+        } else
             current.update(connection);
     }
 
@@ -839,7 +989,7 @@ public class SqAnDevice {
         return networkId;
     }
     public void setNetworkId(String networkId) { this.networkId = networkId; }
-    public void setConnected(int hopsAway) {
+    public void setConnected(int hopsAway, boolean directBt, boolean directWiFi) {
         status = Status.CONNECTED;
         setLastConnect(System.currentTimeMillis());
         if (connectTime < 0l)
@@ -847,11 +997,11 @@ public class SqAnDevice {
         if (hopsAway > this.hopsAway) {
             if (System.currentTimeMillis() > lastHopUpdate + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
                 lastHopUpdate = System.currentTimeMillis();
-                this.hopsAway = hopsAway;
+                setHopsAway(hopsAway, directBt, directWiFi);
             }
         } else {
             lastHopUpdate = System.currentTimeMillis();
-            this.hopsAway = hopsAway;
+            setHopsAway(hopsAway, directBt, directWiFi);
         }
     }
     public void setLastConnect(long time) {

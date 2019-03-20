@@ -536,6 +536,12 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             setStatus(Status.ADVERTISING);
     }
 
+    @Override
+    protected boolean isBluetoothBased() { return false; }
+
+    @Override
+    protected boolean isWiFiBased() { return true; }
+
     /**
      * Adds this device to the list of teammates
      * @param wifiP2pDevice

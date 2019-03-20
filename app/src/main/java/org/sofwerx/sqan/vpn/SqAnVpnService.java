@@ -157,7 +157,10 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
             }
             out = null;
         }
-        SqAnService.getInstance().setVpnService(null);
+        try {
+            SqAnService.getInstance().setVpnService(null);
+        } catch (Exception ignore) {
+        }
         if (webServer != null) {
             webServer.stop();
             webServer = null;

@@ -201,6 +201,12 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     @Override
+    protected boolean isBluetoothBased() { return false; }
+
+    @Override
+    protected boolean isWiFiBased() { return true; }
+
+    @Override
     protected void onDeviceLost(SqAnDevice device, boolean directConnection) {
         setNewNodesAllowed(true); //TODO make this more sophisticated than just turning discovery back on
     }
@@ -290,7 +296,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             device.setNetworkId(deviceId);
                     }
                     if (device != null) {
-                        device.setConnected(0); //direct, no hops in between
+                        device.setConnected(0,isBluetoothBased(),isWiFiBased()); //direct, no hops in between
                         device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Connection initiated"));
                     }
                     CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
@@ -311,7 +317,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                                 listener.onDevicesChanged(device);
                             }
                             if (device != null) {
-                                device.setConnected(0); //direct, no hops in between
+                                device.setConnected(0,isBluetoothBased(),isWiFiBased()); //direct, no hops in between
                                 String lagString = "discovery to connection "+StringUtil.toDuration(device.getDiscoveryConnectLag());
                                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, lagString));
                                 CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection established with " + deviceId+", "+lagString);
@@ -437,7 +443,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                         device = new SqAnDevice();
                         device.setNetworkId(deviceId);
                     }
-                    device.setConnected(0); //direct, no hops in between
+                    device.setConnected(0,isBluetoothBased(),isWiFiBased()); //direct, no hops in between
                     byte[] bytes = payload.asBytes();
                     if (bytes == null) {
                         device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.PROBLEM, "Empty payload received"));

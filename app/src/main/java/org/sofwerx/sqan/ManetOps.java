@@ -16,6 +16,7 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.ChannelBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
@@ -25,8 +26,6 @@ import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
-import java.util.ArrayList;
-
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists
  * to bring the MANET code out of the SqAnService to improve readability.
@@ -34,7 +33,8 @@ import java.util.ArrayList;
 public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroadcastListener {
     private final static long MIN_SA_IPC_BROADCAST_DELAY = 250l; //dont do SA IPC broadcasts with any interval shorter than this
     private final SqAnService sqAnService;
-    private AbstractManet manet;
+    private AbstractManet wifiManet;
+    private BtManetV2 btManet;
     private static long transmittedByteTally = 0l;
     private HandlerThread manetThread; //the MANET itself runs on this thread where possible
     private Handler handler;
@@ -63,19 +63,23 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 }
                 switch (manetType) {
                     case 1:
-                        manet = new NearbyConnectionsManet(handler,sqAnService,manetOps);
+                        wifiManet = new NearbyConnectionsManet(handler,sqAnService,manetOps);
+                        btManet = null;
                         break;
 
                     case 2:
-                        manet = new WiFiAwareManet(handler,sqAnService,manetOps);
+                        wifiManet = new WiFiAwareManet(handler,sqAnService,manetOps);
+                        btManet = new BtManetV2(handler,sqAnService,manetOps);
                         break;
 
                     case 3:
-                        manet = new WiFiDirectManet(handler,sqAnService,manetOps);
+                        wifiManet = new WiFiDirectManet(handler,sqAnService,manetOps);
+                        btManet = new BtManetV2(handler,sqAnService,manetOps);
                         break;
 
                     case 4:
-                        manet = new BtManetV2(handler,sqAnService,manetOps);
+                        wifiManet = null;
+                        btManet = new BtManetV2(handler,sqAnService,manetOps);
                         break;
 
                     default:
@@ -128,50 +132,89 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         Log.d(Config.TAG,"ManetOps disconnecting...");
         IpcBroadcastTransceiver.unregister(sqAnService);
         shouldBeActive = false;
-        if (manet != null) {
-            if (manetThread != null) {
-                if (handler != null) {
-                    handler.removeCallbacksAndMessages(null);
-                    handler.post(() -> {
-                        try {
-                            manet.burst(new DisconnectingPacket(Config.getThisDevice().getUUID()));
-                            Log.d(Config.TAG,"Sending hangup notification to network");
-                        } catch (ManetException ignore) {
-                        }
-                    });
-                    handler.postDelayed(() -> {
-                        try {
-                            manet.disconnect();
-                            manet = null;
-                            Log.d(Config.TAG,"Disconnected from MANET normally");
-                        } catch (ManetException e) {
-                            Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
-                        }
-                    }, 1000l); //give the link 5 seconds to announce the devices departure
-                } else {
+
+        if (manetThread != null) {
+            if (handler != null) {
+                handler.removeCallbacksAndMessages(null);
+                handler.post(() -> {
                     try {
-                        manet.disconnect();
-                        Log.d(Config.TAG,"Disconnected from MANET with handler already closed");
-                        manet = null;
-                        if (manetThread != null) {
-                            manetThread.quitSafely();
-                            manetThread = null;
-                            handler = null;
+                        if (wifiManet != null) {
+                            wifiManet.burst(new DisconnectingPacket(Config.getThisDevice().getUUID()));
+                            Log.d(Config.TAG, "Sending hangup notification to WiFi MANET");
+                        }
+                    } catch (ManetException ignore) {
+                    }
+                    try {
+                        if (btManet != null) {
+                            btManet.burst(new DisconnectingPacket(Config.getThisDevice().getUUID()));
+                            Log.d(Config.TAG, "Sending hangup notification to Bluetooth MANET");
+                        }
+                    } catch (ManetException ignore) {
+                    }
+                });
+                handler.postDelayed(() -> {
+                    try {
+                        if (wifiManet != null) {
+                            wifiManet.disconnect();
+                            wifiManet = null;
+                            Log.d(Config.TAG, "Disconnected from WiFi MANET normally");
                         }
                     } catch (ManetException e) {
                         Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                     }
-                }
+                    try {
+                        if (btManet != null) {
+                            btManet.disconnect();
+                            btManet = null;
+                            Log.d(Config.TAG, "Disconnected from Bluetooth MANET normally");
+                        }
+                    } catch (ManetException e) {
+                        Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                    }
+                }, 1000l); //give the link 5 seconds to announce the devices departure
             } else {
                 try {
-                    if (manet != null) {
-                        manet.disconnect();
-                        Log.d(Config.TAG,"Disconnected from MANET with manetThread already closed");
-                        manet = null;
+                    if (wifiManet != null) {
+                        wifiManet.disconnect();
+                        Log.d(Config.TAG, "Disconnected from WiFi MANET with handler already closed");
+                        wifiManet = null;
                     }
                 } catch (ManetException e) {
                     Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                 }
+                try {
+                    if (btManet != null) {
+                        btManet.disconnect();
+                        Log.d(Config.TAG, "Disconnected from Bluetooth MANET with handler already closed");
+                        btManet = null;
+                    }
+                } catch (ManetException e) {
+                    Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                }
+                if (manetThread != null) {
+                    manetThread.quitSafely();
+                    manetThread = null;
+                    handler = null;
+                }
+            }
+        } else {
+            try {
+                if (wifiManet != null) {
+                    wifiManet.disconnect();
+                    Log.d(Config.TAG,"Disconnected from WiFi MANET with manetThread already closed");
+                    wifiManet = null;
+                }
+            } catch (ManetException e) {
+                Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+            }
+            try {
+                if (btManet != null) {
+                    btManet.disconnect();
+                    Log.d(Config.TAG,"Disconnected from Bluetooth MANET with manetThread already closed");
+                    btManet = null;
+                }
+            } catch (ManetException e) {
+                Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
             }
         }
     }
@@ -180,9 +223,16 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         shouldBeActive = false;
         if (handler != null)
             handler.removeCallbacks(null);
-        if (manet != null) {
+        if (wifiManet != null) {
             try {
-                manet.pause();
+                wifiManet.pause();
+            } catch (ManetException e) {
+                Log.e(Config.TAG,"Unable to pause MANET: "+e.getMessage());
+            }
+        }
+        if (btManet != null) {
+            try {
+                btManet.pause();
             } catch (ManetException e) {
                 Log.e(Config.TAG,"Unable to pause MANET: "+e.getMessage());
             }
@@ -193,11 +243,16 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         shouldBeActive = true;
         if (handler != null) {
             handler.post(() -> {
-                //if ((manet != null) && !manet.isRunning()) {
-                if (manet != null) {
+                if (wifiManet != null) {
                     try {
-                        sqAnService.onStatusChange(Status.OFF, null);
-                        manet.init();
+                        wifiManet.init();
+                    } catch (ManetException e) {
+                        sqAnService.onStatusChange(Status.ERROR, e.getMessage());
+                    }
+                }
+                if (btManet != null) {
+                    try {
+                        btManet.init();
                     } catch (ManetException e) {
                         sqAnService.onStatusChange(Status.ERROR, e.getMessage());
                     }
@@ -301,20 +356,70 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     public Status getStatus() {
-        if (manet == null)
+        if ((wifiManet == null) && (btManet == null))
             return Status.OFF;
-        return manet.getStatus();
+        if (wifiManet == null)
+            return btManet.getStatus();
+        if (btManet == null)
+            return wifiManet.getStatus();
+        int wifi = wifiManet.getStatus().ordinal();
+        int bt = btManet.getStatus().ordinal();
+        if (wifi > bt)
+            return wifiManet.getStatus();
+        return btManet.getStatus();
     }
 
-    public AbstractManet getManet() { return manet; }
+    public AbstractManet getWifiManet() { return wifiManet; }
+    public AbstractManet getBtManet() { return btManet; }
 
     public void burst(AbstractPacket packet) {
-        if ((packet == null) || (manet == null))
-            Log.d(Config.TAG,"ManetOps cannot burst the packet "+((packet==null)?"null packet":"null manet"));
+        if (packet == null) {
+            Log.d(Config.TAG, "ManetOps cannot burst a null packet");
+            return;
+        }
+        if ((btManet == null) && (wifiManet == null))
+            Log.d(Config.TAG,"ManetOps cannot burst without an available MANET");
         else {
             try {
-                manet.burst(packet);
-            } catch (ManetException e) {
+                boolean btGood = (btManet != null) && (btManet.getStatus() == Status.CONNECTED);
+                boolean wifiGood = (wifiManet != null) && (wifiManet.getStatus() == Status.CONNECTED);
+                if (btGood && wifiGood) {
+                    if (packet.isHighPerformanceNeeded())
+                        wifiManet.burst(packet);
+                    else {
+                        if (PacketHeader.BROADCAST_ADDRESS == packet.getSqAnDestination()) {
+                            wifiManet.burst(packet);
+                            btManet.burst(packet);
+                        } else {
+                            SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
+                            if (device == null) {
+                                wifiManet.burst(packet);
+                                btManet.burst(packet);
+                            } else {
+                                switch (device.getPreferredTransport()) {
+                                    case WIFI:
+                                        wifiManet.burst(packet);
+                                        break;
+
+                                    case BLUETOOTH:
+                                        btManet.burst(packet);
+                                        break;
+
+                                    default:
+                                        wifiManet.burst(packet);
+                                        btManet.burst(packet);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    //at least one mesh isn't completely healthy so send over both
+                    if (wifiManet != null)
+                        wifiManet.burst(packet);
+                    if (btManet != null)
+                        btManet.burst(packet);
+                }
+            } catch (Exception e) {
                 Log.e(Config.TAG,"Unable to burst packet: "+e.getMessage());
             }
         }
@@ -347,8 +452,11 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void executePeriodicTasks() {
         ipcBroadcastIfNeeded();
         evalutateMeshStatus();
-        if (manet != null)
-            manet.executePeriodicTasks();
+        if (btManet != null)
+            btManet.executePeriodicTasks();
+        if (wifiManet != null)
+            wifiManet.executePeriodicTasks();
+        SqAnDevice.updateDeviceRoutePreferences();
     }
 
     /**

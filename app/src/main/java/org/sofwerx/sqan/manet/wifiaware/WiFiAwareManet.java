@@ -183,6 +183,12 @@ public class WiFiAwareManet extends AbstractManet {
         //}
     }
 
+    @Override
+    protected boolean isBluetoothBased() { return false; }
+
+    @Override
+    protected boolean isWiFiBased() { return true; }
+
     private PeerHandle findPeer(PeerHandle peerHandle) {
         if ((peerHandle != null) && (nodes != null) && !nodes.isEmpty()) {
             if (nodes.containsKey(peerHandle))
@@ -222,7 +228,7 @@ public class WiFiAwareManet extends AbstractManet {
                 device = new SqAnDevice();
                 device.setNetworkId(Integer.toString(peerHandle.hashCode()));
             }
-            device.setConnected(0);
+            device.setConnected(0,false,true);
         }
         nodes.put(peerHandle,System.currentTimeMillis());
     }

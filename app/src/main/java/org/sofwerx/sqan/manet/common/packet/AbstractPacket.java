@@ -1,17 +1,17 @@
 package org.sofwerx.sqan.manet.common.packet;
 
-import android.util.Log;
-
+import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.util.CommsLog;
 
-import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
 /**
  * Data bundled for transmission over the MANET
  */
 public abstract class AbstractPacket {
+    public final static int LARGE_PACKET_SIZE = BTSocket.MAX_PACKET_SIZE;
     protected PacketHeader packetHeader;
+    protected boolean highPerformanceNeeded = false;
 
     public AbstractPacket(PacketHeader packetHeader) {
         if (packetHeader != null) {
@@ -24,6 +24,18 @@ public abstract class AbstractPacket {
         if (packetHeader != null)
             packetHeader.incrementHopCount();
     }
+
+    /**
+     * Sets if this packet needs to be expedited
+     * @param highPerformanceNeeded true == push through the higher bandwidth connection
+     */
+    public void setHighPerformanceNeeded(boolean highPerformanceNeeded) { this.highPerformanceNeeded = highPerformanceNeeded; }
+
+    /**
+     * Does this packet need to be expedited?
+     * @return true == push through the higher bandwidth connection
+     */
+    public boolean isHighPerformanceNeeded() { return highPerformanceNeeded; }
 
     public int getCurrentHopCount() {
         if (packetHeader == null)

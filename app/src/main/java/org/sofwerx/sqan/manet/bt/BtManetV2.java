@@ -226,9 +226,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         return bluetoothAdapter.getRemoteDevice(mac);
     }
 
-    /**
-     *
-     */
+    @Override
+    protected boolean isBluetoothBased() { return true; }
+
+    @Override
+    protected boolean isWiFiBased() { return false; }
 
     @Override
     public void onNewConnectionAccepted(BTSocket newConnection) {
@@ -256,7 +258,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                 else {
                     device = new SqAnDevice(teammate.getSqAnAddress());
                     device.setBluetoothMac(mac.toString());
-                    device.setConnected(0);
+                    device.setConnected(0,true,false);
                     SqAnDevice.add(device);
                     Log.d(Config.TAG,"Device SqAN #"+device.getUUID()+" added to list of devices");
                 }

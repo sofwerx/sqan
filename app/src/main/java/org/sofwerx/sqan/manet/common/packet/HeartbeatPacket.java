@@ -101,6 +101,13 @@ public class HeartbeatPacket extends AbstractPacket {
         }
     }
 
+    /**
+     * Heartbeats are never urgent/high bandwidth
+     * @return
+     */
+    @Override
+    public boolean isHighPerformanceNeeded() { return false; }
+
     private ArrayList<RelayConnection> getRelayConnections() {
         ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
         if (devices == null)
@@ -110,7 +117,7 @@ public class HeartbeatPacket extends AbstractPacket {
             for (SqAnDevice device : devices) {
                 //if (System.currentTimeMillis() < device.getLastConnect() + SqAnDevice.TIME_TO_STALE)
                 if (device.isActive())
-                    relays.add(new RelayConnection(device.getUUID(), device.getHopsAway(), device.getLastConnect()));
+                    relays.add(new RelayConnection(device.getUUID(), device.getHopsAway(), device.getLastConnect(),device.isDirectBt(),device.isDirectWiFi()));
             }
         }
         return relays;

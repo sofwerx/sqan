@@ -19,7 +19,6 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 
-import org.sofwerx.sqan.ipc.IpcSaBroadcastTransmitter;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
@@ -34,15 +33,12 @@ import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
-import org.sofwerx.sqan.ui.MainActivity;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 import java.util.ArrayList;
 import java.util.Random;
-
-import static android.app.Activity.RESULT_OK;
 
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions
@@ -253,11 +249,17 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             onIssueDetected(new SqAnAppIssue(true,"ManetOps is null"));
             systemReady = false;
         } else {
-            if (manetOps.getManet() == null) {
+            if ((manetOps.getWifiManet() == null) && (manetOps.getBtManet() == null)) {
                 onIssueDetected(new SqAnAppIssue(true, "No MANET selected"));
                 systemReady = false;
-            } else
-                systemReady = manetOps.getManet().checkForSystemIssues();
+            } else {
+                if (manetOps.getBtManet() == null)
+                    systemReady = manetOps.getWifiManet().checkForSystemIssues();
+                else if (manetOps.getWifiManet() == null)
+                    systemReady = manetOps.getBtManet().checkForSystemIssues();
+                else
+                    systemReady = manetOps.getBtManet().checkForSystemIssues() && manetOps.getWifiManet().checkForSystemIssues();
+            }
         }
 
         if (thisService != null) {

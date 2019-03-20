@@ -348,8 +348,19 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     private void updateActiveIndicator() {
         boolean active = false;
-        if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null) && (sqAnService.getManetOps().getManet() != null))
-            active = sqAnService.getManetOps().getManet().isRunning();
+        if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null)) {
+            AbstractManet btManet = sqAnService.getManetOps().getBtManet();
+            AbstractManet wifiManet = sqAnService.getManetOps().getWifiManet();
+            if (btManet == null) {
+                if (wifiManet != null)
+                    active = wifiManet.isRunning();
+            } else {
+                if (wifiManet == null)
+                    active = btManet.isRunning();
+                else
+                    active = btManet.isRunning() || wifiManet.isRunning();
+            }
+        }
         isSystemChangingSwitchActive = true;
         switchActive.setChecked(active);
         isSystemChangingSwitchActive = false;
@@ -379,7 +390,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private void updateManetTypeDisplay() {
         if ((textNetType.getText().toString() == null) || (textNetType.getText().toString().length() < 3)) {
             if (serviceBound && (sqAnService != null)) {
-                AbstractManet manet = sqAnService.getManetOps().getManet();
+                AbstractManet manet = sqAnService.getManetOps().getWifiManet();
                 if (manet != null)
                      textNetType.setText(" Core: "+manet.getName());
             }
@@ -409,14 +420,14 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         //see if we're using the preferred MANET (currently "Bluetooth Only")
         if (nagAboutPreferredManet) {
             if ((sqAnService != null) && (sqAnService.getManetOps() != null)) {
-                AbstractManet manet = sqAnService.getManetOps().getManet();
+                AbstractManet manet = sqAnService.getManetOps().getBtManet();
                 if ((manet == null) || (manet instanceof BtManetV2)) {
                     //ignore as this is the recommended option
                 } else {
                     nagAboutPreferredManet = false;
                     new AlertDialog.Builder(this)
                             .setTitle("Not the recommended core approach")
-                            .setMessage("You are not currently using the recommended core MANET approach (Bluetooth Only). Do you want to switch approaches (you will need to start the app again)?")
+                            .setMessage("You are not currently using a recommended core MANET approach. Do you want to switch approaches (you will need to start the app again)?")
                             .setPositiveButton("Switch to Bluetooth Only", (dialog, which) -> {
                                 SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
                                 SharedPreferences.Editor edit = prefs.edit();

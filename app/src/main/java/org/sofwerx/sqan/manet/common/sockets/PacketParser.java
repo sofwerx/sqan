@@ -30,12 +30,19 @@ public class PacketParser {
         if (device == null) {
             if (packet.getOrigin() > 0) {
                 device = new SqAnDevice(packet.getOrigin());
-                device.setConnected(packet.getCurrentHopCount());
+                if (packet.getCurrentHopCount() == 0)
+                    device.setConnected(0,device.isDirectBt(),device.isDirectWiFi());
+                else
+                    device.setConnected(packet.getCurrentHopCount(),false,false);
             }
         } else {
             int hops = device.getHopsAway();
-            if (packet.getCurrentHopCount() < hops)
-                device.setConnected(packet.getCurrentHopCount());
+            if (packet.getCurrentHopCount() < hops) {
+                if (packet.getCurrentHopCount() == 0)
+                    device.setConnected(0,device.isDirectBt(),device.isDirectWiFi());
+                else
+                    device.setConnected(packet.getCurrentHopCount(),false,false);
+            }
         }
         return device;
     }
