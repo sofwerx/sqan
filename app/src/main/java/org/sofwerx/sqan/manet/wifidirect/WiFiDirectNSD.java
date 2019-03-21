@@ -7,6 +7,7 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.HashMap;
@@ -154,7 +155,7 @@ class WiFiDirectNSD {
                 if ((record != null) && record.containsKey(FIELD_UUID)) {
                     try {
                         int uuid = Integer.parseInt((String)record.get(FIELD_UUID));
-                        Config.SavedTeammate teammate = Config.getTeammate(uuid);
+                        SavedTeammate teammate = Config.getTeammate(uuid);
                         if (teammate == null) {
                             Config.saveTeammate(uuid, device.deviceAddress, null);
                             CommsLog.log(CommsLog.Entry.Category.COMMS,"New teammate discovered");

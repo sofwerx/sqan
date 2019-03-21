@@ -9,7 +9,7 @@ public class UuidUtil {
         StringWriter out = new StringWriter();
         Random rm = new Random();
         out.append(CALLSIGN_STOCK[rm.nextInt(CALLSIGN_STOCK.length)]);
-        out.append('-');
+        out.append(' ');
         out.append(Integer.toString(rm.nextInt(10)));
         out.append(Integer.toString(rm.nextInt(10)));
         return out.toString();

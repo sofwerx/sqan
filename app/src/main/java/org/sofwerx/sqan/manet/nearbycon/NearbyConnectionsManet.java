@@ -385,7 +385,9 @@ public class NearbyConnectionsManet extends AbstractManet {
                             uuid = Integer.parseInt(info.getEndpointName());
                     } catch (NumberFormatException e) {
                     }
-                    SqAnDevice device = new SqAnDevice(uuid);
+                    SqAnDevice device = SqAnDevice.findByUUID(uuid);
+                    if (device == null)
+                        device = new SqAnDevice(uuid);
                     device.setNetworkId(deviceId);
                     device.setStatus(SqAnDevice.Status.ONLINE);
                     device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Device found"));

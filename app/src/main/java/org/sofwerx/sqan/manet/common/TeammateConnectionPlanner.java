@@ -3,6 +3,7 @@ package org.sofwerx.sqan.manet.common;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.bt.helper.Core;
 
 import java.util.ArrayList;
@@ -17,14 +18,14 @@ public class TeammateConnectionPlanner {
      * Get an array of teammates in descending priotiy connection order
      * @return
      */
-    public static ArrayList<Config.SavedTeammate> getDescendingPriorityTeammates() {
-        ArrayList<Config.SavedTeammate> teammates = Config.getSavedTeammates();
+    public static ArrayList<SavedTeammate> getDescendingPriorityTeammates() {
+        ArrayList<SavedTeammate> teammates = Config.getSavedTeammates();
         if ((teammates == null) || teammates.isEmpty())
             return null;
-        ArrayList<Config.SavedTeammate> prioritized = new ArrayList<>();
+        ArrayList<SavedTeammate> prioritized = new ArrayList<>();
 
         //ignore any devices already connected via bluetooth
-        for (Config.SavedTeammate teammate:teammates) {
+        for (SavedTeammate teammate:teammates) {
             MacAddress mac = teammate.getBluetoothMac();
             if ((mac != null) && !Core.isMacConnected(mac))
                 prioritized.add(teammate);
@@ -40,7 +41,7 @@ public class TeammateConnectionPlanner {
             int a = random.nextInt(prioritized.size());
             int b = random.nextInt(prioritized.size());
             if (a != b) {
-                Config.SavedTeammate tmp = prioritized.get(a);
+                SavedTeammate tmp = prioritized.get(a);
                 prioritized.set(a,prioritized.get(b));
                 prioritized.set(b,tmp);
             }
@@ -70,7 +71,7 @@ public class TeammateConnectionPlanner {
                         minHopsI1 = hopsI1;
                 }
                 if (minHopsI1<minHopsI) {
-                    Config.SavedTeammate tmp = prioritized.get(i);
+                    SavedTeammate tmp = prioritized.get(i);
                     prioritized.set(i,prioritized.get(i-1));
                     prioritized.set(i-1,tmp);
                     sorted = false;

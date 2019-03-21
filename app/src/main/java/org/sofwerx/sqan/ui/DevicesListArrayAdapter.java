@@ -26,7 +26,10 @@ public class DevicesListArrayAdapter extends ArrayAdapter<SqAnDevice> {
         LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         View rowView = inflater.inflate(R.layout.device_list_item, parent, false);
         DeviceSummary deviceSummary = rowView.findViewById(R.id.deviceListItem);
-        deviceSummary.update(devices.get(position));
+        if (position < devices.size())
+            deviceSummary.update(devices.get(position));
+        else
+            deviceSummary.update(null);
 
         return rowView;
     }

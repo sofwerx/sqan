@@ -10,7 +10,6 @@ import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
-import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
@@ -18,6 +17,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
@@ -26,7 +26,6 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
-import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.client.Client;
 import org.sofwerx.sqan.manet.common.sockets.server.Server;
@@ -378,7 +377,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                         for (WifiP2pDevice peer:peers) {
                             Log.d(Config.TAG,"Peer: "+peer.deviceName+" status "+Util.getDeviceStatusString(peer.status));
                             try {
-                                Config.SavedTeammate teammate = Config.getTeammate(peer.deviceAddress);
+                                SavedTeammate teammate = Config.getTeammate(peer.deviceAddress);
                                 if (peer.status == WifiP2pDevice.AVAILABLE) {
                                     if ((teammate != null) && (teammate.getSqAnAddress() != PacketHeader.BROADCAST_ADDRESS)) {
                                         SqAnDevice device = SqAnDevice.findByUUID(teammate.getSqAnAddress());
@@ -470,12 +469,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             SqAnDevice sqAnDevice = SqAnDevice.findByUUID(sqAnAddress);
             if (sqAnDevice == null)
                 sqAnDevice = new SqAnDevice(sqAnAddress);
-            Config.SavedTeammate saved = Config.getTeammate(sqAnAddress);
+            SavedTeammate saved = Config.getTeammate(sqAnAddress);
             if (saved != null) {
                 callsign = saved.getCallsign();
                 if (callsign != null)
                     sqAnDevice.setCallsign(callsign);
             }
+            sqAnDevice.setNetworkId(device.deviceAddress);
         } catch (NumberFormatException ignore) {
         }
         CommsLog.log(CommsLog.Entry.Category.COMMS,"Attempting to connect to "+((callsign==null)?device.deviceName:callsign));

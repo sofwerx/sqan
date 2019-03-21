@@ -3,6 +3,7 @@ package org.sofwerx.sqan;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -14,8 +15,6 @@ import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.UuidUtil;
 
 import java.util.ArrayList;
-
-import javax.crypto.Mac;
 
 public class Config {
     public final static String TAG = "SqAN";
@@ -141,6 +140,63 @@ public class Config {
                 }
             }
         }
+        cleanUpTeammates();
+        dedupTeammates();
+    }
+
+    /**
+     * Removes any teammate that does not have enough info to be reasonably useful
+     */
+    private static void cleanUpTeammates() {
+        if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
+            int i=0;
+            while (i<savedTeammates.size()) {
+                if ((savedTeammates.get(i) == null) || !savedTeammates.get(i).isUseful()) {
+                    Log.d(Config.TAG,"Saved teammate without sufficiently useful info found and removed");
+                    savedTeammates.remove(i);
+                } else
+                    i++;
+            }
+        }
+    }
+
+    /**
+     * Look for and merge any likely duplicate teammates
+     * @return the teammate that absorbed a duplicate teammate
+     */
+    private static SavedTeammate dedupTeammates() {
+        if ((savedTeammates == null) || (savedTeammates.size() < 2))
+            return null;
+        SavedTeammate merged = null;
+
+        boolean scanNeeded = true;
+        int inspectingIndex = 0;
+        while ((merged == null) && (inspectingIndex < savedTeammates.size()) && scanNeeded) {
+            SavedTeammate inspecting = savedTeammates.get(inspectingIndex);
+            for (int i=0;i<savedTeammates.size();i++) {
+                if ((merged == null) && (i != inspectingIndex)) {
+                    SavedTeammate other = savedTeammates.get(i);
+                    if ((other != null) && other.isLikelySame(inspecting)) {
+                        if (inspecting.getLastContact() > other.getLastContact()) {
+                            merged = inspecting;
+                            if (merged != null)
+                                merged.update(savedTeammates.get(i));
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + other.getSqAnAddress() + " merged into " + inspecting.getSqAnAddress());
+                            savedTeammates.remove(i);
+                        } else {
+                            merged = other;
+                            if (merged != null)
+                                merged.update(savedTeammates.get(inspectingIndex));
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + inspecting.getSqAnAddress() + " merged into " + other.getSqAnAddress());
+                            savedTeammates.remove(inspectingIndex);
+                        }
+                    }
+                }
+            }
+            inspectingIndex++;
+        }
+
+        return merged;
     }
 
     public static boolean isAllowIpcComms() { return allowIpcComms; }
@@ -187,7 +243,7 @@ public class Config {
             return null;
         if (savedTeammates != null) {
             for (SavedTeammate teammate:savedTeammates) {
-                if (sqAnAddress == teammate.sqAnAddress)
+                if (sqAnAddress == teammate.getSqAnAddress())
                     return teammate;
             }
         }
@@ -198,7 +254,7 @@ public class Config {
         if (mac != null) {
             if (savedTeammates != null) {
                 for (SavedTeammate teammate : savedTeammates) {
-                    if (mac.isEqual(teammate.bluetoothMac))
+                    if (mac.isEqual(teammate.getBluetoothMac()))
                         return teammate;
                 }
             }
@@ -211,7 +267,7 @@ public class Config {
             return null;
         if (savedTeammates != null) {
             for (SavedTeammate teammate:savedTeammates) {
-                if (netID.equalsIgnoreCase(teammate.netID))
+                if (netID.equalsIgnoreCase(teammate.getNetID()))
                     return teammate;
             }
         }
@@ -260,74 +316,4 @@ public class Config {
         vpnMode = true;
     }
 
-    public static class SavedTeammate {
-        private String callsign;
-        private int sqAnAddress;
-        private String netID;
-        private long lastContact;
-        private MacAddress bluetoothMac;
-
-        public SavedTeammate(JSONObject obj) {
-            parseJSON(obj);
-        }
-
-        public SavedTeammate(int sqAnAddress, String netID) {
-            this.callsign = null;
-            this.netID = netID;
-            this.sqAnAddress = sqAnAddress;
-            this.lastContact = System.currentTimeMillis();
-        }
-
-        public void update(SavedTeammate other) {
-            if (other != null)
-                update(other.callsign, other.lastContact);
-        }
-
-        public void update() { lastContact = System.currentTimeMillis(); }
-
-        public void update(String callsign, long lastContact) {
-            if (callsign != null)
-                this.callsign = callsign;
-            if (lastContact > this.lastContact)
-                this.lastContact = lastContact;
-        }
-
-        public JSONObject toJSON() {
-            JSONObject obj = new JSONObject();
-            try {
-                obj.putOpt("callsign",callsign);
-                obj.putOpt("netID",netID);
-                obj.put("sqAnAddress",sqAnAddress);
-                obj.put("lastContact",lastContact);
-                if (bluetoothMac != null)
-                    obj.put("btMac",bluetoothMac.toString());
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            return obj;
-        }
-
-        public void parseJSON(JSONObject obj) {
-            if (obj != null) {
-                callsign = obj.optString("callsign",null);
-                netID = obj.optString("netID");
-                sqAnAddress = obj.optInt("sqAnAddress",PacketHeader.BROADCAST_ADDRESS);
-                lastContact = obj.optLong("lastContact",Long.MIN_VALUE);
-                String bluetoothMacString = obj.optString("btMac",null);
-                bluetoothMac = MacAddress.build(bluetoothMacString);
-                if ((callsign != null) && (callsign.length() == 0))
-                    callsign = null;
-            }
-        }
-
-        public String getCallsign() { return callsign; }
-        public int getSqAnAddress() { return sqAnAddress; }
-        public long getLastContact() { return lastContact; }
-        public MacAddress getBluetoothMac() { return bluetoothMac; }
-        public String getNetID() { return netID; }
-        public void setCallsign(String callsign) { this.callsign = callsign; }
-        public void setBluetoothMac(MacAddress mac) { this.bluetoothMac = mac; }
-        public void setNetID(String networkId) { this.netID = networkId; }
-        public void setLastContact(long time) { this.lastContact = time; }
-    }
 }

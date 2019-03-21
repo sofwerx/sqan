@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.bt.helper.BTSocket;
@@ -108,11 +109,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         boolean addedNewCheck = false;
         if (!Core.isAtMaxConnections()) {
-            ArrayList<Config.SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
+            ArrayList<SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
             int pendingConnections = Core.getActiveClientsCount();
             int active = Core.getActiveClientsAndServerCount();
             if ((teammates != null) && !teammates.isEmpty()) {
-                for (Config.SavedTeammate teammate : teammates) {
+                for (SavedTeammate teammate : teammates) {
                     //when there are few (i.e. 2 or less) connections, try to connect with everyone, otherwise just try to connect with a few priority devices
                     if ((active < 3) || (pendingConnections < Core.MAX_NUM_CONNECTIONS)) {
                         MacAddress mac = teammate.getBluetoothMac();
@@ -252,7 +253,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         if (mac != null) {
             SqAnDevice device = SqAnDevice.findByBtMac(clientSocket.getMac());
             if (device == null) {
-                Config.SavedTeammate teammate = Config.getTeammateByBtMac(mac);
+                SavedTeammate teammate = Config.getTeammateByBtMac(mac);
                 if (teammate == null)
                     Log.e(Config.TAG,"Could not find saved teammate with MAC "+mac.toString());
                 else {

@@ -11,13 +11,15 @@ import java.util.ArrayList;
 
 public class PermissionsHelper {
     public final static int PERMISSIONS_CHECK = 1043;
+    private final static String[] NEEDED = new String[]{
+            Manifest.permission.WRITE_EXTERNAL_STORAGE};
 
     public static void checkForPermissions(Activity context) {
         ArrayList<String> neededPermissions = new ArrayList<>();
-        //if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
-        //    neededPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
-            neededPermissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        for (String perm:NEEDED) {
+            if (ContextCompat.checkSelfPermission(context, perm) != PackageManager.PERMISSION_GRANTED)
+                neededPermissions.add(perm);
+        }
         if (neededPermissions.isEmpty())
             return;
         String[] perms = new String[neededPermissions.size()];

@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.util.StringUtil;
 
@@ -23,7 +24,7 @@ public class StoredTeammateSummary extends ConstraintLayout {
     private ImageView iconFix;
     private ImageView iconBt, iconWiFi, iconLast;
     private StoredTeammateChangeListener listener;
-    private Config.SavedTeammate teammate;
+    private SavedTeammate teammate;
 
     public StoredTeammateSummary(@NonNull Context context) {
         super(context);
@@ -70,13 +71,13 @@ public class StoredTeammateSummary extends ConstraintLayout {
                     })
                     .setPositiveButton(R.string.keep, (dialog, which) -> dialog.dismiss()).create().show());
         }
-        /*iconFix.setOnClickListener(v -> {
-            if (listener != null)
-                listener.onDiscoveryNeeded();
-        });*/
+        iconFix.setOnClickListener(v -> {
+            if ((listener != null) && (teammate != null))
+                listener.onPairingNeeded(teammate.getBluetoothMac());
+        });
     }
 
-    public void update(Config.SavedTeammate teammate) {
+    public void update(SavedTeammate teammate) {
         this.teammate = teammate;
         if (teammate != null) {
             boolean needsRepair = false;
@@ -102,7 +103,12 @@ public class StoredTeammateSummary extends ConstraintLayout {
                 iconBt.setColorFilter(getResources().getColor(R.color.bright_red));
             } else {
                 bt.setText(btMac.toString());
-                iconBt.setColorFilter(getResources().getColor(R.color.green));
+                if (teammate.isBtPaired())
+                    iconBt.setColorFilter(getResources().getColor(R.color.green));
+                else {
+                    iconBt.setColorFilter(getResources().getColor(R.color.yellow));
+                    needsRepair = true;
+                }
             }
             if ((teammate.getNetID() == null) || (teammate.getNetID().length() == 0)) {
                 wifi.setText(null);

@@ -18,6 +18,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
+import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
@@ -75,7 +76,8 @@ public class Core {
                     }
                     connected = innerConnectAsClient(context, connectionListener, sock);
                     if (!connected) {
-                        connectionListener.onConnectionError(null, "ConnectAsClient");
+                        if (connectionListener != null)
+                            connectionListener.onConnectionError(null, "ConnectAsClient");
                         return; // operation failed
                     }
                 } else {
@@ -200,12 +202,14 @@ public class Core {
             Core.markConnecting(false);
             if (success) {
                 clientSocket.startConnections();
-                connectionListener.onConnectSuccess(clientSocket);
+                if (connectionListener != null)
+                    connectionListener.onConnectSuccess(clientSocket);
                 return true; // success
             }
         } catch (Exception e) {
             Log.e(TAG, "Connect error: " + e);
-            connectionListener.onConnectionError(e, "connect");
+            if (connectionListener != null)
+                connectionListener.onConnectionError(e, "connect");
         } finally {
             Core.markConnecting(false);
         }
@@ -237,19 +241,22 @@ public class Core {
     }
 
     public static boolean isSqAnSupported(BluetoothDevice device) {
+        if (device == null)
+            return false;
+        String name = device.getName();
         if (appUuid == null) {
-            Log.e(TAG, "isSqAnSupported cannot examine "+device.getName()+" yet as Core.init() has not been called");
+            Log.e(TAG, "isSqAnSupported cannot examine "+name+" yet as Core.init() has not been called");
             return false;
         }
         UUID[] uuids = getSupportedUuids(device);
         if (uuids != null) {
-            Log.d(TAG, uuids.length+" UUIDs provided for "+device.getName());
+            Log.d(TAG, uuids.length+" UUIDs provided for "+name);
             for (UUID uuid : uuids) {
                 if (uuid.equals(appUuid))
                     return true;
             }
         } else
-            Log.d(TAG, "No UUIDs provided for "+device.getName());
+            Log.d(TAG, "No UUIDs provided for "+name);
         return false;
     }
 
@@ -261,10 +268,10 @@ public class Core {
     public static UUID[] getSupportedUuids(BluetoothDevice device) {
         if (device == null)
             return null;
-        ParcelUuid[] pUuids = null;
-        if (android.os.Build.VERSION.SDK_INT >= VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
+        ParcelUuid[] pUuids;
+        //if (android.os.Build.VERSION.SDK_INT >= VERSION_CODES.ICE_CREAM_SANDWICH_MR1)
             pUuids = device.getUuids();
-        else {
+        /*else {
             // getUuids is (?) an hidden api; use reflection
             try {
                 Class cl = Class.forName("android.bluetooth.BluetoothDevice");
@@ -275,9 +282,10 @@ public class Core {
             } catch (Exception e) {
                 Log.e(TAG, "Activation of getUuids() via reflection failed: " + e);
             }
-        }
+        }*/
 
         if (pUuids == null || pUuids.length == 0) {
+            device.fetchUuidsWithSdp();
             return null;
         }
         int len = pUuids.length;
@@ -314,7 +322,8 @@ public class Core {
                 }
                 catch (Exception e) {
                     Log.e(TAG, "Socket creation error: " + e);
-                    acceptListener.onError(e, "createBTServerSocket");
+                    if (acceptListener != null)
+                        acceptListener.onError(e, "createBTServerSocket");
                     return;
                 }
 
@@ -388,7 +397,8 @@ public class Core {
             }
         } catch (IOException e) {
             Log.e(TAG, "Socket accept error: " + e);
-            acceptListener.onError(e, "accept");
+            if (acceptListener != null)
+                acceptListener.onError(e, "accept");
             e.printStackTrace();
             return false; // exit accept loop
         }
@@ -403,7 +413,8 @@ public class Core {
         BTSocket newConnection = new BTSocket(sock, BTSocket.Role.SERVER, readListener);
         newConnection.startConnections();
 
-        acceptListener.onNewConnectionAccepted(newConnection);
+        if (acceptListener != null)
+            acceptListener.onNewConnectionAccepted(newConnection);
         return true; // keep going
     }
 
@@ -456,6 +467,7 @@ public class Core {
         if (bluetoothAdapter != null)
             return; // already initialized
 
+        Discovery.checkPairedDeviceStatus(adapter);
         Core.readListener = readListener;
         byte[] uuidNameSeed = null;
 

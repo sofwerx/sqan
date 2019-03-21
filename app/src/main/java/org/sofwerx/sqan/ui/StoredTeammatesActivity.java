@@ -2,15 +2,12 @@ package org.sofwerx.sqan.ui;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
-import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -20,10 +17,10 @@ import com.google.android.material.snackbar.Snackbar;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.bt.Discovery;
+import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.util.StringUtil;
-
-import java.util.Set;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
@@ -93,7 +90,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
     }
 
     @Override
-    public void onTeammateChanged(Config.SavedTeammate teammate) {
+    public void onTeammateChanged(SavedTeammate teammate) {
         runOnUiThread(() -> updateDisplay());
     }
 
@@ -108,6 +105,17 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
             btDiscovery = new Discovery(this);
         btDiscovery.startAdvertising();
         btDiscovery.startDiscovery();
+    }
+
+    @Override
+    public void onPairingNeeded(MacAddress bluetoothMac) {
+        if ((bluetoothMac != null) && bluetoothMac.isValid()) {
+            onDiscoveryNeeded();
+            String macString = bluetoothMac.toString();
+            btDiscovery.requestPairing(macString);
+            runOnUiThread(() -> Toast.makeText(StoredTeammatesActivity.this,"Trying to pair with "+macString,Toast.LENGTH_LONG).show());
+        } else
+            Log.e(Config.TAG,"Cannot request a BT pairing with a null or invalid MAC");
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -151,6 +159,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
                     //ignore for now
                 } else if (resultCode == RESULT_CANCELED)
                     Snackbar.make(coordinatorLayout, R.string.bt_needed, Snackbar.LENGTH_LONG).show();
+                updateDisplay();
                 break;
         }
     }

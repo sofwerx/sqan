@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ipc.BftDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
@@ -162,6 +163,28 @@ public class SqAnDevice {
 
     public TransportPreference getPreferredTransport() {
         return preferredTransport;
+    }
+
+    /**
+     * Gets the direct links for reporting in SA broadcasts
+     * @return the direct links between this device and other devices
+     */
+    public ArrayList<BftDevice.Link> getLinks() {
+        ArrayList<BftDevice.Link> links = null;
+        if ((relays != null) && !relays.isEmpty()) {
+            synchronized (relays) {
+                BftDevice.Link link;
+                for (RelayConnection relay : relays) {
+                    if (relay.getHops() == 0) {
+                        link = new BftDevice.Link(relay.getSqAnID(), relay.isDirectBt(), relay.isDirectWiFi());
+                        if (links == null)
+                            links = new ArrayList<>();
+                        links.add(link);
+                    }
+                }
+            }
+        }
+        return links;
     }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }

@@ -9,6 +9,7 @@ import android.widget.ListView;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.SavedTeammate;
 
 import java.util.ArrayList;
 
@@ -63,7 +64,7 @@ public class StoredTeammatesList extends ConstraintLayout {
 
     public void update() {
         list.post(() -> {
-            ArrayList<Config.SavedTeammate> devices = Config.getSavedTeammates();
+            ArrayList<SavedTeammate> devices = Config.getSavedTeammates();
             if ((devices == null) || devices.isEmpty()) {
                 adapter = null;
                 list.setAdapter(null);
@@ -78,7 +79,7 @@ public class StoredTeammatesList extends ConstraintLayout {
         });
     }
     private void updateListVisibility() {
-        ArrayList<Config.SavedTeammate> devices = Config.getSavedTeammates();
+        ArrayList<SavedTeammate> devices = Config.getSavedTeammates();
         if ((devices != null) && !devices.isEmpty()) {
             list.setVisibility(View.VISIBLE);
             waitingView.setVisibility(View.INVISIBLE);

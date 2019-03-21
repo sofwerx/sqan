@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
@@ -14,7 +15,6 @@ import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
-import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
@@ -203,7 +203,7 @@ public abstract class AbstractManet {
                 }
                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
                 device.setConnected(0, isBluetoothBased(), isWiFiBased()); //direct, no hops in between
-                Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
+                SavedTeammate teammate = Config.getTeammate(device.getUUID());
                 if (teammate != null)
                     teammate.update(device.getCallsign(), System.currentTimeMillis());
                 if (listener != null)
@@ -223,7 +223,7 @@ public abstract class AbstractManet {
             CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
             if (packet.getOrigin() > 0) {
                 device = new SqAnDevice(packet.getOrigin());
-                Config.SavedTeammate saved = Config.getTeammate(packet.getOrigin());
+                SavedTeammate saved = Config.getTeammate(packet.getOrigin());
                 if (saved != null)
                     device.setCallsign(saved.getCallsign());
                 device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
@@ -246,7 +246,7 @@ public abstract class AbstractManet {
                 listener.onDevicesChanged(device);
         }
         if (device != null) {
-            Config.SavedTeammate teammate = Config.getTeammate(device.getUUID());
+            SavedTeammate teammate = Config.getTeammate(device.getUUID());
             if (teammate != null)
                 teammate.update(device.getCallsign(), System.currentTimeMillis());
             if (listener != null)

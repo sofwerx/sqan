@@ -10,6 +10,8 @@ import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import java.util.ArrayList;
 
 public class IpcSaBroadcastTransmitter {
+    private final static boolean BROADCAST_LINKS = true;
+
     public static void broadcast(Context context) {
         SqAnDevice thisDevice = Config.getThisDevice();
         if (thisDevice == null) {
@@ -24,7 +26,7 @@ public class IpcSaBroadcastTransmitter {
         int originatorId = thisDevice.getUUID();
         BftBroadcast broadcast = new BftBroadcast();
         broadcast.add(new BftDevice(thisDevice.getUUID(),thisDevice.getCallsign(),lastLocation.getLatitude(),
-                lastLocation.getLongitude(),lastLocation.getAltitude(),lastLocation.getAccuracy(),lastLocation.getTime()));
+                lastLocation.getLongitude(),lastLocation.getAltitude(),lastLocation.getAccuracy(),lastLocation.getTime(),false,false,null));
 
         ArrayList<SqAnDevice> otherDevices = SqAnDevice.getDevices();
         if (otherDevices != null) {
@@ -33,10 +35,9 @@ public class IpcSaBroadcastTransmitter {
                     lastLocation = other.getLastLocation();
                     if ((lastLocation != null) && lastLocation.isValid()) {
                         broadcast.add(new BftDevice(other.getUUID(), other.getCallsign(), lastLocation.getLatitude(),
-                                lastLocation.getLongitude(), lastLocation.getAltitude(), lastLocation.getAccuracy(), lastLocation.getTime()));
-                    } else {
-                        broadcast.add(new BftDevice(other.getUUID(), other.getCallsign(), other.getLastConnect()));
-                    }
+                                lastLocation.getLongitude(), lastLocation.getAltitude(), lastLocation.getAccuracy(), lastLocation.getTime(), other.isDirectBt(), other.isDirectWiFi(),BROADCAST_LINKS?other.getLinks():null));
+                    } else
+                        broadcast.add(new BftDevice(other.getUUID(), other.getCallsign(), other.getLastConnect(),other.isDirectBt(),other.isDirectWiFi(),BROADCAST_LINKS?other.getLinks():null));
                 }
             }
         }

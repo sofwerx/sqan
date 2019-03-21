@@ -1,5 +1,7 @@
 package org.sofwerx.sqan.ipc;
 
+import org.osmdroid.views.overlay.Marker;
+
 import java.io.UnsupportedEncodingException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -50,14 +52,13 @@ public class BftDevice {
         time = Long.MIN_VALUE;
     }
 
-    public BftDevice(int uuid, String callsign, long time, boolean directBt, boolean directWiFi, ArrayList<Link> links) {
+    public BftDevice(int uuid, String callsign, long time, boolean directBt, boolean directWiFi) {
         this();
         this.uuid = uuid;
         this.callsign = callsign;
         this.time = time;
         this.directBt = directBt;
         this.directWiFi = directWiFi;
-        this.links = links;
     }
 
     /**

@@ -390,9 +390,14 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private void updateManetTypeDisplay() {
         if ((textNetType.getText().toString() == null) || (textNetType.getText().toString().length() < 3)) {
             if (serviceBound && (sqAnService != null)) {
-                AbstractManet manet = sqAnService.getManetOps().getWifiManet();
-                if (manet != null)
-                     textNetType.setText(" Core: "+manet.getName());
+                AbstractManet manetWiFi = sqAnService.getManetOps().getWifiManet();
+                if (manetWiFi != null)
+                     textNetType.setText(" Core: "+manetWiFi.getName());
+                else {
+                    AbstractManet manetBt = sqAnService.getManetOps().getBtManet();
+                    if (manetBt != null)
+                        textNetType.setText(" Core: "+manetBt.getName());
+                }
             }
         }
     }

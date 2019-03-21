@@ -16,6 +16,7 @@ import android.bluetooth.BluetoothSocket;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
@@ -29,7 +30,6 @@ public class BTSocket {
     public final static int MAX_PACKET_SIZE = 65400; //FIXME arbitrary picked size
     private final static long MIN_TIME_BEFORE_TESTING_STALE = 1000l * 10l;
     private final static long MAX_TIME_BEFORE_STALE = 1000l * 60l * 5l;
-    private static final boolean READ_ONCE = true;
     private final static String TAG = Config.TAG+".BTSocket";
     private static AtomicInteger connectionCounter = new AtomicInteger(0);
     private final static byte ALIGNMENT_BYTE_A = 0b0100100;
@@ -49,12 +49,34 @@ public class BTSocket {
     private long lastConnectInbound = Long.MIN_VALUE;
     private long lastConnectOutbound = Long.MIN_VALUE;
 
-    public void setDeviceIfNull(SqAnDevice device) {
+    public SqAnDevice setDeviceIfNull(SqAnDevice device) {
         if (this.device == null) {
-            if ((mac != null) && (device != null))
+            if ((mac != null) && (device != null)) {
                 device.setBluetoothMac(mac.toString());
+                SavedTeammate teammate = Config.getTeammateByBtMac(mac);
+                if (teammate != null) {
+                    if (device.getCallsign() != null)
+                        teammate.setCallsign(device.getCallsign());
+                    if (device.isUuidKnown())
+                        teammate.setSqAnId(device.getUUID());
+                }
+            }
             this.device = device;
+            Config.updateSavedTeammates();
+            return this.device;
+        } else if (!this.device.isUuidKnown()) {
+            this.device.update(device);
+            SavedTeammate teammate = Config.getTeammateByBtMac(mac);
+            if (teammate != null) {
+                if (device.getCallsign() != null)
+                    teammate.setCallsign(device.getCallsign());
+                if (device.isUuidKnown())
+                    teammate.setSqAnId(device.getUUID());
+            }
+            Config.updateSavedTeammates();
+            return this.device;
         }
+        return device;
     }
 
     public enum Role {SERVER,CLIENT};
@@ -79,7 +101,7 @@ public class BTSocket {
             mac = MacAddress.build(socket.getRemoteDevice().getAddress());
         device = SqAnDevice.findByBtMac(mac);
         if (device == null) {
-            Config.SavedTeammate teammate = Config.getTeammateByBtMac(mac);
+            SavedTeammate teammate = Config.getTeammateByBtMac(mac);
             if (teammate != null) {
                 Log.d(TAG,getLogHeader()+" match to saved teammate info found");
                 device = new SqAnDevice(teammate.getSqAnAddress(),teammate.getCallsign());
@@ -89,7 +111,7 @@ public class BTSocket {
             }
         } else {
             if (device.getCallsign() == null) {
-                Config.SavedTeammate teammate = Config.getTeammateByBtMac(mac);
+                SavedTeammate teammate = Config.getTeammateByBtMac(mac);
                 if (teammate != null)
                     device.setCallsign(teammate.getCallsign());
             }
@@ -218,7 +240,7 @@ public class BTSocket {
                                     SqAnDevice device = PacketParser.process(packet);
                                     if (device != null) {
                                         device.addToDataTally(data.length);
-                                        setDeviceIfNull(device);
+                                        device = setDeviceIfNull(device);
                                     }
                                     if (mReadListener != null)
                                         mReadListener.onSuccess(packet);
@@ -237,7 +259,7 @@ public class BTSocket {
                                                 for (SqAnDevice tgt : devices) {
                                                     if (tgt.getUUID() != packet.getOrigin()) {
                                                         //for directly connected devices, forward traffic when our hop count is same or better
-                                                        if ((tgt.getHopsAway() == 0) && (hopCount <= tgt.getHopsToDevice(packet.getOrigin()))) {
+                                                        if ((tgt.getHopsAway() == 0) && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) || (tgt.getActiveRelays() < 2))) {
                                                             Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (hub for this device)");
                                                             tgt.setLastForward(System.currentTimeMillis());
                                                             Core.send(data, tgt.getUUID(), packet.getOrigin());

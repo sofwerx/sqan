@@ -6,6 +6,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="light_red">#FFFFAA00</color>
     <color name="red">#FFFF0000</color>
+    <color name="blue">#FF0000FF</color>
     <color name="green">#FF00FF00</color>
     <color name="trans_red">#99FF0000</color>
     <color name="yellow">#ffff00</color>
