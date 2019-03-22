@@ -248,18 +248,20 @@ public class BTSocket {
                                     PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
                                         if (thisDeviceEndpointRole == Role.SERVER) {
-                                            if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
+                                            //TODO this was causing problems with devices not sharing with isolated devices but maybe this test need tweaking rather than ommission
+                                            // if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
                                                 Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (spoke connected to this hub)");
                                                 device.setLastForward(System.currentTimeMillis());
                                                 Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);
-                                            }
+                                            //}
                                         } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
                                             ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
                                             if (devices != null) {
                                                 for (SqAnDevice tgt : devices) {
-                                                    if (tgt.getUUID() != packet.getOrigin()) {
-                                                        //for directly connected devices, forward traffic when our hop count is same or better
-                                                        if ((tgt.getHopsAway() == 0) && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) || (tgt.getActiveRelays() < 2))) {
+                                                    if (tgt.getUUID() != packet.getOrigin()) { //avoid circular reporting
+                                                        if ((tgt.getHopsAway() == 0) //for directly connected devices
+                                                                && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) //when our hop count is same or better
+                                                                    || (tgt.getActiveRelays() < 2))) { //or when this is the target's only connection
                                                             Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (hub for this device)");
                                                             tgt.setLastForward(System.currentTimeMillis());
                                                             Core.send(data, tgt.getUUID(), packet.getOrigin());

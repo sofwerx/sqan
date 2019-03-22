@@ -117,7 +117,8 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
         startConnection(new SqAnVpnConnection(this, mNextConnectionId.getAndIncrement()));
         if (Config.isVpnHostLandingPage())
             webServer = new LiteWebServer();
-        SqAnService.getInstance().setVpnService(this);
+        if (SqAnService.getInstance() != null)
+            SqAnService.getInstance().setVpnService(this);
     }
     private void startConnection(final SqAnVpnConnection connection) {
         final Thread thread = new Thread(connection, "SqAnVpnThread");

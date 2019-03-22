@@ -162,7 +162,7 @@ public class Core {
                 int i=0;
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
-                    if (socket.isApplicableToThisDevice(destination) || (destination == PacketHeader.BROADCAST_ADDRESS)) {
+                    if (socket.isApplicableToThisDevice(destination)) {
                         if (!socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
                             if (socket.getDevice() != null) {
                                 if (socket.isActive()) {
