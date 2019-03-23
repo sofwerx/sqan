@@ -175,7 +175,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void updateStatusMarquee() {
-        if (statusMarquee != null) {
+        /*TODO change how this is handled if (statusMarquee != null) {
             CommsLog.Entry lastError = CommsLog.getLastProblemOrStatus();
             if ((lastError != null) && ((System.currentTimeMillis() < lastError.time + REPORT_PROBLEMS_DURATION))) {
                 String entry = lastError.toString();
@@ -202,7 +202,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 }
             }
             statusMarquee.setSelected(true);
-        }
+        }*/
         SqAnDevice device = Config.getThisDevice();
         if (device != null) {
             switch (device.getRoleWiFi()) {

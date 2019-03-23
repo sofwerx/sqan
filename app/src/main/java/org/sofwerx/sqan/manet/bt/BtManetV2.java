@@ -104,11 +104,13 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         //TODO
     }
 
+    private boolean reportedAtMax = false;
     private void connectToTeammates() {
         Log.d(Config.TAG,"BtManetV2.connectToTeammates()");
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         boolean addedNewCheck = false;
         if (!Core.isAtMaxConnections()) {
+            reportedAtMax = false;
             ArrayList<SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
             int pendingConnections = Core.getActiveClientsCount();
             int active = Core.getActiveClientsAndServerCount();
@@ -129,6 +131,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                         }
                     }
                 }
+            }
+        } else {
+            if (!reportedAtMax) {
+                reportedAtMax = true;
+                CommsLog.log(CommsLog.Entry.Category.STATUS,"Max number of bluetooth connections reached; not accepting new connections at this time.");
             }
         }
         if (!addedNewCheck)
@@ -202,10 +209,10 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     public void executePeriodicTasks() {
         if (!isRunning()) {
             try {
-                Log.d(Config.TAG,"Attempting to restart "+getName());
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Attempting to restart "+getName());
                 init();
             } catch (ManetException e) {
-                Log.e(Config.TAG, "Unable to initialize "+getName()+": " + e.getMessage());
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Unable to initialize "+getName()+": " + e.getMessage());
             }
         }
 
@@ -261,7 +268,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                     device.setBluetoothMac(mac.toString());
                     device.setConnected(0,true,false);
                     SqAnDevice.add(device);
-                    Log.d(Config.TAG,"Device SqAN #"+device.getUUID()+" added to list of devices");
+                    CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Device SqAN #"+device.getUUID()+" added to list of devices");
                 }
             }
         }

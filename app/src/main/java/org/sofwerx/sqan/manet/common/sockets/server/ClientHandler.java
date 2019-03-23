@@ -81,8 +81,8 @@ public class ClientHandler {
         this.client = client;
         ClientHandler.listener = listener;
         InetSocketAddress address = (InetSocketAddress) client.getRemoteAddress();
-        InetSocketAddress myAddress = (InetSocketAddress) client.getLocalAddress();
-        CommsLog.log(CommsLog.Entry.Category.STATUS,"Connection established with client "+address.getAddress());
+        //InetSocketAddress myAddress = (InetSocketAddress) client.getLocalAddress();
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Connection established with client "+address.getAddress());
         Long blacklistTime = BLACKLIST_MAP.get(address.getAddress());
         if (blacklistTime != null) {
             if (System.currentTimeMillis() - blacklistTime < BLACKLIST_DURATION)
@@ -176,7 +176,7 @@ public class ClientHandler {
                 if ((sizeBuffer.position() == 0)) {
                     if (firstTime) {
                         String warning = "#" + id + ": Empty header (closing)";
-                        Log.w(Config.TAG, warning);
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                         if (listener != null)
                             listener.onServerError(warning);
                         closeClient();
@@ -198,7 +198,7 @@ public class ClientHandler {
                     else
                         size = Integer.toString(totalSize/(1024*1024))+"mb";
                     String warning = "Packet size is reporting to be "+size+", which is not valid (closing)";
-                    Log.w(Config.TAG,warning);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM,warning);
                     if (listener != null)
                         listener.onServerError(warning);
                     closeClient();
@@ -213,7 +213,7 @@ public class ClientHandler {
             if (readBuffer.hasRemaining()) {
                 if (firstTime && (readBuffer.position() == pos)) {
                     String warning = "#" + id + ": Attempted to read "+readBuffer.capacity()+"b from body but nothing is available (closing)";
-                    Log.w(Config.TAG, warning);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                     if (listener != null)
                         listener.onServerError(warning);
                     closeClient();
@@ -224,14 +224,12 @@ public class ClientHandler {
                 Log.d(Config.TAG, "#" + id + ": PACKET received ("+readBuffer.position()+"b)");
                 readBuffer.flip();
 
-                //readBuffer.position(4);
-
                 byte[] headerBytes = new byte[PacketHeader.getSize()];
                 readBuffer.get(headerBytes);
                 PacketHeader header = PacketHeader.newFromBytes(headerBytes);
                 if (header == null) {
                     String warning = "#" + id + ": PacketHeader is null (closing)";
-                    Log.w(Config.TAG, warning);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                     if (listener != null)
                         listener.onServerError(warning);
                     closeClient();

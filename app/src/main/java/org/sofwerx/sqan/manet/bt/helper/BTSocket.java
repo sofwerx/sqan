@@ -24,6 +24,7 @@ import org.sofwerx.sqan.manet.common.packet.PacketDropException;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 
 public class BTSocket {
@@ -60,6 +61,7 @@ public class BTSocket {
                     if (device.isUuidKnown())
                         teammate.setSqAnId(device.getUUID());
                 }
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"BT connection established with "+((device.getCallsign()==null)?device.getUUID():device.getCallsign()));
             }
             this.device = device;
             Config.updateSavedTeammates();
@@ -94,16 +96,17 @@ public class BTSocket {
         if (socket==null)
             throw new RuntimeException(getLogHeader()+" BluetoothSocket param cannot be null!");
         if (socket.getRemoteDevice() == null)
-            Log.d(TAG,getLogHeader()+" added ("+((role==Role.SERVER)?"Server":"Client")+"), unexpected null MAC");
+            Log.e(TAG,getLogHeader()+" added ("+((role==Role.SERVER)?"Server":"Client")+"), unexpected null MAC");
         else
-            Log.d(TAG,getLogHeader()+" added ("+((role==Role.SERVER)?"Server":"Client")+") MAC:"+socket.getRemoteDevice().getAddress());        this.socket = socket;
+            Log.e(TAG,getLogHeader()+" added ("+((role==Role.SERVER)?"Server":"Client")+") MAC:"+socket.getRemoteDevice().getAddress());
+        this.socket = socket;
         if (socket.getRemoteDevice() != null)
             mac = MacAddress.build(socket.getRemoteDevice().getAddress());
         device = SqAnDevice.findByBtMac(mac);
         if (device == null) {
             SavedTeammate teammate = Config.getTeammateByBtMac(mac);
             if (teammate != null) {
-                Log.d(TAG,getLogHeader()+" match to saved teammate info found");
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"BT connection match to "+((teammate.getCallsign()==null)?"saved teammate":teammate.getCallsign())+" info found");
                 device = new SqAnDevice(teammate.getSqAnAddress(),teammate.getCallsign());
                 device.setNetworkId(teammate.getNetID());
                 device.setBluetoothMac(mac.toString());
@@ -115,7 +118,7 @@ public class BTSocket {
                 if (teammate != null)
                     device.setCallsign(teammate.getCallsign());
             }
-            Log.d(TAG, getLogHeader()+" match to existing device "+((device.getCallsign()==null)?"":"("+device.getCallsign()+") ")+"found");
+            Log.d(TAG,getLogHeader()+ " match to existing device "+((device.getCallsign()==null)?"":"("+device.getCallsign()+") ")+"found");
         }
         Core.registerForCleanup(this);
         lastConnectInbound = System.currentTimeMillis();
@@ -248,9 +251,9 @@ public class BTSocket {
                                     PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
                                         if (thisDeviceEndpointRole == Role.SERVER) {
-                                            //TODO this was causing problems with devices not sharing with isolated devices but maybe this test need tweaking rather than ommission
+                                            //TODO this was causing problems with devices not sharing with isolated devices but maybe this test need tweaking rather than omission
                                             // if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
-                                                Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (spoke connected to this hub)");
+                                                CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
                                                 device.setLastForward(System.currentTimeMillis());
                                                 Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);
                                             //}
@@ -262,7 +265,7 @@ public class BTSocket {
                                                         if ((tgt.getHopsAway() == 0) //for directly connected devices
                                                                 && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) //when our hop count is same or better
                                                                     || (tgt.getActiveRelays() < 2))) { //or when this is the target's only connection
-                                                            Log.d(TAG, getLogHeader() + " relaying " + packet.getClass().getSimpleName()+"(" + hopCount + " hops) to "+device.getCallsign()+" (hub for this device)");
+                                                            CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as client) " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
                                                             tgt.setLastForward(System.currentTimeMillis());
                                                             Core.send(data, tgt.getUUID(), packet.getOrigin());
                                                         }
@@ -303,7 +306,7 @@ public class BTSocket {
      * @throws IOException
      */
     private int readInt() throws IOException {
-        Log.d(TAG,getLogHeader()+" readInt()");
+        //Log.d(TAG,getLogHeader()+" readInt()");
         byte[] byteInt = new byte[4];
         if (inStream == null)
             throw new IOException(getLogHeader()+" Cannot readInt(), inStream is null");
@@ -312,7 +315,7 @@ public class BTSocket {
         } catch (Exception e) {
             throw new IOException(getLogHeader()+" Error in readInt(): "+e.getMessage());
         }
-        Log.d(TAG,getLogHeader()+" readInt() received data");
+        //Log.d(TAG,getLogHeader()+" readInt() received data");
         return ByteBuffer.wrap(byteInt).getInt();
     }
 
@@ -349,7 +352,7 @@ public class BTSocket {
      * @throws IOException
      */
     private byte[] readPacketData() throws IOException, PacketDropException {
-        Log.d(TAG,getLogHeader()+" readPacketData()");
+        //Log.d(TAG,getLogHeader()+" readPacketData()");
         readAlignmentByte();
         int size = readInt();
         if (size > 0) {
@@ -359,19 +362,19 @@ public class BTSocket {
                 throw new IOException(message);
             }
             byte[] data = new byte[size];
-            Log.d(TAG,getLogHeader()+" readPacketData() looking for "+size+"b payload");
+            //Log.d(TAG,getLogHeader()+" readPacketData() looking for "+size+"b payload");
             inStream.read(data);
             byte checksum = (byte)inStream.read();
             byte calculatedChecksum = NetUtil.getChecksum(data);
             if (checksum != calculatedChecksum)
                 throw new PacketDropException(getLogHeader()+" received a packet that did not have the proper checksum ("+calculatedChecksum+" expected but "+checksum+" received)");
             else {
-                Log.d(TAG, getLogHeader() + " readPacketData() received data");
+                //Log.d(TAG, getLogHeader() + " readPacketData() received data");
                 return data;
             }
         } else {
             String message = getLogHeader()+" readPacketData failed as reported data size is "+size+"b";
-            Log.e(TAG,message);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,message);
             throw new IOException(message);
         }
     }

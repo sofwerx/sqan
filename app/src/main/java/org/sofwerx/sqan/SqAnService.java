@@ -106,6 +106,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     public void onCreate() {
         super.onCreate();
         thisService = this;
+        CommsLog.init(this);
         Config.init(this);
         manetOps = new ManetOps(this);
         ExceptionHelper.set(getApplicationContext());
@@ -129,6 +130,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             locationService.shutdown();
             locationService = null;
         }
+        CommsLog.close();
         super.onDestroy();
     }
 

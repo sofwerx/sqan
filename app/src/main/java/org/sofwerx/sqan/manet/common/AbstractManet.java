@@ -183,7 +183,7 @@ public abstract class AbstractManet {
         if (packet.isDirectFromOrigin()) {
             if (packet instanceof PingPacket) {
                 if ((packet.getOrigin() == PacketHeader.BROADCAST_ADDRESS) || (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS)) {
-                    Log.e(Config.TAG, "PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "PingPacket cannot be addressed to or from the BROADCAST SqAnAddress. Packet dropped.");
                     return;
                 }
                 PingPacket pingPacket = (PingPacket) packet;

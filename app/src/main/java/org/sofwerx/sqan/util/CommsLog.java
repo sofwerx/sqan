@@ -1,25 +1,89 @@
 package org.sofwerx.sqan.util;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Environment;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import androidx.core.content.ContextCompat;
 
 public class CommsLog {
-    private final static int MAX_LOG_LENGTH = 200;
+    private final static int MAX_LOG_LENGTH = 20;
     private static ArrayList<Entry> entries = null;
+    private static FileOutputStream fos;
+    private static OutputStreamWriter oswriter;
+    private static BufferedWriter bwriter;
+    private static AtomicBoolean isRunning = new AtomicBoolean(false);
 
     public static void clear() {
         entries = null;
+    }
+
+    public static void init(Context context) {
+        if (Config.isLoggingEnabled()) {
+            try {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                    File logDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),"SqAN");
+                    logDir.mkdirs();
+                    File file1 = new File(logDir,StringUtil.getFilesafeTime(System.currentTimeMillis())+".txt");
+                    file1.createNewFile();
+                    fos = new FileOutputStream(file1);
+                    oswriter = new OutputStreamWriter(fos);
+                    bwriter = new BufferedWriter(oswriter);
+                    isRunning.set(true);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                isRunning.set(false);
+            }
+        } else
+            close();
+    }
+
+    public static void close() {
+        isRunning.set(false);
+        clear();
+        try {
+            if (bwriter != null) {
+                bwriter.close();
+                bwriter = null;
+            }
+        } catch (IOException ignore) {
+        }
+        try {
+            if (oswriter != null) {
+                oswriter.close();
+                oswriter = null;
+            }
+        } catch (IOException ignore) {
+        }
+        try {
+            if (fos != null) {
+                fos.close();
+                fos = null;
+            }
+        } catch (IOException ignore) {
+        }
     }
 
     public static class Entry {
         public enum Category {
             PROBLEM,
             STATUS,
-            COMMS
+            COMMS,
+            CONNECTION
         }
 
         public Entry(Category category, long time, String message) {
@@ -39,10 +103,18 @@ public class CommsLog {
         @Override
         public String toString() {
             StringWriter out = new StringWriter();
-            out.append(StringUtil.getFormattedTime(time));
-            out.append(" ");
-            if (category == Category.PROBLEM)
-                out.append("[Problem] ");
+            out.append(StringUtil.getFormattedJustTime(time));
+            out.append(' ');
+            switch (category) {
+                case PROBLEM:
+                    out.append("[PROBLEM]");
+                    break;
+
+                case CONNECTION:
+                    out.append("[CONNECTION]");
+                    break;
+            }
+            out.append(' ');
             if (message == null)
                 out.append("NSTR");
             else
@@ -51,13 +123,35 @@ public class CommsLog {
         }
     }
 
+    public static void log(String message) {
+        if (isRunning.get()) {
+            if (bwriter != null) {
+                try {
+                    bwriter.append(message);
+                    bwriter.newLine();
+                } catch (IOException ignore) {
+                }
+            }
+        }
+    }
+
     public static void log(Entry.Category category, String message) {
-        Log.i(Config.TAG,message);
-        if (entries == null)
-            entries = new ArrayList<>();
-        entries.add(new Entry(category,message));
-        while (entries.size() > MAX_LOG_LENGTH)
-            entries.remove(0);
+        if (isRunning.get()) {
+            Log.i(Config.TAG, message);
+            if (entries == null)
+                entries = new ArrayList<>();
+            Entry entry = new Entry(category, message);
+            entries.add(entry);
+            while (entries.size() > MAX_LOG_LENGTH)
+                entries.remove(0);
+            if (bwriter != null) {
+                try {
+                    bwriter.append(entry.toString());
+                    bwriter.newLine();
+                } catch (IOException ignore) {
+                }
+            }
+        }
     }
 
     public static ArrayList<Entry> getEntries() { return entries; }

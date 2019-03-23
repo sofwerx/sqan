@@ -13,6 +13,7 @@ import android.widget.Toast;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 public class SettingsActivity extends Activity {
@@ -62,6 +63,9 @@ public class SettingsActivity extends Activity {
                 SqAnVpnService.start(SqAnService.getInstance());
             else
                 SqAnVpnService.stop(SqAnService.getInstance());
+        } else if (Config.PREFS_WRITE_LOG.equalsIgnoreCase(key)) {
+            Config.recheckPreferences(this);
+            CommsLog.init(this);
         }
     };
 }

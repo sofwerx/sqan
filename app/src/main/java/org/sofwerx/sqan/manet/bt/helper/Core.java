@@ -22,6 +22,7 @@ import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.util.CommsLog;
 
 public class Core {
     public static final int MAX_NUM_CONNECTIONS = 4; //Max connections that the BT mesh will support without a hop
@@ -167,6 +168,7 @@ public class Core {
                             if (socket.getDevice() != null) {
                                 if (socket.isActive()) {
                                     if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Sending "+data.length+"b to "+socket.getDevice().getUUID());
                                         Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
                                         socket.write(data);
                                         sent = true;
@@ -469,6 +471,7 @@ public class Core {
 
         Discovery.checkPairedDeviceStatus(adapter);
         Core.readListener = readListener;
+        adapter.cancelDiscovery(); //make sure discovery mode is off
         byte[] uuidNameSeed = null;
 
         try {

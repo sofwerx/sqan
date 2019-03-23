@@ -72,6 +72,12 @@
             android:title="Debug mode"
             android:summary="SqAN provides additional reporting data for testing purposes"
             android:defaultValue="true"/>
+
+        <CheckBoxPreference
+            android:key="log"
+            android:title="Log"
+            android:summary="Produce a log file for detailed analysis of mesh behavior"
+            android:defaultValue="true"/>
     </PreferenceCategory>
 
 </PreferenceScreen>

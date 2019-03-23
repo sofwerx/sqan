@@ -85,10 +85,10 @@ public class DeviceSummary extends ConstraintLayout {
                 out.append(Integer.toString(device.getUUID()));
             else
                 out.append("unknown");
-            if (device.getNetworkId() != null) {
+            /*if (device.getNetworkId() != null) {
                 out.append(", net ID: ");
                 out.append(device.getNetworkId());
-            }
+            }*/
             out.append(')');
             callsign.setText(device.getCallsign());
             uuid.setText(out.toString());

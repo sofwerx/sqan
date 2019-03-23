@@ -218,7 +218,7 @@
         <TextView
             android:id="@+id/mainStatusMarquee"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:fadingEdge="vertical"
             android:fadingEdgeLength="40dp"
             android:gravity="bottom"

@@ -19,6 +19,7 @@ public class PermissionsHelper {
             Manifest.permission.CHANGE_NETWORK_STATE,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.INTERNET};
 
     public static void checkForPermissions(Activity context) {

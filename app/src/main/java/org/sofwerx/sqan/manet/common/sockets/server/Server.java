@@ -62,17 +62,17 @@ public class Server {
         while ((client = server.accept()) != null) {
             if (++acceptCount > 100) {
                 client.close();
-                Log.w(Config.TAG, "Refused connection - possible DOS attack");
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, this.getClass().getSimpleName()+" refused connection - possible DOS attack");
             } else {
                 client.configureBlocking(false);
                 client.setOption(StandardSocketOptions.TCP_NODELAY,Boolean.TRUE);
                 try {
                     ClientHandler handler = new ClientHandler(client,parser,listener);
                     client.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE, handler);
-                    Log.i(Config.TAG, "Accepted client #" + handler.getId());
+                    CommsLog.log(CommsLog.Entry.Category.CONNECTION, this.getClass().getSimpleName()+" accepted client #" + handler.getId());
                 } catch (Throwable t) {
                     String msg = "Error defining/registering new client";
-                    Log.e(Config.TAG, msg);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, msg);
                 }
             }
         }
@@ -96,7 +96,7 @@ public class Server {
                 bindComplete = true;
                 break;
             } catch (BindException ex) {
-                Log.e(Config.TAG, "Attempting to bind to "+address.getHostString()+"; "+ex.getMessage());
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Attempting to bind to "+address.getHostString()+"; "+ex.getMessage());
                 try {
                     Thread.sleep(1000l);
                 } catch (Throwable ignore) {
@@ -230,8 +230,8 @@ public class Server {
             return;
         }
         if (packet != null) {
-            Log.d(Config.TAG,"Server bursting packet");
             byte[] bytes = packet.toByteArray();
+            CommsLog.log(CommsLog.Entry.Category.COMMS,"Server bursting "+bytes.length+"b packet to "+address);
             ByteBuffer out = ByteBuffer.allocate(4 + bytes.length);
             out.putInt(bytes.length);
             out.put(bytes);

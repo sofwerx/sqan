@@ -39,6 +39,17 @@ public class StringUtil {
         return "no bytes";
     }
 
+    public static String getFilesafeTime(long time) {
+        if (time < 0l)
+            return "unknown";
+        else
+            return DateFormat.format("MM-dd HHmm", new java.util.Date(time)).toString();
+    }
+
+    public static String getFormattedJustTime(long time) {
+        return DateFormat.format("HH:mm:ss", new java.util.Date(time)).toString();
+    }
+
     public static String getFormattedTime(long time) {
         if (time < 0l)
             return "unknown";

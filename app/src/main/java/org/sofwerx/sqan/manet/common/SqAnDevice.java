@@ -2,6 +2,7 @@ package org.sofwerx.sqan.manet.common;
 
 import android.bluetooth.BluetoothAdapter;
 import android.util.Log;
+import android.util.TimeUtils;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ipc.BftDevice;
@@ -12,6 +13,7 @@ import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.StringUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +54,7 @@ public class SqAnDevice {
     private ArrayList<RelayConnection> relays = new ArrayList<>();
     private int ipV4Address = Integer.MIN_VALUE;
     private TransportPreference preferredTransport = TransportPreference.AGNOSTIC;
+    private long connectionStart = Long.MIN_VALUE;
 
     public static boolean hasAtLeastOneActiveConnection() {
         if (devices != null) {
@@ -392,7 +395,7 @@ public class SqAnDevice {
                     devices.remove(i);
                 else {
                     if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
-                        device.status = Status.STALE;
+                        device.setStatus(Status.STALE);
                     device.cullOldRelayConnections();
                     if (device.status == Status.STALE) {
                         if ((System.currentTimeMillis() > device.lastConnect +TIME_TO_REMOVE_STALE))
@@ -584,7 +587,18 @@ public class SqAnDevice {
     }
 
     public void setStatus(Status status) {
-        this.status = status;
+        if (this.status != status) {
+            this.status = status;
+            switch(status) {
+                case STALE:
+                case OFFLINE:
+                    if (connectionStart > 0l) {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, callsign + " disconnected after " + StringUtil.toDuration(System.currentTimeMillis() - connectionStart));
+                        connectionStart = Long.MIN_VALUE;
+                    }
+                    break;
+            }
+        }
         if ((status == Status.ONLINE) &&  (discoveryTime < 0l))
             discoveryTime = System.currentTimeMillis();
     }
@@ -1013,7 +1027,7 @@ public class SqAnDevice {
     }
     public void setNetworkId(String networkId) { this.networkId = networkId; }
     public void setConnected(int hopsAway, boolean directBt, boolean directWiFi) {
-        status = Status.CONNECTED;
+        setStatus(Status.CONNECTED);
         setLastConnect(System.currentTimeMillis());
         if (connectTime < 0l)
             connectTime = System.currentTimeMillis();
@@ -1029,6 +1043,10 @@ public class SqAnDevice {
     }
     public void setLastConnect(long time) {
         lastConnect = time;
+        if (connectionStart < 0l) {
+            connectionStart = time;
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Connected to "+((callsign==null)?uuid:callsign)+((hopsAway>0)?(", ("+hopsAway+" hops away)"):""));
+        }
     }
 
     public long getLastConnect() { return lastConnect; }
@@ -1103,7 +1121,12 @@ public class SqAnDevice {
      * Sets this device's role in the network in WiFi comms
      * @param roleWiFi
      */
-    public void setRoleWiFi(NodeRole roleWiFi) { this.roleWiFi = roleWiFi; }
+    public void setRoleWiFi(NodeRole roleWiFi) {
+        if (this.roleWiFi != roleWiFi) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi role now "+roleWiFi.name());
+            this.roleWiFi = roleWiFi;
+        }
+    }
 
     /**
      * Gets this device's role in the network in Bluetooth comms
@@ -1115,7 +1138,12 @@ public class SqAnDevice {
      * Sets this device's role in the network in Bluetooth comms
      * @param roleBT
      */
-    public void setRoleBT(NodeRole roleBT) { this.roleBT = roleBT; }
+    public void setRoleBT(NodeRole roleBT) {
+        if (this.roleBT != roleBT) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth role now "+roleBT.name());
+            this.roleBT = roleBT;
+        }
+    }
 
     /**
      * Gets the int representation of this device's IPV4 IP address when using the SqAN VPN

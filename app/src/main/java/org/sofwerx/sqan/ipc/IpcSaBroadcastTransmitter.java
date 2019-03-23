@@ -42,7 +42,7 @@ public class IpcSaBroadcastTransmitter {
             }
         }
 
-        Log.d(Config.TAG+".Tx","Sharing (with other apps on this device) SA information on "+broadcast.getNumberOfDevices()+" devices");
+        //Log.d(Config.TAG+".Tx","Sharing (with other apps on this device) SA information on "+broadcast.getNumberOfDevices()+" devices");
         IpcBroadcastTransceiver.broadcast(context,BftBroadcast.BFT_CHANNEL,originatorId,broadcast.toBytes());
     }
 }

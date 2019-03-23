@@ -3,10 +3,12 @@ package org.sofwerx.sqan.manet.common.sockets;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.util.CommsLog;
 
 public class PacketParser {
     private final AbstractManet manet;
@@ -20,13 +22,12 @@ public class PacketParser {
         if (packet == null) {
             Log.e(Config.TAG, "Could not process the packet as it was null");
             return null;
-        } else {
-            if (packet instanceof HeartbeatPacket)
-                Log.d(Config.TAG,"Processed Heartbeat from SqAN ID "+packet.getOrigin()+", "+packet.getCurrentHopCount()+" hops");
-            else
-                Log.d(Config.TAG, "Processed " + packet.getClass().getSimpleName());
         }
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
+        if (packet instanceof HeartbeatPacket)
+            CommsLog.log(CommsLog.Entry.Category.COMMS, "Processed Heartbeat from " + ((device!=null)?(device.getCallsign()+" ("+device.getUUID()+")"):packet.getOrigin()) + ", " + packet.getCurrentHopCount() + " hops");
+        else
+            Log.d(Config.TAG, "Processed " + packet.getClass().getSimpleName()+" from " + ((device!=null)?(device.getCallsign()+" ("+device.getUUID()+")"):packet.getOrigin()) + ", " + packet.getCurrentHopCount() + " hops");
         if (device == null) {
             if (packet.getOrigin() > 0) {
                 device = new SqAnDevice(packet.getOrigin());
@@ -59,6 +60,11 @@ public class PacketParser {
             return null;
         }
         AbstractPacket packet = AbstractPacket.newFromBytes(bytes);
+        if (packet != null) {
+            SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
+            if (device != null)
+                device.addToDataTally(bytes.length);
+        }
         return processPacketAndNotifyManet(packet);
     }
 
