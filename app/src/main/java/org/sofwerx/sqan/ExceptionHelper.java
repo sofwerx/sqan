@@ -3,6 +3,7 @@ package org.sofwerx.sqan;
 import android.content.Context;
 
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,14 +28,19 @@ public class ExceptionHelper {
 
         @Override
         public void uncaughtException(Thread thread, Throwable ex) {
-            Writer result = new StringWriter();
-            PrintWriter printWriter = new PrintWriter(result);
-            ex.printStackTrace(printWriter);
-            String stacktrace = result.toString();
-            printWriter.close();
-            CommsLog.log(stacktrace);
-            CommsLog.close();
-            this.defaultHandler.uncaughtException(thread, ex);
+            try {
+                Writer result = new StringWriter();
+                PrintWriter printWriter = new PrintWriter(result);
+                ex.printStackTrace(printWriter);
+                String stacktrace = result.toString();
+                CommsLog.log(stacktrace);
+                CommsLog.close();
+                printWriter.close();
+                result.close();
+            } catch (Exception e) {
+            } finally {
+                this.defaultHandler.uncaughtException(thread, ex);
+            }
         }
     }
 }

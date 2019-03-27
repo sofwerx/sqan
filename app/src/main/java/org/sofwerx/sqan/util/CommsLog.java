@@ -57,6 +57,8 @@ public class CommsLog {
         clear();
         try {
             if (bwriter != null) {
+                bwriter.append(StringUtil.getFormattedJustTime(System.currentTimeMillis()));
+                bwriter.append(": Logging shutdown normally");
                 bwriter.close();
                 bwriter = null;
             }
@@ -124,12 +126,12 @@ public class CommsLog {
     }
 
     public static void log(String message) {
-        if (isRunning.get()) {
+        if ((message != null) && isRunning.get()) {
             if (bwriter != null) {
                 try {
                     bwriter.append(message);
                     bwriter.newLine();
-                } catch (IOException ignore) {
+                } catch (Exception ignore) {
                 }
             }
         }
@@ -144,13 +146,7 @@ public class CommsLog {
             entries.add(entry);
             while (entries.size() > MAX_LOG_LENGTH)
                 entries.remove(0);
-            if (bwriter != null) {
-                try {
-                    bwriter.append(entry.toString());
-                    bwriter.newLine();
-                } catch (IOException ignore) {
-                }
-            }
+            log(entry.toString());
         }
     }
 
