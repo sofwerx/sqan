@@ -169,6 +169,7 @@ public abstract class AbstractManet {
      */
     public void disconnect() throws ManetException {
         isRunning.set(false);
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION, getName()+" disconnecting...");
     }
 
     public void onReceived(AbstractPacket packet) {

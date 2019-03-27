@@ -251,8 +251,8 @@ public class BTSocket {
                                     PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
                                         if (thisDeviceEndpointRole == Role.SERVER) {
-                                            //TODO this was causing problems with devices not sharing with isolated devices but maybe this test need tweaking rather than omission
-                                            // if (AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
+                                            //FIXME skipping because there's still a forwarding problem sometimes
+                                            //if ((hopCount == 1) || AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
                                                 CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
                                                 device.setLastForward(System.currentTimeMillis());
                                                 Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);

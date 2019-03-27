@@ -6,8 +6,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.net.VpnService;
+import android.os.BatteryManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -37,6 +39,7 @@ import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
 
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -45,6 +48,9 @@ import java.util.Random;
  */
 public class SqAnService extends Service implements LocationService.LocationUpdateListener {
     public static final int REQUEST_ENABLE_VPN = 421;
+    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
+    private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
+    private final static long INTERVAL_BETWEEN_HEALTH_CHECK = 1000l * 60l;
     private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
     private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 50l;
     public final static String ACTION_STOP = "STOP";
@@ -74,12 +80,10 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private long nextDevicesCleanup = Long.MIN_VALUE;
     private long nextAvailableHeartbeat = Long.MIN_VALUE; //prevent multiple heartbeats from firing in close succession
     private long nextMandatoryHeartbeat = Long.MIN_VALUE;
+    private long nextHealthCheck = Long.MIN_VALUE;
     private LocationService locationService;
     private SqAnVpnService vpnService;
     private int missedVpnPacketCount = 0;
-
-    private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
-    private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
 
@@ -153,10 +157,51 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                 SqAnDevice mergedDevice = SqAnDevice.dedup();
                 checkForStaleDevices();
             }
+            if (System.currentTimeMillis() > nextHealthCheck)
+                checkOverallHealth();
             if (handler != null)
                 handler.postDelayed(this, HELPER_INTERVAL);
         }
     };
+
+    /**
+     * This looks at the device's overall health
+     */
+    private void checkOverallHealth() {
+        nextHealthCheck = System.currentTimeMillis() + INTERVAL_BETWEEN_HEALTH_CHECK;
+
+        StringWriter out = new StringWriter();
+        out.append("Health: ");
+        //check memory
+        try {
+            final Runtime runtime = Runtime.getRuntime();
+            final float freeSize = ((float)runtime.freeMemory())/1048576f;
+            final float totalSize = ((float)runtime.totalMemory())/1048576f;
+            final int freePercent = (int)(100l*freeSize/totalSize);
+            out.append("App memory usage: "+String.format("%.1f",totalSize-freeSize)+"mB out of "+String.format("%.1f",totalSize)+"mB allocated ("+freePercent+"% free)");
+        } catch (Exception ignore) {
+        }
+
+        //check battery
+        try {
+            Intent batteryStatus = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            int status = batteryStatus.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+            boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL;
+            int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+            int batteryPct = 100*level/scale;
+            out.append("; Battery at "+batteryPct+"%"+(isCharging?" (charging) ":""));
+        } catch (Exception ignore) {
+        }
+
+        //report connections
+        out.append("; "+SqAnDevice.getActiveConnections()+" active connections");
+
+        CommsLog.log(CommsLog.Entry.Category.STATUS,out.toString());
+
+        //TODO add more checks here
+        //TODO make any adjustments to the meshes based on health
+    }
 
     public void onPositiveComms() {
         lastPositiveOutgoingComms = System.currentTimeMillis();

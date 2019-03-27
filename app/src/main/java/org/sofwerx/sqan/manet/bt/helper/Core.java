@@ -25,7 +25,8 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.CommsLog;
 
 public class Core {
-    public static final int MAX_NUM_CONNECTIONS = 4; //Max connections that the BT mesh will support without a hop
+    private static final boolean ALWAYS_ACCPET_SERVER = true; ///should this device in server mode always accept connections
+    public static final int MAX_NUM_CONNECTIONS = 3; //Max connections that the BT mesh will support without a hop
     private static final long ACCEPT_RECHECK_INTERVAL_WHEN_AT_MAX_SOCKETS = 1000l * 15l; //how long to wait to see if new connections should be accepted when the server is at its max number of connections
     private static final boolean ALLOW_FAILOVER_OPTIONS = false;
     private static final String TAG = Config.TAG+".Bt.Core";
@@ -116,7 +117,7 @@ public class Core {
                             return; // failed
                         }
                     } else
-                        Log.e(TAG, "Failover not enabled so since the provided service UUID was null, connectAsClientAsync does nothing");
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Failover not enabled so since the provided service UUID was null, connectAsClientAsync does nothing");
                 }
             }
 
@@ -138,7 +139,7 @@ public class Core {
             return sock;
         } catch (Exception e) {
             e.printStackTrace();
-            Log.e(TAG, "Activation of createRfcommSocket via reflection failed: " + e);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Activation of createRfcommSocket via reflection failed: " + e);
             return null;
         }
     }
@@ -209,7 +210,7 @@ public class Core {
                 return true; // success
             }
         } catch (Exception e) {
-            Log.e(TAG, "Connect error: " + e);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Connect error: " + e.getMessage());
             if (connectionListener != null)
                 connectionListener.onConnectionError(e, "connect");
         } finally {
@@ -217,9 +218,9 @@ public class Core {
         }
         synchronized (allSockets) {
             if (clientSocket.getMac() == null)
-                Log.d(TAG,"Removing failed socket");
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket");
             else
-                Log.d(TAG,"Removing failed socket to "+clientSocket.getMac().toString());
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket to "+clientSocket.getMac().toString());
             allSockets.remove(clientSocket);
         }
         return false; // failure
@@ -233,11 +234,11 @@ public class Core {
             else
                 sock = device.createInsecureRfcommSocketToServiceRecord(serviceUuid);
             if (sock == null)
-                Log.e(TAG, "Null socket error after createRfcommSocket" );
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Null socket error after createRfcommSocket" );
             return sock;
 
         } catch (IOException e) {
-            Log.e(TAG, "Error in createRfcommSocket: " + e);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Error in createRfcommSocket: " + e);
             return null;
         }
     }
@@ -247,7 +248,7 @@ public class Core {
             return false;
         String name = device.getName();
         if (appUuid == null) {
-            Log.e(TAG, "isSqAnSupported cannot examine "+name+" yet as Core.init() has not been called");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "isSqAnSupported cannot examine "+name+" yet as Core.init() has not been called");
             return false;
         }
         UUID[] uuids = getSupportedUuids(device);
@@ -321,9 +322,8 @@ public class Core {
             public void run() {
                 try {
                     createBTServerSocket(name, secure);
-                }
-                catch (Exception e) {
-                    Log.e(TAG, "Socket creation error: " + e);
+                } catch (Exception e) {
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "BT Socket creation error: " + e.getMessage());
                     if (acceptListener != null)
                         acceptListener.onError(e, "createBTServerSocket");
                     return;
@@ -334,8 +334,7 @@ public class Core {
                     while (listeningIsOn && keepGoing) {
                         keepGoing = acceptConnection(acceptListener);
                     }
-                }
-                finally {
+                } finally {
                     closeBTServerSocket();
                 }
             }
@@ -386,10 +385,11 @@ public class Core {
         BluetoothSocket sock;
 
         try {
-            if (getActiveClientsCount() < (MAX_NUM_CONNECTIONS - 1))
-                sock = btServerSocket.accept(); // returns a connected socket
-            else {
-                Log.d(TAG, "Server is no longer listener for client connections as the max number of clients has been reached");
+            sock = btServerSocket.accept(); // returns a connected socket
+            if (ALWAYS_ACCPET_SERVER || (getActiveClientsCount() < MAX_NUM_CONNECTIONS)) {
+            } else {
+                Log.d(TAG, "Server is no longer listener for client connections as the max number of clients has been reached; closing any connection attempts");
+                sock.close();
                 try {
                     Thread.sleep(ACCEPT_RECHECK_INTERVAL_WHEN_AT_MAX_SOCKETS);
                 } catch (InterruptedException e) {
@@ -398,7 +398,7 @@ public class Core {
                 return true;
             }
         } catch (IOException e) {
-            Log.e(TAG, "Socket accept error: " + e);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Socket accept error: " + e);
             if (acceptListener != null)
                 acceptListener.onError(e, "accept");
             e.printStackTrace();
@@ -427,14 +427,16 @@ public class Core {
         BluetoothServerSocket tmp;
         btServerSocket = null;
         try {
-            if (secure)
+            if (secure) {
                 tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(name, appUuid);
-            else
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "BT Server listening for RFC Comms (Secure)");
+            } else {
                 tmp = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(name, appUuid);
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "BT Server listening for RFC Comms (Insecure)");
+            }
             btServerSocket = tmp;
         } catch (IOException e) {
-            Log.e(TAG, "listenUsingRfcomm error: " + e);
-            e.printStackTrace();
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "listenUsingRfcomm error: " + e.getMessage());
             throw e;
         }
     }
@@ -549,7 +551,7 @@ public class Core {
                 }
             }
         } else
-            Log.e(TAG,"Cannot removeClient() on a "+((mac==null)?"null":"invalid ("+mac.toString()+")")+" MAC");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Cannot removeClient() on a "+((mac==null)?"null":"invalid ("+mac.toString()+")")+" MAC");
     }
 
     public static void removeUnresponsiveConnections() {

@@ -12,6 +12,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import org.sofwerx.sqan.ipc.BftBroadcast;
+import org.sofwerx.sqan.ipc.BftDevice;
 import org.sofwerx.sqantest.tests.AbstractTest;
 import org.sofwerx.sqantest.tests.TestTest;
 
@@ -24,7 +25,7 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
     private final static String NOTIFICATION_CHANNEL = "sqan_test";
     public final static String ACTION_STOP = "STOP";
     private AbstractTest test = new TestTest(); //FIXME this is for testing the test mechanism only
-    private ArrayList<org.sofwerx.sqan.ipc.BftDevice> devices;
+    //private ArrayList<org.sofwerx.sqan.ipc.BftDevice> devices;
     private AtomicBoolean isRunning = new AtomicBoolean(false);
     private IpcBroadcastTransceiver.IpcListener uiIpcListener = null;
     private BftBroadcast bftBroadcast;
@@ -52,6 +53,19 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
     }
 
     public BftBroadcast getLastBftBroadcast() { return bftBroadcast; }
+
+    public BftDevice getDevice(int uuid) {
+        if ((bftBroadcast != null) && (uuid > 0l)) {
+            ArrayList<BftDevice> devices = bftBroadcast.getDevices();
+            if ((devices != null) && !devices.isEmpty()) {
+                for (BftDevice device:devices) {
+                    if ((device != null) && (device.getUUID() == uuid))
+                        return device;
+                }
+            }
+        }
+        return null;
+    }
 
     public class SqAnTestBinder extends Binder {
         public SqAnTestService getService() {

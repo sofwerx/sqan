@@ -250,7 +250,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                         first = false;
                     else
                         convo.append("\r\n");
-                    convo.append(Integer.toString(src));
+                    convo.append(getCallsign(src));
                     convo.append(": ");
                     convo.append(message);
                     convoText.setText(convo.toString());
@@ -260,6 +260,18 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 }
             }
         });
+    }
+
+    private String getCallsign(int src) {
+        if (src > 0l) {
+            if (service == null)
+                return Integer.toString(src);
+            BftDevice device = service.getDevice(src);
+            if ((device == null) || (device.getCallsign()==null))
+                return Integer.toString(src);
+            return device.getCallsign();
+        }
+        return "unknown";
     }
 
     @Override
@@ -297,30 +309,18 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 GeoPoint otherLoc;
                 Polyline polyline;
                 List<GeoPoint> pts;
+
+                //links
                 for (BftDevice device:devices) {
                     if (device != null) {
-                        if (Double.isNaN(device.getLatitude()) || Double.isNaN(device.getLongitude()))
-                            markers.remove(device.getUUID());
-                        else {
+                        if (!Double.isNaN(device.getLatitude()) && !Double.isNaN(device.getLongitude())) {
                             GeoPoint deviceLoc = new GeoPoint(device.getLatitude(),device.getLongitude());
-                            marker = markers.get(device.getUUID());
-                            if (marker == null) {
-                                marker = new org.osmdroid.views.overlay.Marker(map);
-                                marker.setPosition(deviceLoc);
-                                marker.setIcon(isFirst?iconThisDevice:iconDevice);
-                                marker.setAnchor(0.5f,0.5f);
-                                marker.setTitle(device.getCallsign());
-                                map.getOverlays().add(marker);
-                            } else {
-                                marker.setPosition(deviceLoc);
-                                markers.remove(device.getUUID());
+
+                            if (isFirst) { //skip my direct links
+                                isFirst = false;
+                                continue;
                             }
-                            if (!firstMoved) {
-                                firstMoved = true;
-                                IMapController mapController = map.getController();
-                                mapController.animateTo(new GeoPoint(device.getLatitude(),device.getLongitude()),20d,1000l);
-                            }
-                            current.put(device.getUUID(), marker);
+
                             links = device.getLinks();
                             if ((links != null) && !links.isEmpty()) {
                                 for (BftDevice.Link link:links) {
@@ -349,6 +349,46 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                                     }
                                 }
                             }
+                        }
+                    }
+                    isFirst = false;
+                }
+
+                //devices
+                isFirst = true;
+                for (BftDevice device:devices) {
+                    if (device != null) {
+                        if (Double.isNaN(device.getLatitude()) || Double.isNaN(device.getLongitude()))
+                            markers.remove(device.getUUID());
+                        else {
+                            GeoPoint deviceLoc = new GeoPoint(device.getLatitude(),device.getLongitude());
+                            marker = markers.get(device.getUUID());
+                            if (marker == null) {
+                                marker = new org.osmdroid.views.overlay.Marker(map);
+                                marker.setPosition(deviceLoc);
+                                marker.setTextLabelBackgroundColor(getColor(R.color.white));
+                                marker.setTextLabelFontSize(28);
+                                if (isFirst) {
+                                    marker.setTextIcon("This Device");
+                                    marker.setTextLabelForegroundColor(getColor(R.color.yellow));
+                                } else {
+                                    marker.setTextIcon(device.getCallsign());
+                                    marker.setTextLabelForegroundColor(getColor(R.color.green));
+                                }
+                                //marker.setIcon(isFirst?iconThisDevice:iconDevice);
+                                marker.setAnchor(0.5f,0.5f);
+                                marker.setTitle(device.getCallsign());
+                                map.getOverlays().add(marker);
+                            } else {
+                                marker.setPosition(deviceLoc);
+                                markers.remove(device.getUUID());
+                            }
+                            if (!firstMoved) {
+                                firstMoved = true;
+                                IMapController mapController = map.getController();
+                                mapController.animateTo(new GeoPoint(device.getLatitude(),device.getLongitude()),20d,1000l);
+                            }
+                            current.put(device.getUUID(), marker);
                         }
                     }
                     isFirst = false;
