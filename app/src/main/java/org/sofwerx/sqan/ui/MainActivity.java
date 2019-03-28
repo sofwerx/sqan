@@ -290,7 +290,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 periodicHelper();
             }
         }, PERIODIC_REFRESH_INTERVAL, PERIODIC_REFRESH_INTERVAL);
-        checkForTeammateIssues();
     }
 
     private void checkForTeammateIssues() {
@@ -513,6 +512,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateActiveIndicator();
             updateOverallMeshHealth();
             updateCallsignText();
+            checkForTeammateIssues();
             if (sqAnService.getManetOps() != null)
                 updateMainStatus(sqAnService.getManetOps().getStatus());
             else
