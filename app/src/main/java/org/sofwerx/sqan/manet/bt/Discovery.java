@@ -16,6 +16,7 @@ import org.sofwerx.sqan.manet.bt.helper.Core;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.ui.StoredTeammateChangeListener;
+import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -143,8 +144,12 @@ public class Discovery {
         if (device == null)
             return;
         SavedTeammate teammate = Config.getTeammateByBtMac(new MacAddress(device.getAddress()));
-        if (teammate != null)
-            return; //we already know about this device, ignore it
+        if (teammate != null) {
+            if (teammate.isBtPaired()) {
+                CommsLog.log(CommsLog.Entry.Category.STATUS,((teammate.getCallsign()==null)?teammate.getCallsign():teammate.getSqAnAddress())+" found but is already paired");
+                return; //we already know about this device and are paired with it, ignore it
+            }
+        }
         String deviceName = device.getName();
         boolean isSqAn = Core.isSqAnSupported(device);
         //if (!isSqAn)
@@ -152,8 +157,8 @@ public class Discovery {
         if (isSqAn) {
             Log.d(Config.TAG,"SqAN Bluetooth device found");
             int uuid = SqAnDevice.UNASSIGNED_UUID;
-            teammate = null;
-            if (deviceName != null) {
+            //teammate = null;
+            if ((teammate == null) && (deviceName != null)) {
                 try {
                     uuid = Integer.parseInt(deviceName.substring(SQAN_PREFIX.length()));
                     teammate = Config.getTeammate(uuid);
@@ -174,6 +179,10 @@ public class Discovery {
                     teammate.setBluetoothMac(MacAddress.build(deviceHardwareAddress));
                     changed = true;
                 }
+                if (!teammate.isBtPaired()) {
+                    CommsLog.log(CommsLog.Entry.Category.STATUS,"Teammate "+((teammate.getCallsign()==null)?(device.getAddress()+" ("+device.getName()+")"):teammate.getCallsign())+" is not yet paired - attempting to correct that.");
+                    pairDevice(device);
+                }
             }
             if (changed) {
                 teammate.update();
@@ -186,7 +195,7 @@ public class Discovery {
     private void pairDevice(BluetoothDevice device) {
         if (device == null)
             return;
-        try {
+        /*try {
             String ACTION_PAIRING_REQUEST = "android.bluetooth.device.action.PAIRING_REQUEST";
             Intent intent = new Intent(ACTION_PAIRING_REQUEST);
             String EXTRA_DEVICE = "android.bluetooth.device.extra.DEVICE";
@@ -196,10 +205,10 @@ public class Discovery {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             activity.startActivity(intent);
         } catch (Exception e) {
-            Log.e(Config.TAG,"Unable to start intent to pairDevice: "+e.getMessage());
+            Log.e(Config.TAG,"Unable to start intent to pairDevice: "+e.getMessage());*/
             device.createBond();
             Core.connectAsClientAsync(activity,device,null);
-        }
+        //}
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {

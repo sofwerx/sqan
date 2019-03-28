@@ -246,6 +246,8 @@ public class Core {
         if (device == null)
             return false;
         String name = device.getName();
+        if (name == null)
+            name = device.getAddress();
         if (appUuid == null) {
             CommsLog.log(CommsLog.Entry.Category.PROBLEM, "isSqAnSupported cannot examine "+name+" yet as Core.init() has not been called");
             return false;

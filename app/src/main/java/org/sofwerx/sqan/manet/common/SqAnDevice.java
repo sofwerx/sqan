@@ -930,9 +930,11 @@ public class SqAnDevice {
      */
     public static SqAnDevice findByBtMac(MacAddress mac) {
         if ((mac != null) && (devices != null) && !devices.isEmpty()) {
-            for (SqAnDevice device : devices) {
-                if ((device != null) && (mac.isEqual(device.bluetoothMac)))
-                    return device;
+            synchronized (devices) {
+                for (SqAnDevice device : devices) {
+                    if ((device != null) && (mac.isEqual(device.bluetoothMac)))
+                        return device;
+                }
             }
         }
         return null;

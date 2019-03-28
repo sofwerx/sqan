@@ -66,13 +66,15 @@ public class Config {
             try {
                 JSONArray array = new JSONArray(rawTeam);
                 savedTeammates = new ArrayList<>();
-                for (int i=0;i<array.length();i++) {
-                    JSONObject jsonTeammate = array.getJSONObject(i);
-                    if (jsonTeammate != null) {
-                        SavedTeammate teammate = new SavedTeammate(jsonTeammate);
-                        if (teammate.getSqAnAddress() == thisDevice.getUUID())
-                            continue;
-                        savedTeammates.add(new SavedTeammate(jsonTeammate));
+                synchronized (savedTeammates) {
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject jsonTeammate = array.getJSONObject(i);
+                        if (jsonTeammate != null) {
+                            SavedTeammate teammate = new SavedTeammate(jsonTeammate);
+                            if (teammate.getSqAnAddress() == thisDevice.getUUID())
+                                continue;
+                            savedTeammates.add(new SavedTeammate(jsonTeammate));
+                        }
                     }
                 }
             } catch (JSONException e) {
@@ -110,11 +112,13 @@ public class Config {
         if (vpnMode)
             edit.putBoolean(PREFS_VPN_MODE,true);
         if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
-            JSONArray rawTeammates = new JSONArray();
-            for (SavedTeammate teammate:savedTeammates) {
-                rawTeammates.put(teammate.toJSON());
+            synchronized (savedTeammates) {
+                JSONArray rawTeammates = new JSONArray();
+                for (SavedTeammate teammate : savedTeammates) {
+                    rawTeammates.put(teammate.toJSON());
+                }
+                edit.putString(PREFS_SAVED_TEAM, rawTeammates.toString());
             }
-            edit.putString(PREFS_SAVED_TEAM, rawTeammates.toString());
         } else
             edit.remove(PREFS_SAVED_TEAM);
         edit.apply();
@@ -131,6 +135,8 @@ public class Config {
                         teammate.setCallsign(device.getCallsign());
                         teammate.setBluetoothMac(device.getBluetoothMac());
                         teammate.setLastContact(device.getLastConnect());
+                        if (savedTeammates == null)
+                            savedTeammates = new ArrayList<>();
                         savedTeammates.add(teammate);
                     } else {
                         if (device.getCallsign() != null)
@@ -154,13 +160,15 @@ public class Config {
      */
     private static void cleanUpTeammates() {
         if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
-            int i=0;
-            while (i<savedTeammates.size()) {
-                if ((savedTeammates.get(i) == null) || !savedTeammates.get(i).isUseful()) {
-                    Log.d(Config.TAG,"Saved teammate without sufficiently useful info found and removed");
-                    savedTeammates.remove(i);
-                } else
-                    i++;
+            synchronized (savedTeammates) {
+                int i = 0;
+                while (i < savedTeammates.size()) {
+                    if ((savedTeammates.get(i) == null) || !savedTeammates.get(i).isUseful()) {
+                        Log.d(Config.TAG, "Saved teammate without sufficiently useful info found and removed");
+                        savedTeammates.remove(i);
+                    } else
+                        i++;
+                }
             }
         }
     }
@@ -258,9 +266,11 @@ public class Config {
     public static SavedTeammate getTeammateByBtMac(MacAddress mac) {
         if (mac != null) {
             if (savedTeammates != null) {
-                for (SavedTeammate teammate : savedTeammates) {
-                    if (mac.isEqual(teammate.getBluetoothMac()))
-                        return teammate;
+                synchronized (savedTeammates) {
+                    for (SavedTeammate teammate : savedTeammates) {
+                        if (mac.isEqual(teammate.getBluetoothMac()))
+                            return teammate;
+                    }
                 }
             }
         }
@@ -271,9 +281,11 @@ public class Config {
         if (netID == null)
             return null;
         if (savedTeammates != null) {
-            for (SavedTeammate teammate:savedTeammates) {
-                if (netID.equalsIgnoreCase(teammate.getNetID()))
-                    return teammate;
+            synchronized (savedTeammates) {
+                for (SavedTeammate teammate : savedTeammates) {
+                    if (netID.equalsIgnoreCase(teammate.getNetID()))
+                        return teammate;
+                }
             }
         }
         return null;
@@ -281,6 +293,7 @@ public class Config {
 
     public static void clearTeammates() {
         savedTeammates = null;
+        SqAnDevice.clearAllDevices(null);
     }
 
     public static SavedTeammate saveTeammate(int sqAnAddress, String netID, String callsign) {
@@ -307,12 +320,14 @@ public class Config {
 
     public static void removeTeammate(SavedTeammate teammate) {
         if ((teammate != null) && (savedTeammates != null)) {
-            int uuid = teammate.getSqAnAddress();
-            savedTeammates.remove(teammate);
-            if (uuid > 0) {
-                SqAnDevice device = SqAnDevice.findByUUID(uuid);
-                if (device != null)
-                    SqAnDevice.remove(device);
+            synchronized (savedTeammates) {
+                int uuid = teammate.getSqAnAddress();
+                savedTeammates.remove(teammate);
+                if (uuid > 0) {
+                    SqAnDevice device = SqAnDevice.findByUUID(uuid);
+                    if (device != null)
+                        SqAnDevice.remove(device);
+                }
             }
         }
     }
