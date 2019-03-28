@@ -113,7 +113,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         CommsLog.init(this);
         Config.init(this);
         manetOps = new ManetOps(this);
-        ExceptionHelper.set(getApplicationContext());
+        ExceptionHelper.set();
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sqan:SqAnService");

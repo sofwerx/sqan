@@ -171,18 +171,18 @@ public class Core {
                                 if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
                                     if (isForwardedPacket) {
                                         socket.getDevice().setLastForward();
-                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Socket #"+socket.getBtSocketIdNum()+" relaying "+data.length+"b from "+origin+" to "+socket.getDevice().getUUID()+((socket.getDevice()==null)?"":" ("+socket.getDevice().getCallsign()+")"));
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"BT socket #"+socket.getBtSocketIdNum()+" relaying "+data.length+"b from "+origin+" to "+socket.getDevice().getUUID()+((socket.getDevice()==null)?"":" ("+socket.getDevice().getCallsign()+")"));
                                     } else
-                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Socket #"+socket.getBtSocketIdNum()+" sending "+data.length+"b to "+socket.getDevice().getUUID());
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"BT socket #"+socket.getBtSocketIdNum()+" sending "+data.length+"b to "+socket.getDevice().getUUID());
                                     socket.write(data);
                                     sent = true;
                                 } else
-                                    Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
+                                    Log.d(TAG, "Skipping " + data.length + "b burst over BT socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
                             }
                         } else
-                            Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
+                            Log.d(TAG, "Skipping " + data.length + "b burst over BT socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
                     } else
-                        Log.d(TAG,"Skipping packet because destination "+destination+" is not applicable to the device on Socket #"+socket.getBtSocketIdNum());
+                        Log.d(TAG,"Skipping packet because destination "+destination+" is not applicable to the device on BT Socket #"+socket.getBtSocketIdNum());
                     i++;
                 }
                 if (sent)
@@ -217,9 +217,9 @@ public class Core {
         }
         synchronized (allSockets) {
             if (clientSocket.getMac() == null)
-                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket #"+clientSocket.getBtSocketIdNum());
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed BT socket #"+clientSocket.getBtSocketIdNum());
             else
-                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket #"+clientSocket.getBtSocketIdNum()+" to "+clientSocket.getMac().toString() + ((clientSocket.getDevice()==null)?"":" ("+clientSocket.getDevice().getCallsign()+")"));
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed BT socket #"+clientSocket.getBtSocketIdNum()+" to "+clientSocket.getMac().toString() + ((clientSocket.getDevice()==null)?"":" ("+clientSocket.getDevice().getCallsign()+")"));
             allSockets.remove(clientSocket);
         }
         return false; // failure
@@ -543,7 +543,7 @@ public class Core {
                     if (mac.isEqual(allSockets.get(i).getMac())) {
                         MacAddress otherMac = allSockets.get(i).getMac();
                         if (otherMac != null) {
-                            Log.d(TAG, "Socket #" + allSockets.get(i).getBtSocketIdNum() + "("+otherMac.toString()+")" + " being forcibly removed from current connections");
+                            Log.d(TAG, "BT socket #" + allSockets.get(i).getBtSocketIdNum() + "("+otherMac.toString()+")" + " being forcibly removed from current connections");
                             allSockets.get(i).close();
                             allSockets.remove(i);
                         }
@@ -563,7 +563,7 @@ public class Core {
                 if (!allSockets.get(i).isActive()) {
                     MacAddress mac = allSockets.get(i).getMac();
                     if ((mac == null) || !mac.isValid()) {
-                        Log.d(TAG,"Removing Socket #"+allSockets.get(i).getBtSocketIdNum()+", null or invalid MAC");
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing BT socket #"+allSockets.get(i).getBtSocketIdNum()+", null or invalid MAC");
                         allSockets.remove(i);
                         continue;
                     }
@@ -572,12 +572,12 @@ public class Core {
                     while (b<allSockets.size()) {
                         if (mac.isEqual(allSockets.get(b).getMac())) {
                             if (allSockets.get(b).isActive()) {
-                                Log.d(TAG,"Removing duplicate (MAC "+mac.toString()+") on inactive Socket #"+allSockets.get(i).getBtSocketIdNum());
+                                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing duplicate (MAC "+mac.toString()+") on inactive BT socket #"+allSockets.get(i).getBtSocketIdNum());
                                 allSockets.remove(i);
                                 iRemoved = true;
                                 break;
                             } else {
-                                Log.d(TAG,"Removing duplicate (MAC "+mac.toString()+") on inactive Socket #"+allSockets.get(b).getBtSocketIdNum());
+                                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing duplicate (MAC "+mac.toString()+") on inactive BT socket #"+allSockets.get(b).getBtSocketIdNum());
                                 allSockets.remove(b);
                             }
                         } else
@@ -589,7 +589,7 @@ public class Core {
 
                 //handle stale
                 if (allSockets.get(i).isStale()) {
-                    Log.d(TAG,"Socket #"+allSockets.get(i).getBtSocketIdNum()+" is stale; removing from current connections");
+                    Log.d(TAG,"BT socket #"+allSockets.get(i).getBtSocketIdNum()+" is stale; removing from current connections");
                     allSockets.get(i).close();
                     allSockets.remove(i);
                 } else

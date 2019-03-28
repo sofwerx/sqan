@@ -34,6 +34,7 @@ public class Config {
     public final static String PREFS_VPN_MODE = "vpnmode";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
     public final static String PREFS_WRITE_LOG = "log";
+    public final static String PREFS_WARN_INCOMPLETE = "incomplete";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean broadcastSa = true;
@@ -41,6 +42,7 @@ public class Config {
     private static boolean vpnMode = true;
     private static boolean vpnLandingPage = true;
     private static boolean writeLog = true;
+    private static boolean warnIncomplete = true;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
 
@@ -84,6 +86,9 @@ public class Config {
             savedTeammates = null;
     }
 
+    public static boolean isWarnIncompleteEnabled() { return warnIncomplete; }
+    public static void setWarnIncompleteEnabled(boolean enabled) { warnIncomplete = enabled; }
+
     public static boolean isLoggingEnabled() { return writeLog; }
 
     public static void recheckPreferences(Context context) {
@@ -95,6 +100,7 @@ public class Config {
         vpnMode = prefs.getBoolean(PREFS_VPN_MODE,true);
         vpnLandingPage = prefs.getBoolean(PREFS_VPN_MODE,true);
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
+        warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
     }
 
     public static boolean isVpnEnabled() {
@@ -111,6 +117,7 @@ public class Config {
         updateSavedTeammates();
         if (vpnMode)
             edit.putBoolean(PREFS_VPN_MODE,true);
+        edit.putBoolean(PREFS_WARN_INCOMPLETE,warnIncomplete);
         if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
             synchronized (savedTeammates) {
                 JSONArray rawTeammates = new JSONArray();

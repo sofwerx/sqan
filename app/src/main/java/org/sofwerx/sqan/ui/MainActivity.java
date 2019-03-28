@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
@@ -34,9 +35,11 @@ import org.sofwerx.sqan.ExceptionHelper;
 import org.sofwerx.sqan.LocationService;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
+import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
@@ -76,6 +79,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private Animation pingAnimation;
     private Timer autoUpdate;
     private boolean nagAboutPreferredManet = true;
+    private boolean nagAboutIncompleteSetup = true;
 
     private ArrayList<String> marqueeMessages = new ArrayList<>();
 
@@ -106,7 +110,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        ExceptionHelper.set(getApplicationContext());
         switchActive = findViewById(R.id.mainSwitchActive);
         connectToBackend();
         if (Config.isAutoStart(this))
@@ -287,6 +290,52 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 periodicHelper();
             }
         }, PERIODIC_REFRESH_INTERVAL, PERIODIC_REFRESH_INTERVAL);
+        checkForTeammateIssues();
+    }
+
+    private void checkForTeammateIssues() {
+        if (nagAboutIncompleteSetup && Config.isWarnIncompleteEnabled()) {
+            nagAboutIncompleteSetup = false;
+
+            //check for missing teammate info
+            ArrayList<SavedTeammate> teammates = Config.getSavedTeammates();
+            if ((teammates == null) || teammates.isEmpty()) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle(R.string.no_teammates_alert);
+                builder.setMessage(R.string.no_teammates_alert_narrative);
+                builder.setPositiveButton(R.string.set_teammates, (dialog, which) -> startActivity(new Intent(MainActivity.this,StoredTeammatesActivity.class)));
+                builder.setNeutralButton(R.string.ignore, (dialog, which) -> dialog.cancel());
+                builder.setNegativeButton(R.string.never_ask, (dialog, which) -> {
+                    Config.setWarnIncompleteEnabled(false);
+                    dialog.cancel();
+                });
+                final AlertDialog dialog = builder.create();
+                dialog.setCanceledOnTouchOutside(true);
+                dialog.show();
+            } else {
+                int teammatesMissing = 0;
+
+                if (teammatesMissing > 0) {
+                    final String missing;
+                    if (teammatesMissing==1)
+                        missing = "one teammate";
+                    else
+                        missing = teammatesMissing+" teammates";
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle(R.string.teammates_fix_alert);
+                    builder.setMessage("SqAN has incomplete info for "+missing+". Without this info, SqAN could use complete info to make a stronger mesh.");
+                    builder.setPositiveButton(R.string.fix_teammates, (dialog, which) -> startActivity(new Intent(MainActivity.this,StoredTeammatesActivity.class)));
+                    builder.setNeutralButton(R.string.ignore, (dialog, which) -> dialog.cancel());
+                    builder.setNegativeButton(R.string.never_ask, (dialog, which) -> {
+                        Config.setWarnIncompleteEnabled(false);
+                        dialog.cancel();
+                    });
+                    final AlertDialog dialog = builder.create();
+                    dialog.setCanceledOnTouchOutside(true);
+                    dialog.show();
+                }
+            }
+        }
     }
 
     private void periodicHelper() {

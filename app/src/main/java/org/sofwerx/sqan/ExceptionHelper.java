@@ -1,6 +1,7 @@
 package org.sofwerx.sqan;
 
 import android.content.Context;
+import android.util.Log;
 
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
@@ -12,17 +13,17 @@ import java.io.StringWriter;
 import java.io.Writer;
 
 public class ExceptionHelper {
-    public static void set(Context context) {
-        if (!(Thread.getDefaultUncaughtExceptionHandler() instanceof ExceptionHandler))
-            Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler(context));
+    public static void set() {
+        if (!(Thread.getDefaultUncaughtExceptionHandler() instanceof SqAnExceptionHandler)) {
+            Log.d(Config.TAG,"Exception helper initiated");
+            Thread.setDefaultUncaughtExceptionHandler(new SqAnExceptionHandler());
+        }
     }
 
-    private static class ExceptionHandler implements Thread.UncaughtExceptionHandler {
+    private static class SqAnExceptionHandler implements Thread.UncaughtExceptionHandler {
         private Thread.UncaughtExceptionHandler defaultHandler;
-        private Context context;
 
-        public ExceptionHandler(Context context) {
-            this.context = context;
+        public SqAnExceptionHandler() {
             this.defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
         }
 

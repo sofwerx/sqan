@@ -48,4 +48,11 @@
     <string name="connecting">VPN Connecting</string>
     <string name="connected">VPN Connected</string>
     <string name="prefs_vpn_changed_description">Shutdown SqAN completely to change the VPN status.</string>
+    <string name="no_teammates_alert">No Teammates Setup</string>
+    <string name="no_teammates_alert_narrative">You do not have any teammates configured. SqAN will not be able to communicate until you identify teammates.</string>
+    <string name="set_teammates">Set Teammates</string>
+    <string name="ignore">Ignore</string>
+    <string name="never_ask">Never Ask Again</string>
+    <string name="teammates_fix_alert">Incomplete Teammate Info</string>
+    <string name="fix_teammates">Fix</string>
 </resources>

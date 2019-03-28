@@ -519,7 +519,7 @@ public class BTSocket {
     public boolean isStale() {
         if (lastConnectInbound > 0l) {
             if (System.currentTimeMillis() > lastConnectInbound + MIN_TIME_BEFORE_TESTING_STALE) {
-                if ((outStream == null) || (inStream == null))
+                if (!isActive())
                     return true;
                 return (System.currentTimeMillis() > lastConnectInbound + MAX_TIME_BEFORE_STALE) ||
                         (System.currentTimeMillis() > lastConnectOutbound + MAX_TIME_BEFORE_STALE);

@@ -61,6 +61,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
     private void updateDisplay() {
         fabFix.setEnabled(!bluetoothAdapter.isDiscovering());
         viewSearching.setVisibility(bluetoothAdapter.isDiscovering()?View.VISIBLE:View.GONE);
+        Discovery.checkPairedDeviceStatus(bluetoothAdapter);
         teammatesList.update();
         int num = Config.getNumberOfSavedTeammates();
         if (num < 1)

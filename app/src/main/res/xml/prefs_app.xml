@@ -28,6 +28,12 @@
             android:defaultValue="4"
             android:entries="@array/listManetTypes"
             android:entryValues="@array/listManetTypesValues" />
+
+        <CheckBoxPreference
+            android:key="incomplete"
+            android:title="Notify when needs repair"
+            android:summary="Notify me when a setup for a teammate has incomplete information and needs to be repaired."
+            android:defaultValue="true"/>
     </PreferenceCategory>
 
     <PreferenceCategory
