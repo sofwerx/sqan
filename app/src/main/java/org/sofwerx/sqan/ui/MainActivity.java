@@ -313,6 +313,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 dialog.show();
             } else {
                 int teammatesMissing = 0;
+                synchronized (teammates) {
+                    for (SavedTeammate teammate:teammates) {
+                        if (teammate.isIncomplete())
+                            teammatesMissing++;
+                    }
+                }
 
                 if (teammatesMissing > 0) {
                     final String missing;

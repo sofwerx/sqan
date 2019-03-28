@@ -12,6 +12,12 @@ public class SavedTeammate {
     private long lastContact;
     private MacAddress bluetoothMac;
     private PairingStatus btPaired = PairingStatus.UNKNOWN;
+
+    public boolean isIncomplete() {
+        return !isBtPaired();
+        //TODO add more checks based on manets in use
+    }
+
     private enum PairingStatus {PAIRED,NOT_PAIRED,UNKNOWN}
 
     public SavedTeammate(JSONObject obj) {
