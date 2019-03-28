@@ -145,7 +145,7 @@ public class Core {
     }
 
     public static void send(final byte[] data, final int destination, final int origin) {
-        send(data, destination, origin,false);
+        send(data, destination, origin,false,false);
     }
 
     /**
@@ -154,8 +154,9 @@ public class Core {
      * @param destination
      * @param origin
      * @param clientsOnly true == only send this to sockets where I am the hub
+     * @param isForwardedPacket true == this packet is being forwarded from another device
      */
-    public static void send(final byte[] data, final int destination, final int origin, boolean clientsOnly) {
+    public static void send(final byte[] data, final int destination, final int origin, boolean clientsOnly, boolean isForwardedPacket) {
         if (origin <= 0)
             Log.d(TAG,"send() with an origin value of "+origin+" (this should not be)");
         synchronized (allSockets) {
@@ -165,23 +166,21 @@ public class Core {
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
                     if (socket.isApplicableToThisDevice(destination)) {
-                        if (!socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
-                            if (socket.getDevice() != null) {
-                                if (socket.isActive()) {
-                                    if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
-                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Sending "+data.length+"b to "+socket.getDevice().getUUID());
-                                        Log.d(TAG, "Trying to send " + data.length + "b sent over socket #" + socket.getBtSocketIdNum());
-                                        socket.write(data);
-                                        sent = true;
-                                        Log.d(TAG, data.length + "b sent over socket #" + socket.getBtSocketIdNum());
+                        if (socket.isActive()) {
+                            if ((socket.getDevice() != null) && !socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
+                                if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
+                                    if (isForwardedPacket) {
+                                        socket.getDevice().setLastForward();
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Socket #"+socket.getBtSocketIdNum()+" relaying "+data.length+"b from "+origin+" to "+socket.getDevice().getUUID()+((socket.getDevice()==null)?"":" ("+socket.getDevice().getCallsign()+")"));
                                     } else
-                                        Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
+                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"Socket #"+socket.getBtSocketIdNum()+" sending "+data.length+"b to "+socket.getDevice().getUUID());
+                                    socket.write(data);
+                                    sent = true;
                                 } else
-                                    Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
-                            } else
-                                Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is null");
+                                    Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
+                            }
                         } else
-                            Log.d(TAG, "Skipping packet because device at Socket #" + socket.getBtSocketIdNum() + " is the originator");
+                            Log.d(TAG, "Skipping " + data.length + "b burst over socket #" + socket.getBtSocketIdNum() + " (socket is not active)");
                     } else
                         Log.d(TAG,"Skipping packet because destination "+destination+" is not applicable to the device on Socket #"+socket.getBtSocketIdNum());
                     i++;
@@ -218,9 +217,9 @@ public class Core {
         }
         synchronized (allSockets) {
             if (clientSocket.getMac() == null)
-                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket");
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket #"+clientSocket.getBtSocketIdNum());
             else
-                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket to "+clientSocket.getMac().toString());
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing failed socket #"+clientSocket.getBtSocketIdNum()+" to "+clientSocket.getMac().toString() + ((clientSocket.getDevice()==null)?"":" ("+clientSocket.getDevice().getCallsign()+")"));
             allSockets.remove(clientSocket);
         }
         return false; // failure

@@ -251,12 +251,10 @@ public class BTSocket {
                                     PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
                                         if (thisDeviceEndpointRole == Role.SERVER) {
-                                            //FIXME skipping because there's still a forwarding problem sometimes
-                                            //if ((hopCount == 1) || AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
+                                            if ((hopCount == 1) || AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
                                                 CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
-                                                device.setLastForward(System.currentTimeMillis());
-                                                Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true);
-                                            //}
+                                                Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true, true);
+                                            }
                                         } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
                                             ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
                                             if (devices != null) {
@@ -266,7 +264,7 @@ public class BTSocket {
                                                                 && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) //when our hop count is same or better
                                                                     || (tgt.getActiveRelays() < 2))) { //or when this is the target's only connection
                                                             CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as client) " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
-                                                            tgt.setLastForward(System.currentTimeMillis());
+                                                            tgt.setLastForward();
                                                             Core.send(data, tgt.getUUID(), packet.getOrigin());
                                                         }
                                                     }
@@ -294,10 +292,20 @@ public class BTSocket {
         }
     }
 
+    private boolean lastReportedIsActive = false;
     public boolean isActive() {
+        boolean active;
         if ((socket != null) && socket.isConnected())
-            return (inStream != null) && (outStream != null);
-        return false;
+            active = (inStream != null) && (outStream != null);
+        else
+            active = false;
+
+        if (active != lastReportedIsActive) {
+            lastReportedIsActive = active;
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"BT Socket #"+id+" is "+(active?"active":"not active"));
+        }
+
+        return active;
     }
 
     /**

@@ -430,6 +430,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     }
 
     private void shutdown() {
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"SqAnService shutdown initiated");
         manetOps.shutdown();
         try {
             stopForeground(true);

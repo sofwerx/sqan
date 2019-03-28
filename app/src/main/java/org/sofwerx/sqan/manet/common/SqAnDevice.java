@@ -158,6 +158,8 @@ public class SqAnDevice {
      */
     public void setLastForward(long time) { lastForwardedToThisDevice = time; }
 
+    public void setLastForward() { setLastForward(System.currentTimeMillis()); }
+
     /**
      * Gets the last time our device forwarded a packet to this device
      * @return
