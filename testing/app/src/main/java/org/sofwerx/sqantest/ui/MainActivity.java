@@ -32,6 +32,7 @@ import org.osmdroid.views.overlay.Polyline;
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
 import org.sofwerx.sqan.ipc.BftBroadcast;
 import org.sofwerx.sqan.ipc.BftDevice;
+import org.sofwerx.sqan.ipc.ChatMessage;
 import org.sofwerx.sqantest.IpcBroadcastTransceiver;
 import org.sofwerx.sqantest.R;
 import org.sofwerx.sqantest.SqAnTestService;
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     private Drawable iconDevice, iconThisDevice;
     private ArrayList<Polyline> polylines = new ArrayList<>();
     private ArrayList<BftDevice> devices;
+    private long lastChatMessage = Long.MIN_VALUE;
 
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
@@ -108,8 +110,8 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 if (message == null)
                     Toast.makeText(MainActivity.this,"No message to send",Toast.LENGTH_LONG).show();
                 else {
-                    byte[] data = message.getBytes(StandardCharsets.UTF_8);
-                    IpcBroadcastTransceiver.broadcastChat(this, data);
+                    ChatMessage chat = new ChatMessage(System.currentTimeMillis(),message);
+                    IpcBroadcastTransceiver.broadcastChat(this, chat.toBytes());
                     editText.setText(null);
                     if (first)
                         first = false;
@@ -244,19 +246,18 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     public void onChatPacketReceived(final int src, final byte[] data) {
         runOnUiThread(() -> {
             if (data != null) {
-                try {
-                    String message = new String(data,"UTF-8");
+                ChatMessage message = new ChatMessage(data);
+                if (message.getTime() > lastChatMessage) { //cheap way to ignore duplicates
+                    lastChatMessage = message.getTime();
                     if (first)
                         first = false;
                     else
                         convo.append("\r\n");
                     convo.append(getCallsign(src));
                     convo.append(": ");
-                    convo.append(message);
+                    convo.append(message.getMessage());
                     convoText.setText(convo.toString());
                     scrollContainer.post(() -> scrollContainer.fullScroll(View.FOCUS_DOWN));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
                 }
             }
         });
