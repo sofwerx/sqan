@@ -5,6 +5,7 @@ import android.util.Log;
 import android.util.TimeUtils;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.ipc.BftDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
@@ -205,6 +206,7 @@ public class SqAnDevice {
         } else
             this.uuid = uuid;
         SqAnDevice.add(this);
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,getLabel()+" was added to the list of devices.");
     }
 
     /**
@@ -823,19 +825,35 @@ public class SqAnDevice {
         if (devices == null) {
             devices = new ArrayList<>();
             devices.add(device);
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,device.getLabel()+" was added to the list of devices.");
             return true;
         }
         SqAnDevice existing = find(device);
         if (existing == null) {
             synchronized (devices) {
                 devices.add(device);
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,device.getLabel()+" was added to the list of devices.");
             }
             return true;
         } else {
             existing.update(device);
-            Config.saveTeammate(device.getUUID(),null,device.getCallsign());
+            SavedTeammate teammate = new SavedTeammate(device.getUUID(),device.networkId);
+            teammate.setBluetoothMac(device.bluetoothMac);
+            Config.saveTeammate(teammate);
         }
         return false;
+    }
+
+    /**
+     * Gets a good human readable label for this device
+     * @return
+     */
+    public String getLabel() {
+        if (callsign != null)
+            return callsign;
+        if (uuid > 0)
+            return Integer.toString(uuid);
+        return "unknown";
     }
 
     public static void remove(final SqAnDevice device) {

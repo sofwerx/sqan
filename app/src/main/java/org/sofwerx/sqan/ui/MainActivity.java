@@ -313,19 +313,23 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 dialog.show();
             } else {
                 int teammatesMissing = 0;
+                int totalTeammates = 0;
                 synchronized (teammates) {
                     for (SavedTeammate teammate:teammates) {
-                        if (teammate.isIncomplete())
-                            teammatesMissing++;
+                        if (teammate.isEnabled()) {
+                            totalTeammates++;
+                            if (teammate.isIncomplete())
+                                teammatesMissing++;
+                        }
                     }
                 }
 
                 if (teammatesMissing > 0) {
                     final String missing;
                     if (teammatesMissing==1)
-                        missing = "one teammate";
+                        missing = "one teammate (out of "+totalTeammates+")";
                     else
-                        missing = teammatesMissing+" teammates";
+                        missing = teammatesMissing+" teammates (out of "+totalTeammates+")";
                     AlertDialog.Builder builder = new AlertDialog.Builder(this);
                     builder.setTitle(R.string.teammates_fix_alert);
                     builder.setMessage("SqAN has incomplete info for "+missing+". Without this info, SqAN could use complete info to make a stronger mesh.");

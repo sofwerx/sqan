@@ -49,9 +49,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     private BluetoothAdapter bluetoothAdapter;
     private long nextTeammateCheck = Long.MIN_VALUE;
     private long nextOldDeviceCheck = Long.MIN_VALUE;
+    private static BtManetV2 instance;
 
     public BtManetV2(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
+        instance = this;
 
         final BluetoothManager bluetoothManager = (BluetoothManager)context.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
@@ -62,6 +64,8 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public ManetType getType() { return ManetType.BT_ONLY; }
+
+    public static BtManetV2 getInstance() { return instance; }
 
     @Override
     public boolean checkForSystemIssues() {
@@ -117,11 +121,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
             if ((teammates != null) && !teammates.isEmpty()) {
                 for (SavedTeammate teammate : teammates) {
                     //when there are few (i.e. 2 or less) connections, try to connect with everyone, otherwise just try to connect with a few priority devices
-                    if ((active < 3) || (pendingConnections < Core.MAX_NUM_CONNECTIONS)) {
+                    if (teammate.isEnabled() && ((active < 3) || (pendingConnections < Core.MAX_NUM_CONNECTIONS))) {
                         MacAddress mac = teammate.getBluetoothMac();
                         if ((mac != null) && !Core.isMacConnected(mac)) {
                             String macString = mac.toString();
-                            Log.d(Config.TAG, "Teammate " + macString + " is not connected yet");
+                            Log.d(Config.TAG, "Teammate " + teammate.getLabel() + " is not connected yet");
                             BluetoothDevice device = getDevice(macString);
                             if (device != null) {
                                 pendingConnections++;
@@ -187,17 +191,19 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     @Override
     public void resume() throws ManetException {
         //TODO
+        instance = this;
     }
 
     @Override
     public void disconnect() throws ManetException {
         //TODO
+        instance = null;
         setStatus(Status.OFF);
 
         Core.cleanup();
 
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
-        isRunning.set(false);
+        super.disconnect();
     }
 
     @Override

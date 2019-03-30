@@ -84,6 +84,10 @@ public class Config {
             }
         } else
             savedTeammates = null;
+        if ((savedTeammates == null) || savedTeammates.isEmpty())
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"No saved teammates loaded");
+        else
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,savedTeammates.size()+" teammate"+((savedTeammates.size()==1)?"":"s")+" loaded");
     }
 
     public static boolean isWarnIncompleteEnabled() { return warnIncomplete; }
@@ -142,9 +146,13 @@ public class Config {
                         teammate.setCallsign(device.getCallsign());
                         teammate.setBluetoothMac(device.getBluetoothMac());
                         teammate.setLastContact(device.getLastConnect());
-                        if (savedTeammates == null)
-                            savedTeammates = new ArrayList<>();
-                        savedTeammates.add(teammate);
+                        if (teammate.isUseful()) {
+                            if (savedTeammates == null)
+                                savedTeammates = new ArrayList<>();
+                            savedTeammates.add(teammate);
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "New teammate saved: " + teammate.getLabel() + " (" + savedTeammates.size() + " total)");
+                        } else
+                            Log.d(TAG,"Device "+device.getLabel()+" did not have any useful information to save as a teammate");
                     } else {
                         if (device.getCallsign() != null)
                             teammate.setCallsign(device.getCallsign());
@@ -171,7 +179,10 @@ public class Config {
                 int i = 0;
                 while (i < savedTeammates.size()) {
                     if ((savedTeammates.get(i) == null) || !savedTeammates.get(i).isUseful()) {
-                        Log.d(Config.TAG, "Saved teammate without sufficiently useful info found and removed");
+                        if (savedTeammates.get(i) != null)
+                            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Saved teammate "+savedTeammates.get(i).getLabel()+" without sufficiently useful info found and removed");
+                        else
+                            Log.d(Config.TAG,"Null saved teammate removed during cleanUpTeammates");
                         savedTeammates.remove(i);
                     } else
                         i++;
@@ -197,18 +208,20 @@ public class Config {
                 if ((merged == null) && (i != inspectingIndex)) {
                     SavedTeammate other = savedTeammates.get(i);
                     if ((other != null) && other.isLikelySame(inspecting)) {
-                        if (inspecting.getLastContact() > other.getLastContact()) {
-                            merged = inspecting;
-                            if (merged != null)
-                                merged.update(savedTeammates.get(i));
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + other.getSqAnAddress() + " merged into " + inspecting.getSqAnAddress());
-                            savedTeammates.remove(i);
-                        } else {
+                        if (((inspecting.getSqAnAddress() <= 0) && (other.getSqAnAddress() > 0)) || //if other has a valid UUID when inspecting does not
+                                (!inspecting.isUseful() && other.isUseful()) ||        //or if other has useful info while inspecting does not
+                                ((inspecting.getSqAnAddress() > 0) && (other.getSqAnAddress() > 0) && (other.getLastContact() > inspecting.getLastContact()))) { //or if other is more recent
                             merged = other;
                             if (merged != null)
                                 merged.update(savedTeammates.get(inspectingIndex));
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + inspecting.getSqAnAddress() + " merged into " + other.getSqAnAddress());
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + inspecting.getLabel() + " merged into " + other.getLabel());
                             savedTeammates.remove(inspectingIndex);
+                        } else {
+                            merged = inspecting;
+                            if (merged != null)
+                                merged.update(savedTeammates.get(i));
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate teammate detected; " + other.getLabel() + " merged into " + inspecting.getLabel());
+                            savedTeammates.remove(i);
                         }
                     }
                 }
@@ -303,18 +316,31 @@ public class Config {
         SqAnDevice.clearAllDevices(null);
     }
 
-    public static SavedTeammate saveTeammate(int sqAnAddress, String netID, String callsign) {
-        SavedTeammate savedTeammate = getTeammate(sqAnAddress);
-        if (savedTeammate == null) {
-            savedTeammate = new SavedTeammate(sqAnAddress, netID);
-            savedTeammate.setCallsign(callsign);
-            if (savedTeammates == null)
-                savedTeammates = new ArrayList<>();
-            savedTeammates.add(savedTeammate);
-            CommsLog.log(CommsLog.Entry.Category.COMMS,((callsign == null)?sqAnAddress:(callsign+"("+sqAnAddress+")"))+" saved as a teammate");
-        } else
-            savedTeammate.update(callsign,System.currentTimeMillis());
-        return savedTeammate;
+    public static SavedTeammate saveTeammate(SavedTeammate teammate) {
+        if ((teammate != null) && teammate.isUseful()) {
+            SavedTeammate old = getTeammate(teammate.getSqAnAddress());
+            if (old == null)
+                old = getTeammate(teammate.getNetID());
+            if (old == null)
+                old = getTeammateByBtMac(teammate.getBluetoothMac());
+            if (old == null) {
+                if (savedTeammates == null)
+                    savedTeammates = new ArrayList<>();
+                savedTeammates.add(teammate);
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "New teammate saved: " + teammate.getLabel() + " (" + savedTeammates.size() + " total)");
+                old = teammate;
+            } else
+                old.update(teammate);
+            return old;
+        }
+        return null;
+    }
+
+    public static SavedTeammate saveTeammate(int sqAnAddress, String netID, String callsign, MacAddress btMAC) {
+        SavedTeammate savedTeammate = new SavedTeammate(sqAnAddress, netID);
+        savedTeammate.setCallsign(callsign);
+        savedTeammate.setBluetoothMac(btMAC);
+        return saveTeammate(savedTeammate);
     }
 
     public static int getNumberOfSavedTeammates() {
@@ -327,6 +353,7 @@ public class Config {
 
     public static void removeTeammate(SavedTeammate teammate) {
         if ((teammate != null) && (savedTeammates != null)) {
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing saved teammate "+teammate.getLabel());
             synchronized (savedTeammates) {
                 int uuid = teammate.getSqAnAddress();
                 savedTeammates.remove(teammate);

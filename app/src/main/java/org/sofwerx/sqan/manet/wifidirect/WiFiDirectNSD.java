@@ -157,10 +157,10 @@ class WiFiDirectNSD {
                         int uuid = Integer.parseInt((String)record.get(FIELD_UUID));
                         SavedTeammate teammate = Config.getTeammate(uuid);
                         if (teammate == null) {
-                            Config.saveTeammate(uuid, device.deviceAddress, null);
+                            Config.saveTeammate(uuid, device.deviceAddress, null,null);
                             CommsLog.log(CommsLog.Entry.Category.COMMS,"New teammate discovered");
                         } else
-                            CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+teammate.getCallsign()+" discovered");
+                            CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+teammate.getLabel()+" discovered");
                         /*if ((record.containsKey(FIELD_GROUP_SSID) && record.containsKey(FIELD_GROUP_PASSWORD))) {
                             try {
                                 WiFiGroup group = new WiFiGroup((String) record.get(FIELD_GROUP_SSID), (String) record.get(FIELD_GROUP_PASSWORD));

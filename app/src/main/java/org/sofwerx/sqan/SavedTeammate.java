@@ -11,11 +11,31 @@ public class SavedTeammate {
     private String netID;
     private long lastContact;
     private MacAddress bluetoothMac;
+    private String btName;
     private PairingStatus btPaired = PairingStatus.UNKNOWN;
+    private boolean enabled = true;
 
     public boolean isIncomplete() {
         return !isBtPaired();
         //TODO add more checks based on manets in use
+    }
+
+    /**
+     * Provides the best human-readable way to reference this saved teammate
+     * @return
+     */
+    public String getLabel() {
+        if (callsign != null)
+            return callsign;
+        if (btName != null)
+            return btName;
+        if (sqAnAddress > 0)
+            return Integer.toString(sqAnAddress);
+        if ((bluetoothMac != null) && bluetoothMac.isValid())
+            return bluetoothMac.toString();
+        if ((netID != null) && (netID.length() > 1))
+            return netID;
+        return "unknown";
     }
 
     private enum PairingStatus {PAIRED,NOT_PAIRED,UNKNOWN}
@@ -38,6 +58,9 @@ public class SavedTeammate {
             netID = other.netID;
         if (other.bluetoothMac != null)
             bluetoothMac = other.bluetoothMac;
+        enabled = other.enabled;
+        if (other.btName != null)
+            btName = other.btName;
     }
 
     public void update() { lastContact = System.currentTimeMillis(); }
@@ -56,6 +79,8 @@ public class SavedTeammate {
             obj.putOpt("netID",netID);
             obj.put("sqAnAddress",sqAnAddress);
             obj.put("lastContact",lastContact);
+            obj.put("enabled",enabled);
+            obj.putOpt("btname",btName);
             if (bluetoothMac != null)
                 obj.put("btMac",bluetoothMac.toString());
         } catch (JSONException e) {
@@ -72,6 +97,8 @@ public class SavedTeammate {
             lastContact = obj.optLong("lastContact",Long.MIN_VALUE);
             String bluetoothMacString = obj.optString("btMac",null);
             bluetoothMac = MacAddress.build(bluetoothMacString);
+            btName = obj.optString("btname",null);
+            enabled = obj.optBoolean("enabled");
             if ((callsign != null) && (callsign.length() == 0))
                 callsign = null;
         }
@@ -95,14 +122,14 @@ public class SavedTeammate {
     }
     public void setLastContact(long time) { this.lastContact = time; }
 
-    public boolean isUseful() { return (sqAnAddress > 0) || (bluetoothMac != null) || (netID != null); }
+    public boolean isUseful() { return (sqAnAddress > 0) || ((bluetoothMac != null) && bluetoothMac.isValid()) || ((netID != null) && (netID.length() > 1)); }
 
     public boolean isLikelySame(SavedTeammate other) {
         if (other == null)
             return false;
         boolean same = false;
         if ((other.sqAnAddress > 0) && (sqAnAddress > 0))
-                same = (other.sqAnAddress == sqAnAddress);
+            same = (other.sqAnAddress == sqAnAddress);
         if ((other.bluetoothMac != null) && (bluetoothMac != null))
             same = same || other.bluetoothMac.isEqual(bluetoothMac);
         if ((other.netID != null) && (other.netID.length() > 1) && (netID != null) && (netID.length() > 1))
@@ -117,6 +144,10 @@ public class SavedTeammate {
      */
     public boolean isBtPaired() { return btPaired == PairingStatus.PAIRED; }
     public boolean isBtPairingStatusKnown() { return btPaired != PairingStatus.UNKNOWN; }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public String getBtName() { return btName; }
+    public void setBtName(String name) { this.btName = name; }
 
     public void setBtPaired(boolean paired) {
         if (paired)

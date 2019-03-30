@@ -124,10 +124,12 @@ public class Discovery {
         if (adapter != null) {
             ArrayList<SavedTeammate> savedTeammates = Config.getSavedTeammates();
             if ((savedTeammates != null) && !savedTeammates.isEmpty()) {
-                Set<BluetoothDevice> pairedDevices = adapter.getBondedDevices();
-                for (SavedTeammate teammate:savedTeammates) {
-                    if (teammate != null) {
-                        teammate.setBtPaired(hasPairedMac(teammate.getBluetoothMac(),pairedDevices));
+                synchronized (savedTeammates) {
+                    Set<BluetoothDevice> pairedDevices = adapter.getBondedDevices();
+                    for (SavedTeammate teammate : savedTeammates) {
+                        if (teammate != null) {
+                            teammate.setBtPaired(hasPairedMac(teammate.getBluetoothMac(), pairedDevices));
+                        }
                     }
                 }
             }
@@ -146,7 +148,11 @@ public class Discovery {
         SavedTeammate teammate = Config.getTeammateByBtMac(new MacAddress(device.getAddress()));
         if (teammate != null) {
             if (teammate.isBtPaired()) {
-                CommsLog.log(CommsLog.Entry.Category.STATUS,((teammate.getCallsign()==null)?teammate.getCallsign():teammate.getSqAnAddress())+" found but is already paired");
+                CommsLog.log(CommsLog.Entry.Category.STATUS,teammate.getLabel()+" found but is already paired");
+                return; //we already know about this device and are paired with it, ignore it
+            }
+            if (!teammate.isEnabled()) {
+                CommsLog.log(CommsLog.Entry.Category.STATUS,teammate.getLabel()+" found but is not set to be included in your team");
                 return; //we already know about this device and are paired with it, ignore it
             }
         }
@@ -170,17 +176,19 @@ public class Discovery {
             boolean changed = false;
             if (teammate == null) {
                 Log.d(Config.TAG,"New SqAN teammate found");
-                teammate = Config.saveTeammate(uuid,null,null);
-                teammate.setBluetoothMac(MacAddress.build(deviceHardwareAddress));
+                teammate = Config.saveTeammate(uuid,null,null,MacAddress.build(deviceHardwareAddress));
+                if (teammate != null)
+                    teammate.setBtName(device.getName());
                 pairDevice(device);
                 changed = true;
             } else {
                 if (teammate.getBluetoothMac() == null) {
                     teammate.setBluetoothMac(MacAddress.build(deviceHardwareAddress));
+                    teammate.setBtName(device.getName());
                     changed = true;
                 }
-                if (!teammate.isBtPaired()) {
-                    CommsLog.log(CommsLog.Entry.Category.STATUS,"Teammate "+((teammate.getCallsign()==null)?(device.getAddress()+" ("+device.getName()+")"):teammate.getCallsign())+" is not yet paired - attempting to correct that.");
+                if (teammate.isEnabled() && !teammate.isBtPaired()) {
+                    CommsLog.log(CommsLog.Entry.Category.STATUS,"Teammate "+teammate.getLabel()+" is not yet paired - attempting to correct that.");
                     pairDevice(device);
                 }
             }
@@ -207,7 +215,7 @@ public class Discovery {
         } catch (Exception e) {
             Log.e(Config.TAG,"Unable to start intent to pairDevice: "+e.getMessage());*/
             device.createBond();
-            Core.connectAsClientAsync(activity,device,null);
+            Core.connectAsClientAsync(activity,device,BtManetV2.getInstance());
         //}
     }
 
