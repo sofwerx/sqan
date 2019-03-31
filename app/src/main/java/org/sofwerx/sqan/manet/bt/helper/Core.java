@@ -12,7 +12,6 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
-import android.os.Build.VERSION_CODES;
 import android.os.ParcelUuid;
 import android.util.Log;
 
@@ -25,7 +24,7 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.CommsLog;
 
 public class Core {
-    private static final boolean ALWAYS_ACCPET_SERVER = true; ///should this device in server mode always accept connections
+    private static final boolean ALWAYS_ACCEPT_SERVER = true; ///should this device in server mode always accept connections
     public static final int MAX_NUM_CONNECTIONS = 3; //Max connections that the BT mesh will support without a hop
     private static final long ACCEPT_RECHECK_INTERVAL_WHEN_AT_MAX_SOCKETS = 1000l * 15l; //how long to wait to see if new connections should be accepted when the server is at its max number of connections
     private static final boolean ALLOW_FAILOVER_OPTIONS = false;
@@ -387,7 +386,7 @@ public class Core {
 
         try {
             sock = btServerSocket.accept(); // returns a connected socket
-            if (ALWAYS_ACCPET_SERVER || (getActiveClientsCount() < MAX_NUM_CONNECTIONS)) {
+            if (ALWAYS_ACCEPT_SERVER || (getActiveClientsCount() < MAX_NUM_CONNECTIONS)) {
             } else {
                 Log.d(TAG, "Server is no longer listener for client connections as the max number of clients has been reached; closing any connection attempts");
                 sock.close();

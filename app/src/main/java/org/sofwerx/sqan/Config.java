@@ -69,13 +69,26 @@ public class Config {
                 JSONArray array = new JSONArray(rawTeam);
                 savedTeammates = new ArrayList<>();
                 synchronized (savedTeammates) {
+                    int unassignedBlockIndex = 0;
                     for (int i = 0; i < array.length(); i++) {
                         JSONObject jsonTeammate = array.getJSONObject(i);
                         if (jsonTeammate != null) {
                             SavedTeammate teammate = new SavedTeammate(jsonTeammate);
                             if (teammate.getSqAnAddress() == thisDevice.getUUID())
                                 continue;
-                            savedTeammates.add(new SavedTeammate(jsonTeammate));
+                            if (teammate.getSqAnAddress() < unassignedBlockIndex) {
+                                if (teammate.getSqAnAddress() > -1000) //ignore cases where this is a very large negative
+                                    unassignedBlockIndex = teammate.getSqAnAddress();
+                            }
+                            savedTeammates.add(teammate);
+                        }
+                    }
+                    if (unassignedBlockIndex < 0)
+                        SqAnDevice.setUnassignedBlockIndex(unassignedBlockIndex-1);
+                    if (!savedTeammates.isEmpty()) {
+                        for (SavedTeammate teammate:savedTeammates) {
+                            if (teammate.isEnabled() && teammate.isUseful() && (teammate.getSqAnAddress() != SqAnDevice.UNASSIGNED_UUID))
+                                new SqAnDevice(teammate);
                         }
                     }
                 }

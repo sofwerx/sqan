@@ -5,7 +5,9 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.bt.helper.Core;
+import org.sofwerx.sqan.util.CommsLog;
 
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -15,7 +17,7 @@ import java.util.Random;
 public class TeammateConnectionPlanner {
 
     /**
-     * Get an array of teammates in descending priotiy connection order
+     * Get an array of teammates in descending priority connection order
      * @return
      */
     public static ArrayList<SavedTeammate> getDescendingPriorityTeammates() {
@@ -81,7 +83,24 @@ public class TeammateConnectionPlanner {
             }
         }
 
-        Log.d(Config.TAG,prioritized.size()+" prioritized teammates, with #1 being "+prioritized.get(0).getSqAnAddress());
+        StringWriter out = new StringWriter();
+        if ((prioritized == null) || prioritized.isEmpty())
+            out.append("NONE");
+        else {
+            boolean first = true;
+            for (SavedTeammate priTeammate : prioritized) {
+                if (first)
+                    first = false;
+                else
+                    out.append(", ");
+                if (priTeammate == null)
+                    out.append("null device [this should not happen]");
+                else
+                    out.append(priTeammate.getLabel());
+            }
+        }
+
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Prioritizing teammates for connections: "+out.toString());
 
         return prioritized;
     }

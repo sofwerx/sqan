@@ -57,6 +57,52 @@ public class SqAnDevice {
     private TransportPreference preferredTransport = TransportPreference.AGNOSTIC;
     private long connectionStart = Long.MIN_VALUE;
 
+    /**
+     * SqAnDevice
+     * @param uuid == the persistent UUID associated with SqAN on this physical device
+     */
+    public SqAnDevice(int uuid) {
+        init(uuid);
+    }
+
+    /**
+     * Constructor that creates a placeholder UUID that is later intended to be updated
+     * once the actual UUID is known
+     */
+    public SqAnDevice() {
+        this(UNASSIGNED_UUID);
+    }
+
+    /**
+     * SqAnDevice
+     * @param uuid == the persistent UUID associated with SqAN on this physical device
+     * @param networkId == the transient ID assigned to this device for this session on this MANET
+     */
+    public SqAnDevice(int uuid, String networkId) {
+        this(uuid);
+        this.networkId = networkId;
+    }
+
+    public SqAnDevice(SavedTeammate teammate) {
+        if (teammate != null) {
+            init(teammate.getSqAnAddress());
+            networkId = teammate.getNetID();
+            callsign = teammate.getCallsign();
+            bluetoothMac = teammate.getBluetoothMac();
+        }
+    }
+
+    private void init(int uuid) {
+        if (uuid == UNASSIGNED_UUID) {
+            this.uuid = nextUnassignedUUID.decrementAndGet();
+            if (this.uuid > 0)
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM,"SqAnDevice with unknown UUID assigned a positive UUID of "+this.uuid+" [this should never happen]");
+            Log.w(Config.TAG,"This device has an unassigned UUID and so has been assigned the next UUID in the host's UUID block: "+this.uuid);
+        } else
+            this.uuid = uuid;
+        SqAnDevice.add(this);
+    }
+
     public static boolean hasAtLeastOneActiveConnection() {
         if (devices != null) {
             for (SqAnDevice device:devices) {
@@ -65,6 +111,15 @@ public class SqAnDevice {
             }
         }
         return false;
+    }
+
+    /**
+     * Adjust the block counter for the next unassigned UUID. Used primarily when reading in
+     * a chunk of saved devices to prevent a UUID from being reused).
+     * @param index
+     */
+    public static void setUnassignedBlockIndex(int index) {
+        nextUnassignedUUID.set(index);
     }
 
     /**
@@ -196,38 +251,6 @@ public class SqAnDevice {
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
     /**
-     * SqAnDevice
-     * @param uuid == the persistent UUID associated with SqAN on this physical device
-     */
-    public SqAnDevice(int uuid) {
-        if (uuid == UNASSIGNED_UUID) {
-            this.uuid = nextUnassignedUUID.decrementAndGet();
-            Log.w(Config.TAG,"This device has an unassigned UUID and so has been assigned the next UUID in the host's UUID block: "+this.uuid);
-        } else
-            this.uuid = uuid;
-        SqAnDevice.add(this);
-        CommsLog.log(CommsLog.Entry.Category.CONNECTION,getLabel()+" was added to the list of devices.");
-    }
-
-    /**
-     * Constructor that creates a placeholder UUID that is later intended to be updated
-     * once the actual UUID is known
-     */
-    public SqAnDevice() {
-        this(UNASSIGNED_UUID);
-    }
-
-    /**
-     * SqAnDevice
-     * @param uuid == the persistent UUID associated with SqAN on this physical device
-     * @param networkId == the transient ID assigned to this device for this session on this MANET
-     */
-    public SqAnDevice(int uuid, String networkId) {
-        this(uuid);
-        this.networkId = networkId;
-    }
-
-    /**
      * Look for and merge any likely duplicate nodes
      * @return the device that absorbed a duplicate device
      */
@@ -235,28 +258,24 @@ public class SqAnDevice {
         if ((devices == null) || (devices.size() < 2))
             return null;
 
-        SqAnDevice merged = null;
-
         boolean scanNeeded = true;
         int inspectingIndex = 0;
-        while ((merged == null) && (inspectingIndex < devices.size()) && scanNeeded) {
+        while ((inspectingIndex < devices.size()) && scanNeeded) {
             SqAnDevice inspecting = devices.get(inspectingIndex);
             for (int i=0;i<devices.size();i++) {
-                if ((merged == null) && (i != inspectingIndex)) {
+                if (i != inspectingIndex) {
                     SqAnDevice other = devices.get(i);
-                    if ((other != null) && ((inspecting.uuid < 0) || (other.uuid < 0))) {
-                        if (inspecting.networkId != null) {
-                            if (inspecting.networkId.equalsIgnoreCase(other.networkId)) {
-                                if (inspecting.lastConnect > other.lastConnect) {
-                                    merged = inspecting;
-                                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + other.uuid + " merged into " + inspecting.uuid);
-                                    devices.remove(i);
-                                } else {
-                                    merged = other;
-                                    CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + inspecting.uuid + " merged into " + other.uuid);
-                                    devices.remove(inspectingIndex);
-                                }
-                            }
+                    if (inspecting.isSame(other)) {
+                        if (inspecting.lastConnect > other.lastConnect) {
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + other.uuid + " merged into " + inspecting.uuid);
+                            devices.remove(i);
+                            inspecting.update(other);
+                            return inspecting;
+                        } else {
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Duplicate devices detected; " + inspecting.uuid + " merged into " + other.uuid);
+                            devices.remove(inspectingIndex);
+                            other.update(inspecting);
+                            return other;
                         }
                     }
                 }
@@ -264,7 +283,7 @@ public class SqAnDevice {
             inspectingIndex++;
         }
 
-        return merged;
+        return null;
     }
 
     private void cullOldRelayConnections() {
@@ -398,16 +417,18 @@ public class SqAnDevice {
                 if (device == null)
                     devices.remove(i);
                 else {
+                    if (!device.isActive()) {
+                        SavedTeammate teammate = Config.getTeammate(device.getUUID());
+                        if ((teammate != null) && !teammate.isEnabled()) {
+                            devices.remove(i);
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Removed disabled device " + device.getLabel());
+                            continue;
+                        }
+                    }
                     if ((device.lastConnect > 0l) && (System.currentTimeMillis() > device.lastConnect + TIME_TO_STALE))
                         device.setStatus(Status.STALE);
                     device.cullOldRelayConnections();
-                    if (device.status == Status.STALE) {
-                        if ((System.currentTimeMillis() > device.lastConnect +TIME_TO_REMOVE_STALE))
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Stale device " + ((device.callsign == null) ? Integer.toString(device.uuid) : device.callsign) + " removed");
-                        devices.remove(i);
-                        culled = true;
-                    } else
-                        i++;
+                    i++;
                 }
             }
 
@@ -756,12 +777,15 @@ public class SqAnDevice {
     public boolean isSame(SqAnDevice other) {
         if (other == null)
             return false;
-        if (other.uuid == UNASSIGNED_UUID) {
-            if (other.networkId != null)
-                return other.networkId.equalsIgnoreCase(networkId);
-            return false;
-        } else
-            return (uuid == other.uuid);
+        if ((uuid == other.uuid) && (uuid != UNASSIGNED_UUID))
+            return true;
+        if (other.isUuidKnown() && isUuidKnown())
+            return false; //if both UUIDs are known and they did not already pass the == test, then this must be two different devices
+        if ((other.networkId != null) && (networkId != null) && (other.networkId.length() > 1) && other.networkId.equalsIgnoreCase(networkId))
+            return true;
+        if ((bluetoothMac != null) && bluetoothMac.isEqual(other.bluetoothMac))
+            return true;
+        return false;
     }
 
     /**

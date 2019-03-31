@@ -113,10 +113,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
         Log.d(Config.TAG,"BtManetV2.connectToTeammates()");
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         boolean addedNewCheck = false;
+        boolean notSeekingNew = false;
+        int pendingConnections = Core.getActiveClientsCount();
         if (!Core.isAtMaxConnections()) {
             reportedAtMax = false;
             ArrayList<SavedTeammate> teammates = TeammateConnectionPlanner.getDescendingPriorityTeammates();
-            int pendingConnections = Core.getActiveClientsCount();
             int active = Core.getActiveClientsAndServerCount();
             if ((teammates != null) && !teammates.isEmpty()) {
                 for (SavedTeammate teammate : teammates) {
@@ -133,17 +134,24 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                                 addedNewCheck = true;
                             }
                         }
+                    } else {
+                        if (teammate.isEnabled())
+                            notSeekingNew = true;
                     }
                 }
             }
         } else {
+            notSeekingNew = true;
             if (!reportedAtMax) {
                 reportedAtMax = true;
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"Max number of bluetooth connections reached; not accepting new connections at this time.");
             }
         }
-        if (!addedNewCheck)
-            Log.d(Config.TAG,"No teammates found without a current connection or connection attempt");
+        if (!addedNewCheck) {
+            Log.d(Config.TAG, "No teammates found without a current connection or connection attempt");
+            if (notSeekingNew)
+                CommsLog.log(CommsLog.Entry.Category.STATUS,"BT MANET considers itself at capacity and is not seeking new connections as a client (with "+pendingConnections+" pending connections)");
+        }
     }
 
     private void burst(final byte[] bytes, final int destination, final int origin) {

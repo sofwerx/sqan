@@ -142,11 +142,13 @@ public class CommsLog {
             Log.i(Config.TAG, message);
             if (entries == null)
                 entries = new ArrayList<>();
-            Entry entry = new Entry(category, message);
-            entries.add(entry);
-            while (entries.size() > MAX_LOG_LENGTH)
-                entries.remove(0);
-            log(entry.toString());
+            synchronized (entries) {
+                Entry entry = new Entry(category, message);
+                entries.add(entry);
+                while (entries.size() > MAX_LOG_LENGTH)
+                    entries.remove(0);
+                log(entry.toString());
+            }
         }
     }
 
@@ -154,10 +156,12 @@ public class CommsLog {
 
     public static Entry getLastProblemOrStatus() {
         if ((entries != null) && !entries.isEmpty()) {
-            for (int i=entries.size()-1;i>=0;i--) {
-                Entry.Category cat = entries.get(i).category;
-                if ((cat == Entry.Category.PROBLEM) || (cat == Entry.Category.STATUS))
-                    return entries.get(i);
+            synchronized (entries) {
+                for (int i = entries.size() - 1; i >= 0; i--) {
+                    Entry.Category cat = entries.get(i).category;
+                    if ((cat == Entry.Category.PROBLEM) || (cat == Entry.Category.STATUS))
+                        return entries.get(i);
+                }
             }
         }
         return null;
@@ -169,13 +173,15 @@ public class CommsLog {
         if ((entries == null) || entries.isEmpty())
             out.append("No logs");
         else {
-            boolean first = true;
-            for (Entry entry:entries) {
-                if (first)
-                    first = false;
-                else
-                    out.append("\r\n");
-                out.append(entry.toString());
+            synchronized (entries) {
+                boolean first = true;
+                for (Entry entry : entries) {
+                    if (first)
+                        first = false;
+                    else
+                        out.append("\r\n");
+                    out.append(entry.toString());
+                }
             }
         }
 

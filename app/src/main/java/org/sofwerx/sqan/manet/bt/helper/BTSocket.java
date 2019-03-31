@@ -110,7 +110,8 @@ public class BTSocket {
                 device = new SqAnDevice(teammate.getSqAnAddress(),teammate.getCallsign());
                 device.setNetworkId(teammate.getNetID());
                 device.setBluetoothMac(mac.toString());
-                SqAnDevice.add(device);
+                if (SqAnDevice.add(device))
+                    teammate.setSqAnId(device.getUUID());
             }
         } else {
             if (device.getCallsign() == null) {
@@ -250,6 +251,9 @@ public class BTSocket {
                                     final int hopCount = packet.getCurrentHopCount()+1;
                                     PacketHeader.setHopCount(hopCount,data);
                                     if ((hopCount <= SqAnDevice.getActiveConnections())) {
+
+                                        //relay logic
+
                                         if (thisDeviceEndpointRole == Role.SERVER) {
                                             if ((hopCount == 1) || AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
                                                 CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
@@ -260,13 +264,16 @@ public class BTSocket {
                                             if (devices != null) {
                                                 for (SqAnDevice tgt : devices) {
                                                     if (tgt.getUUID() != packet.getOrigin()) { //avoid circular reporting
-                                                        if ((tgt.getHopsAway() == 0) //for directly connected devices
-                                                                && ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) //when our hop count is same or better
-                                                                    || (tgt.getActiveRelays() < 2))) { //or when this is the target's only connection
-                                                            CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as client) " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
-                                                            tgt.setLastForward();
-                                                            Core.send(data, tgt.getUUID(), packet.getOrigin());
-                                                        }
+                                                        if (tgt.getHopsAway() == 0) { //for directly connected devices
+                                                            if ((hopCount <= tgt.getHopsToDevice(packet.getOrigin())) //when our hop count is same or better
+                                                                    || (tgt.getActiveRelays() < 2)) { //or when this is the target's only connection
+                                                                CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as client) " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
+                                                                tgt.setLastForward();
+                                                                Core.send(data, tgt.getUUID(), packet.getOrigin());
+                                                            } else
+                                                                CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " is not relaying (as client) [hop count to originator "+tgt.getHopsToDevice(packet.getOrigin())+", active relays "+tgt.getActiveRelays()+"] " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
+                                                        } else
+                                                            CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " is not relaying (as client) [hops away "+tgt.getHopsAway());
                                                     }
                                                 }
                                             }
