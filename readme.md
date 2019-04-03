@@ -2,7 +2,7 @@
 
 SqAN is an experimental effort to provide a Mobile Ad-hoc NETwork (MANET) in support of small, dismounted maneuver units, based solely on open source available techniques and pre-existing mobile device hardware.
 
-![WARNING!](art/caution_geek.png "WARNING!") _**SqAN is experimental and under active development!**_ ![WARNING!](art/caution_geek.png "WARNING!")
+![WARNING!](art/caution_geek.png "WARNING!") _**SqAN is experimental and under active development!**_
 
 * **No backward compatibility** is guaranteed
 * No packet structure, saved file, or even IPC interface that works today is guaranteed to work the same way tomorrow
