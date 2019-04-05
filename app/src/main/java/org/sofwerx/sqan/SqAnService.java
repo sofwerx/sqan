@@ -32,6 +32,7 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
+import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.receivers.BootReceiver;
 import org.sofwerx.sqan.receivers.ConnectivityReceiver;
 import org.sofwerx.sqan.receivers.PowerReceiver;
@@ -104,7 +105,23 @@ public class SqAnService extends Service implements LocationService.LocationUpda
 
     public static SqAnService getInstance() { return thisService; }
 
-    //FIXME build an intent receiver to send/receive ChannelBytePackets as a way to use SqAN over IPC
+    public boolean isWiFiManetAvailable() {
+        if (manetOps == null)
+            return false;
+        return manetOps.isWiFiManetAvailable();
+    }
+
+    public boolean isBtManetAvailable() {
+        if (manetOps == null)
+            return false;
+        return manetOps.isBtManetAvailable();
+    }
+
+    public static void burstVia(AbstractPacket packet, TransportPreference transportPreference) {
+        if ((thisService == null) || (packet == null) || (thisService.manetOps == null) || (transportPreference == null))
+            return;
+        thisService.burst(packet,transportPreference);
+    }
 
     @Override
     public void onCreate() {
@@ -317,21 +334,25 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         return systemReady;
     }
 
+    public boolean burst(final AbstractPacket packet) {
+        return burst(packet, TransportPreference.AGNOSTIC);
+    }
+
     /**
      * Sends a packet over the MANET
      * @param packet packet to send
      * @return true == attempting to send; false = unable to send (MANET not ready)
      */
-    public boolean burst(final AbstractPacket packet) {
+    public boolean burst(final AbstractPacket packet, final TransportPreference preferredTransport) {
         if ((packet == null) || !StatusHelper.isActive(manetOps.getStatus())) {
             Log.d(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
             return false;
         }
         if (handler == null) {
             CommsLog.log(CommsLog.Entry.Category.PROBLEM,"SqAnService handler is not ready yet; sending burst directly to ManetOps");
-            manetOps.burst(packet);
+            manetOps.burst(packet,preferredTransport);
         } else
-            handler.post(() -> manetOps.burst(packet));
+            handler.post(() -> manetOps.burst(packet,preferredTransport));
         return true;
     }
 

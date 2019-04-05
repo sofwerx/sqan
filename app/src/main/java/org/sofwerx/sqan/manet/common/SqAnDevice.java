@@ -35,6 +35,7 @@ public class SqAnDevice {
     private String uuidExtended; //this is the persistent ID for this device used solely to look for conflicts
     private MacAddress bluetoothMac;
     private String networkId; //this is the transient MANET ID for this device
+    private int transientAwareId = UNASSIGNED_UUID;
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
     private Status status = Status.OFFLINE;
@@ -90,6 +91,23 @@ public class SqAnDevice {
             callsign = teammate.getCallsign();
             bluetoothMac = teammate.getBluetoothMac();
         }
+    }
+
+    /**
+     * Finds the device that matches this WiFi Aware ID
+     * @param id
+     * @return null == not found
+     */
+    public static SqAnDevice findByTransientAwareID(int id) {
+        if ((id != UNASSIGNED_UUID) && (devices != null) && !devices.isEmpty()) {
+            synchronized (devices) {
+                for (SqAnDevice device:devices) {
+                    if ((device != null) && (device.transientAwareId == id))
+                        return device;
+                }
+            }
+        }
+        return null;
     }
 
     private void init(int uuid) {
@@ -246,6 +264,53 @@ public class SqAnDevice {
             }
         }
         return links;
+    }
+
+    public boolean isBtPreferred() {
+        switch (preferredTransport) {
+            case BLUETOOTH:
+            case BOTH:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    public boolean isWiFiPreferred() {
+        switch (preferredTransport) {
+            case WIFI:
+            case BOTH:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Sets the transient ID assigned by WiFi Aware for this device
+     * @param id
+     */
+    public void setTransientAwareId(int id) {
+        transientAwareId = id;
+    }
+    public int getTransientAwareId() { return transientAwareId; }
+
+    /**
+     * Takes all the updated values from the other device then removes the other device from the list of devices
+     * @param other
+     */
+    public void consume(SqAnDevice other) {
+        if (other == null)
+            return;
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Device "+other.getLabel()+" is being merged into "+getLabel());
+        update(other);
+        if ((devices == null) || devices.isEmpty())
+            return; //this should not happen
+        synchronized (devices) {
+            devices.remove(other);
+        }
     }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
@@ -562,7 +627,7 @@ public class SqAnDevice {
         CONNECTED,
         //TODO add a CHALLENGING status to support encrypted handshakes within network
         //TODO add a COUNTERSIGNING status to support encrypted handshakes within network
-        //FIXME note: encrypted internal connections are outside opf the scope of this project and will be handled sepsrately
+        //FIXME note: encrypted internal connections are outside of the scope of this project and will be handled sepsrately
         STALE,
         ERROR,
         OFFLINE
@@ -735,6 +800,8 @@ public class SqAnDevice {
         }
         if (other.networkId != null)
             networkId = other.networkId;
+        if (other.transientAwareId != UNASSIGNED_UUID)
+            transientAwareId = other.transientAwareId;
         if (other.callsign != null)
             callsign = other.callsign;
         if (other.uuidExtended != null)
@@ -784,6 +851,8 @@ public class SqAnDevice {
         if ((other.networkId != null) && (networkId != null) && (other.networkId.length() > 1) && other.networkId.equalsIgnoreCase(networkId))
             return true;
         if ((bluetoothMac != null) && bluetoothMac.isEqual(other.bluetoothMac))
+            return true;
+        if ((transientAwareId != UNASSIGNED_UUID) && (transientAwareId == other.transientAwareId))
             return true;
         return false;
     }
@@ -861,7 +930,7 @@ public class SqAnDevice {
             return true;
         } else {
             existing.update(device);
-            SavedTeammate teammate = new SavedTeammate(device.getUUID(),device.networkId);
+            SavedTeammate teammate = new SavedTeammate(device.getUUID());
             teammate.setBluetoothMac(device.bluetoothMac);
             Config.saveTeammate(teammate);
         }
@@ -877,6 +946,12 @@ public class SqAnDevice {
             return callsign;
         if (uuid > 0)
             return Integer.toString(uuid);
+        if ((networkId != null) && (networkId.length() > 1))
+            return "WiFi "+networkId;
+        if ((bluetoothMac != null) && bluetoothMac.isValid())
+            return "BT "+bluetoothMac.toString();
+        if (transientAwareId != UNASSIGNED_UUID)
+            return "Aware ID "+transientAwareId;
         return "unknown";
     }
 
@@ -1086,6 +1161,9 @@ public class SqAnDevice {
             lastHopUpdate = System.currentTimeMillis();
             setHopsAway(hopsAway, directBt, directWiFi);
         }
+    }
+
+    public void setLastConnect() { setLastConnect(System.currentTimeMillis());
     }
     public void setLastConnect(long time) {
         lastConnect = time;

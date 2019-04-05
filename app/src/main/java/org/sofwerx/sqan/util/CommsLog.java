@@ -3,10 +3,13 @@ package org.sofwerx.sqan.util;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -47,6 +50,28 @@ public class CommsLog {
             } catch (Exception e) {
                 e.printStackTrace();
                 isRunning.set(false);
+            }
+            try {
+                bwriter.append("Comms log started on ");
+                bwriter.newLine();
+                bwriter.append("  ");
+                bwriter.append(Build.MANUFACTURER);
+                bwriter.append(' ');
+                bwriter.append(Build.MODEL);
+                SqAnDevice device = Config.getThisDevice();
+                if (device != null) {
+                    bwriter.newLine();
+                    bwriter.append("  SqAN UUID ");
+                    bwriter.append(Integer.toString(device.getUUID()));
+                }
+                bwriter.newLine();
+                bwriter.append("  last reboot ");
+                bwriter.append(StringUtil.toDuration(SystemClock.elapsedRealtime()));
+                bwriter.append(" ago");
+                bwriter.newLine();
+                bwriter.append(" ------------------------ ");
+                bwriter.newLine();
+            } catch (IOException ignore) {
             }
         } else
             close();

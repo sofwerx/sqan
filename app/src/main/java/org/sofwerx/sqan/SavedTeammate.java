@@ -8,16 +8,20 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 public class SavedTeammate {
     private String callsign;
     private int sqAnAddress;
-    private String netID;
+    private String netID; //network ID is transient and should not be persisted
     private long lastContact;
     private MacAddress bluetoothMac;
     private String btName;
     private PairingStatus btPaired = PairingStatus.UNKNOWN;
     private boolean enabled = true;
 
-    public boolean isIncomplete() {
-        return !isBtPaired();
-        //TODO add more checks based on manets in use
+    public boolean isIncomplete(boolean checkBt, boolean checkWiFi) {
+        boolean problem = false;
+        if (checkBt)
+            problem = !isBtPaired();
+        if (checkWiFi)
+            problem = problem || (netID == null) || (netID.length() < 2);
+        return problem;
     }
 
     /**
@@ -44,9 +48,9 @@ public class SavedTeammate {
         parseJSON(obj);
     }
 
-    public SavedTeammate(int sqAnAddress, String netID) {
+    public SavedTeammate(int sqAnAddress) {
         this.callsign = null;
-        this.netID = netID;
+        this.netID = null;
         this.sqAnAddress = sqAnAddress;
         this.lastContact = System.currentTimeMillis();
     }
@@ -108,21 +112,23 @@ public class SavedTeammate {
     public int getSqAnAddress() { return sqAnAddress; }
     public long getLastContact() { return lastContact; }
     public MacAddress getBluetoothMac() { return bluetoothMac; }
-    public String getNetID() { return netID; }
     public void setCallsign(String callsign) { this.callsign = callsign; }
     public void setBluetoothMac(MacAddress mac) {
         if ((this.bluetoothMac != null) && !this.bluetoothMac.isEqual(mac))
             btPaired = PairingStatus.UNKNOWN;
         this.bluetoothMac = mac;
     }
+
+    public String getNetID() { return netID; }
     public void setNetID(String networkId) {
         this.netID = networkId;
         if ((this.netID != null) && (this.netID.length() < 1))
             this.netID = null;
     }
+
     public void setLastContact(long time) { this.lastContact = time; }
 
-    public boolean isUseful() { return (sqAnAddress > 0) || ((bluetoothMac != null) && bluetoothMac.isValid()) || ((netID != null) && (netID.length() > 1)); }
+    public boolean isUseful() { return (sqAnAddress > 0) || ((bluetoothMac != null) && bluetoothMac.isValid()); }
 
     public boolean isLikelySame(SavedTeammate other) {
         if (other == null)

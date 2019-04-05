@@ -15,13 +15,14 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
 
 public class DeviceSummary extends ConstraintLayout {
     private final static long TIME_TO_SHOW_FORWARDING = 1000l * 15l; //how long after a forward operation should the forwarding icon be visible
-    private TextView callsign, uuid, description;
+    private TextView callsign, uuid, ipv4, description;
     private TextView hops, links;
     private ImageView iconConnectivity;
     private ImageView iconPower;
@@ -55,6 +56,7 @@ public class DeviceSummary extends ConstraintLayout {
         View view = inflate(context,R.layout.device_summary,this);
         callsign = view.findViewById(R.id.deviceCallsign);
         uuid = view.findViewById(R.id.deviceUUID);
+        ipv4 = view.findViewById(R.id.deviceIP);
         description = view.findViewById(R.id.deviceDetails);
         iconConnectivity = view.findViewById(R.id.deviceConnectivity);
         iconPower = view.findViewById(R.id.deviceBattery);
@@ -79,19 +81,14 @@ public class DeviceSummary extends ConstraintLayout {
     public void update(SqAnDevice device) {
         if (device != null) {
             device.setUiSummary(this);
-            StringWriter out = new StringWriter();
-            out.append("(SqAN UUID: ");
-            if (device.isUuidKnown())
-                out.append(Integer.toString(device.getUUID()));
-            else
-                out.append("unknown");
-            /*if (device.getNetworkId() != null) {
-                out.append(", net ID: ");
-                out.append(device.getNetworkId());
-            }*/
-            out.append(')');
+            if (device.isUuidKnown()) {
+                uuid.setText("SqAN UUID: " + device.getUUID());
+                ipv4.setText("SqAN IP: " + device.getVpnIpv4AddressString());
+            } else {
+                uuid.setText(device.getLabel());
+                ipv4.setText("Unknown SqAN IP");
+            }
             callsign.setText(device.getCallsign());
-            uuid.setText(out.toString());
             StringWriter descOut = new StringWriter();
             descOut.append("Rx: ");
             long currentTally = device.getDataTally();
@@ -147,6 +144,7 @@ public class DeviceSummary extends ConstraintLayout {
             callsign.setText("No sensor");
             description.setVisibility(View.INVISIBLE);
             uuid.setVisibility(View.INVISIBLE);
+            ipv4.setVisibility(View.INVISIBLE);
             iconPower.setVisibility(View.INVISIBLE);
             iconConnectivity.setVisibility(View.INVISIBLE);
             markerBackhaul.setVisibility(View.INVISIBLE);
@@ -197,6 +195,7 @@ public class DeviceSummary extends ConstraintLayout {
             callsign.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             description.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             uuid.setTextColor(getContext().getResources().getColor(R.color.light_grey));
+            ipv4.setTextColor(getContext().getResources().getColor(R.color.light_grey));
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.light_grey));
             if (iconLoc != null)
@@ -211,6 +210,7 @@ public class DeviceSummary extends ConstraintLayout {
         } else {
             callsign.setTextColor(getContext().getResources().getColor(R.color.yellow));
             uuid.setTextColor(getContext().getResources().getColor(R.color.white));
+            ipv4.setTextColor(getContext().getResources().getColor(R.color.white));
             description.setTextColor(getContext().getResources().getColor(significant ? R.color.yellow : R.color.white_hint_green));
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.white_hint_green));

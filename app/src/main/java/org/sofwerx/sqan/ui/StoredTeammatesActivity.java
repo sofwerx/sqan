@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -22,16 +23,23 @@ import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.util.StringUtil;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 public class StoredTeammatesActivity extends AppCompatActivity implements StoredTeammateChangeListener {
+    private final static long DELAY_BEFORE_ASSUMING_DISCOVER_BROKEN = 1000l * 60l;
+    private final static long MAX_TIME_BEFORE_REBOOT_RECOMMENDED = 1000l * 60l * 60l * 12l; //if the device hasn't been rebooted within this time, then SqAN will recommend a reboot if discovery fails
     private StoredTeammatesList teammatesList;
     private Discovery btDiscovery;
     private FloatingActionButton fabFix;
     private CoordinatorLayout coordinatorLayout;
     private BluetoothAdapter bluetoothAdapter;
     private View viewSearching;
+    private Timer discoveryProblemCheckTimer = null;
+    private int teammateCountBeforeDiscovery = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +84,11 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
 
     @Override
     public void onDestroy() {
+        if (discoveryProblemCheckTimer != null) {
+            discoveryProblemCheckTimer.cancel();
+            discoveryProblemCheckTimer.purge();
+            discoveryProblemCheckTimer = null;
+        }
         unregisterReceiver(receiver);
         if (btDiscovery != null) {
             btDiscovery.stopDiscovery();
@@ -102,10 +115,48 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
 
     @Override
     public void onDiscoveryNeeded() {
+        Log.d(Config.TAG,"onDiscoveryNeeded() called");
         if (btDiscovery == null)
             btDiscovery = new Discovery(this);
         btDiscovery.startAdvertising();
         btDiscovery.startDiscovery();
+        teammateCountBeforeDiscovery = Config.getNumberOfSavedTeammates();
+        if (discoveryProblemCheckTimer == null) {
+            discoveryProblemCheckTimer = new Timer();
+            try {
+                discoveryProblemCheckTimer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        checkForDiscoveryFailure();
+                    }
+                }, DELAY_BEFORE_ASSUMING_DISCOVER_BROKEN);
+            } catch (IllegalStateException igrnore) {
+            }
+        }
+    }
+
+    private void checkForDiscoveryFailure() {
+        if (discoveryProblemCheckTimer != null) {
+            discoveryProblemCheckTimer.cancel();
+            discoveryProblemCheckTimer.purge();
+            discoveryProblemCheckTimer = null;
+        }
+
+        runOnUiThread(() -> {
+            if (Config.getNumberOfSavedTeammates() <= teammateCountBeforeDiscovery) { //discovery seems to have had no luck
+                Log.d(Config.TAG,"Discovery doesn't seem to have been successful");
+                boolean rebootRecommended = SystemClock.elapsedRealtime() > MAX_TIME_BEFORE_REBOOT_RECOMMENDED;
+                AlertDialog.Builder builder = new AlertDialog.Builder(StoredTeammatesActivity.this);
+                builder.setTitle(R.string.bt_discovery_problem_title);
+                if (rebootRecommended)
+                    builder.setMessage(getResources().getString(R.string.bt_discovery_problem_narrative_reboot, StringUtil.toDuration(SystemClock.elapsedRealtime())));
+                else
+                    builder.setMessage(R.string.bt_discovery_problem_narrative);
+                final AlertDialog dialog = builder.create();
+                dialog.setCanceledOnTouchOutside(true);
+                dialog.show();
+            }
+        });
     }
 
     @Override

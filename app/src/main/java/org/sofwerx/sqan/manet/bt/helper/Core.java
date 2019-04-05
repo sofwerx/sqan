@@ -17,10 +17,13 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.util.CommsLog;
 
 public class Core {
@@ -162,6 +165,8 @@ public class Core {
             if ((data != null) && !allSockets.isEmpty()) {
                 boolean sent = false;
                 int i=0;
+                boolean useThisManet = true;
+                AbstractPacket reconstructedPacket = null;
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
                     if (socket.isApplicableToThisDevice(destination)) {
@@ -169,12 +174,31 @@ public class Core {
                             if ((socket.getDevice() != null) && !socket.isThisDeviceOrigin(origin)) { //avoid circular reporting and spamming devices that haven't passed their basic identifying info yet
                                 if (!clientsOnly || (socket.getRole() == BTSocket.Role.SERVER)) {
                                     if (isForwardedPacket) {
-                                        socket.getDevice().setLastForward();
-                                        CommsLog.log(CommsLog.Entry.Category.COMMS,"BT socket #"+socket.getBtSocketIdNum()+" relaying "+data.length+"b from "+origin+" to "+socket.getDevice().getUUID()+((socket.getDevice()==null)?"":" ("+socket.getDevice().getCallsign()+")"));
+                                        if (socket.getDevice().isBtPreferred()) {
+                                            socket.getDevice().setLastForward();
+                                            CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " relaying " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ")"));
+                                        } else {
+                                            if ((SqAnService.getInstance() != null) && SqAnService.getInstance().isWiFiManetAvailable()) {
+                                                if (reconstructedPacket == null)
+                                                    reconstructedPacket = AbstractPacket.newFromBytes(data);
+                                                CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " referring " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ") for relay over WiFi"));
+                                                SqAnService.burstVia(reconstructedPacket, TransportPreference.WIFI);
+                                                useThisManet = (socket.getDevice().getPreferredTransport() == TransportPreference.BOTH);
+                                                if (useThisManet) {
+                                                    socket.getDevice().setLastForward();
+                                                    CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " relaying (WiFi was preferred but not available) " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ")"));
+                                                }
+                                            } else {
+                                                socket.getDevice().setLastForward();
+                                                CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " relaying (WiFi was preferred but not available) " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ")"));
+                                            }
+                                        }
                                     } else
                                         CommsLog.log(CommsLog.Entry.Category.COMMS,"BT socket #"+socket.getBtSocketIdNum()+" sending "+data.length+"b to "+socket.getDevice().getUUID());
-                                    socket.write(data);
-                                    sent = true;
+                                    if (useThisManet) {
+                                        socket.write(data);
+                                        sent = true;
+                                    }
                                 } else
                                     Log.d(TAG, "Skipping " + data.length + "b burst over BT socket #" + socket.getBtSocketIdNum() + " (packet destined for spokes only)");
                             }
@@ -253,21 +277,22 @@ public class Core {
         }
         UUID[] uuids = getSupportedUuids(device);
         if (uuids != null) {
-            Log.d(TAG, uuids.length+" UUIDs provided for "+name);
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION, uuids.length+" UUIDs provided for "+name+" ("+device.getAddress()+")");
             for (UUID uuid : uuids) {
-                if (uuid.equals(appUuid))
+                if (uuid.equals(appUuid)) {
+                    CommsLog.log(CommsLog.Entry.Category.CONNECTION, " ...which includes one with a SqAN designation");
                     return true;
+                }
             }
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION, " ...none of which are registered to SqAN");
         } else
-            Log.d(TAG, "No UUIDs provided for "+name);
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "No UUIDs provided for "+name+" ("+device.getAddress()+")");
         return false;
     }
 
     /**
      * Returns the supported features (UUIDs) of the remote device (no discovery!)
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    @SuppressLint("NewApi")
     public static UUID[] getSupportedUuids(BluetoothDevice device) {
         if (device == null)
             return null;
@@ -288,6 +313,7 @@ public class Core {
         }*/
 
         if (pUuids == null || pUuids.length == 0) {
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"No UUIDs stored for "+device.getName()+"; trying to fetch UUIDs with SDP...");
             device.fetchUuidsWithSdp();
             return null;
         }

@@ -31,9 +31,14 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
+import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -58,10 +63,10 @@ public class WiFiAwareManet extends AbstractManet {
     private WifiAwareSession awareSession;
     private final PublishConfig configPub;
     private final SubscribeConfig configSub;
-    private static final long INTERVAL_LISTEN_BEFORE_PUBLISH = 1000l * 60l; //amount of time to listen for an existing hub before assuming the hub role
+    private static final long INTERVAL_LISTEN_BEFORE_PUBLISH = 1000l * 30l; //amount of time to listen for an existing hub before assuming the hub role
     private Role role = Role.NONE;
     private DiscoverySession discoverySession;
-    private HashMap<PeerHandle,Long> nodes = new HashMap<>();
+    private ArrayList<Connection> connections = new ArrayList<>();
 
     private enum Role {HUB, SPOKE, NONE}
 
@@ -189,27 +194,29 @@ public class WiFiAwareManet extends AbstractManet {
     @Override
     protected boolean isWiFiBased() { return true; }
 
-    private PeerHandle findPeer(PeerHandle peerHandle) {
-        if ((peerHandle != null) && (nodes != null) && !nodes.isEmpty()) {
-            if (nodes.containsKey(peerHandle))
-                return peerHandle;
+    private Connection findPeer(PeerHandle peerHandle) {
+        if ((peerHandle != null) && (connections != null) && !connections.isEmpty()) {
+            int id = peerHandle.hashCode();
+            synchronized (connections) {
+                for (Connection connection : connections) {
+                    if ((connection != null) && (connection.getPeerHandle() != null) && (connection.getPeerHandle().hashCode() == id)) {
+                        Log.d(Config.TAG,"findPeer found Aware "+id);
+                        return connection;
+                    }
+                }
+            }
         }
         return null;
     }
 
-    private PeerHandle findPeer(String uuid) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if ((uuid != null) && (nodes != null) && !nodes.isEmpty()) {
-                try {
-                    int hash = Integer.parseInt(uuid);
-                    Iterator it = nodes.entrySet().iterator();
-                    while (it.hasNext()) {
-                        Map.Entry pair = (Map.Entry) it.next();
-                        PeerHandle handle = (PeerHandle) pair.getKey();
-                        if ((handle != null) && (handle.hashCode() == hash))
-                            return handle;
+    private Connection findConnectionWithTransientID(final int id) {
+        if ((connections != null) && !connections.isEmpty()) {
+            synchronized (connections) {
+                for (Connection connection : connections) {
+                    if ((connection != null) && (connection.getDevice()!= null) && (connection.getDevice().getTransientAwareId() == id)) {
+                        Log.d(Config.TAG,"findConnectionWithTransientID() found a match for Aware ID "+id+" in "+connection.getDevice().getLabel());
+                        return connection;
                     }
-                } catch (NumberFormatException ignore) {
                 }
             }
         }
@@ -219,23 +226,36 @@ public class WiFiAwareManet extends AbstractManet {
     private void updatePeer(PeerHandle peerHandle) {
         if (peerHandle == null)
             return;
-        PeerHandle old = findPeer(peerHandle);
+        Connection old = findPeer(peerHandle);
+        if (old == null)
+            old = findConnectionWithTransientID(peerHandle.hashCode());
         if (old == null) {
-            if (nodes == null)
-                nodes = new HashMap<>();
-            SqAnDevice device = SqAnDevice.findByNetworkID(Integer.toString(peerHandle.hashCode()));
-            if (device == null) {
-                device = new SqAnDevice();
-                device.setNetworkId(Integer.toString(peerHandle.hashCode()));
+            if (connections == null)
+                connections = new ArrayList<>();
+            synchronized (connections) {
+                int netId = peerHandle.hashCode();
+                SqAnDevice device = SqAnDevice.findByTransientAwareID(netId);
+                if (device == null) {
+                    device = new SqAnDevice();
+                    Log.d(Config.TAG, "WiFi Aware ID " + netId + " does not match an existing device, creating a new device");
+                } else
+                    Log.d(Config.TAG, "WiFi Aware ID " + netId + " matches existing device: " + device.getLabel());
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "New WiFi Aware connection (" + peerHandle.hashCode() + ") for " + device.getLabel());
+                device.setConnected(0, false, true);
+                old = new Connection(peerHandle, device);
+                old.setLastConnection();
+                connections.add(old);
             }
-            device.setConnected(0,false,true);
+            SqAnService.burstVia(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),TransportPreference.WIFI);
+        } else {
+            Log.d(Config.TAG,"updatePeer() found existing connection to Aware "+peerHandle.hashCode());
+            old.setLastConnection();
         }
-        nodes.put(peerHandle,System.currentTimeMillis());
     }
 
     private void startAdvertising() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Log.d(Config.TAG, "startAdvertising()");
+            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware - startAdvertising()");
             if (discoverySession != null) {
                 discoverySession.close();
                 discoverySession = null;
@@ -249,22 +269,22 @@ public class WiFiAwareManet extends AbstractManet {
                         Log.d(Config.TAG, "onPublishStarted()");
                         discoverySession = session;
                         role = Role.HUB;
-                        nodes = new HashMap<>();
                         setStatus(Status.CONNECTED);
-                        //TODO
+                        if (listener != null)
+                            listener.onStatus(status);
                     }
 
                     @Override
                     public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
                         if (role == Role.NONE) {
                             role = Role.SPOKE;
-                            Log.d(Config.TAG, "onMessageReceived() - changing role to SPOKE");
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onMessageReceived() - changing role to SPOKE");
                         } else
                             Log.d(Config.TAG, "onMessageReceived()");
                         if (handler != null)
                             handler.post(() -> {
                                 updatePeer(peerHandle);
-                                //TODO consume the message
+                                handleMessage(findConnection(peerHandle),message);
                             });
                     }
                 }, handler);
@@ -272,10 +292,87 @@ public class WiFiAwareManet extends AbstractManet {
         }
     }
 
+    private Connection findConnection(PeerHandle peerHandle) {
+        if ((peerHandle != null) && (connections != null) && !connections.isEmpty()) {
+            int handleToFind = peerHandle.hashCode();
+            synchronized (connections) {
+                for (Connection connection:connections) {
+                    if ((connection != null) && (connection.getPeerHandle() != null) && (connection.getPeerHandle().hashCode() == handleToFind))
+                        return connection;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void handleMessage(Connection connection,byte[] message) {
+        if (message == null) {
+            CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received an empty message");
+            return;
+        }
+        if (connection == null) {
+            CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from a null connection; this should never happen");
+            return;
+        }
+
+        connection.setLastConnection();
+        AbstractPacket packet = AbstractPacket.newFromBytes(message);
+        if (packet == null) {
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFi Aware message from "+((connection.getDevice()==null)?"unknown device":connection.getDevice().getLabel())+" could not be parsed");
+            return;
+        }
+        SqAnDevice device;
+        if (packet.isDirectFromOrigin())
+            device = SqAnDevice.findByUUID(packet.getOrigin());
+        else
+            device = connection.getDevice();
+        if (device == null)
+            CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from an unknown device");
+        if (device != null) {
+            Log.d(Config.TAG,"WiFi Aware received a message from "+device.getLabel()+" (Aware "+((connection.getPeerHandle()==null)?"unk peer handle":connection.getPeerHandle().hashCode())+")");
+            device.setHopsAway(packet.getCurrentHopCount(), false, true);
+            device.setLastConnect();
+            if (packet.isDirectFromOrigin())
+                connection.setDevice(device);
+        }
+        relayPacketIfNeeded(connection,message,packet.getSqAnDestination(),packet.getOrigin(),packet.getCurrentHopCount());
+        super.onReceived(packet);
+    }
+
+    private void relayPacketIfNeeded(Connection originConnection, final byte[] data, final int destination, final int origin, final int hopCount) {
+        if ((originConnection != null) && (data != null) && (connections != null) && !connections.isEmpty()) {
+            synchronized (connections) {
+                SqAnDevice device;
+                AbstractPacket reconstructed = null;
+                for (Connection connection : connections) {
+                    if ((connection == null) || (originConnection == connection) || (connection.getDevice() == null))
+                        continue;
+                    device = connection.getDevice();
+                    if ((device.getUUID() != origin) //dont send to ourselves
+                        && AddressUtil.isApplicableAddress(device.getUUID(),destination)
+                        && hopCount < device.getHopsToDevice(origin)) {
+                        CommsLog.log(CommsLog.Entry.Category.COMMS,"WiFi Aware relaying packet from "+origin+" ("+hopCount+" hops) to "+device.getLabel());
+
+                        if (device.isWiFiPreferred())
+                            burst(data,connection.getPeerHandle());
+                        if (device.isBtPreferred()) {
+                            CommsLog.log(CommsLog.Entry.Category.COMMS,"WiFi Aware referring packet from "+origin+" ("+hopCount+" hops) to "+device.getLabel()+" for relay via bluetooth");
+                            if (reconstructed == null)
+                                reconstructed = AbstractPacket.newFromBytes(data);
+                            SqAnService.burstVia(reconstructed, TransportPreference.BLUETOOTH);
+                        }
+                    }
+                }
+            }
+        } else
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Aware cannot relay a null packet or handle a null connection origin");
+    }
+
     private void startDiscovery() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Log.d(Config.TAG, "startDiscovery()");
+            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware discovery started");
             if (discoverySession != null) {
+                Log.d(Config.TAG,"Stopping previous Aware discoverySession to start new discoverySession");
                 discoverySession.close();
                 discoverySession = null;
                 setStatus(Status.CHANGING_MEMBERSHIP);
@@ -286,28 +383,31 @@ public class WiFiAwareManet extends AbstractManet {
                 awareSession.subscribe(configSub, new DiscoverySessionCallback() {
                     @Override
                     public void onSubscribeStarted(final SubscribeDiscoverySession session) {
-                        Log.d(Config.TAG, "onSubscribeStarted()");
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onSubscribeStarted()");
                         discoverySession = session;
-                        nodes = new HashMap<>();
                         setStatus(Status.CONNECTED);
-                        //TODO
                     }
 
                     @Override
                     public void onServiceDiscovered(PeerHandle peerHandle, byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
-                        Log.d(Config.TAG, "onSubscribeStarted()");
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onServiceDiscovered()");
+                        setStatus(Status.CONNECTED);
+                        if (role == Role.NONE)
+                            role = Role.SPOKE;
                         if (handler != null)
                             handler.post(() -> updatePeer(peerHandle));
-                        //TODO
+                        if (listener != null)
+                            listener.onStatus(status);
                     }
                 }, handler);
             }
         }
     }
 
+
     private void burst(AbstractPacket packet, PeerHandle peerHandle) {
         if (packet == null) {
-            Log.d(Config.TAG,"Cannot send empty packet");
+            Log.d(Config.TAG,"Aware Cannot send empty packet");
             return;
         }
         burst(packet.toByteArray(),peerHandle);
@@ -315,23 +415,25 @@ public class WiFiAwareManet extends AbstractManet {
 
     private void burst(final byte[] bytes, final PeerHandle peerHandle) {
         if (bytes == null) {
-            Log.d(Config.TAG,"Cannot send empty byte array");
+            Log.d(Config.TAG,"Aware cannot send empty byte array");
             return;
         }
         if (peerHandle == null) {
-            Log.d(Config.TAG,"Cannot send packet to an empty PeerHandle");
+            Log.d(Config.TAG,"Aware cannot send packet to an empty PeerHandle");
             return;
         }
         if (discoverySession == null) {
-            Log.d(Config.TAG,"Cannot send packet as no DiscoverySession exists");
+            Log.d(Config.TAG,"Aware cannot send packet as no discoverySession exists");
             return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (bytes.length > getMaximumPacketSize()) {
                 Log.d(Config.TAG, "Packet larger than WiFi Aware max; segmenting and sending");
                 //TODO segment and burst
-            } else
+            } else {
+                Log.d(Config.TAG,"WiFi Aware queuing packet to send to "+peerHandle.hashCode());
                 handler.post(() -> discoverySession.sendMessage(peerHandle, 0, bytes));
+            }
         } else
             Log.d(Config.TAG,"Cannot burst, WiFi Aware is not supported");
     }
@@ -341,15 +443,18 @@ public class WiFiAwareManet extends AbstractManet {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (handler != null) {
                 handler.post(() -> {
-                    if ((nodes != null) && !nodes.isEmpty()) {
-                        Log.d(Config.TAG, "burst(packet)");
-                        Iterator it = nodes.entrySet().iterator();
-                        while (it.hasNext()) {
-                            Map.Entry pair = (Map.Entry) it.next();
-                            burst(packet, (PeerHandle) pair.getKey());
+                    if ((connections != null) && !connections.isEmpty()) {
+                        synchronized (connections) {
+                            Log.d(Config.TAG, "Aware burst(packet)");
+                            for (Connection connection:connections) {
+                                if ((connection.getDevice() != null) && (connection.getPeerHandle() != null)) {
+                                    if (AddressUtil.isApplicableAddress(connection.getDevice().getUUID(), packet.getSqAnDestination()))
+                                        burst(packet, connection.getPeerHandle());
+                                }
+                            }
                         }
                     } else
-                        Log.d(Config.TAG, "Tried to burst but no nodes available to receive");
+                        Log.d(Config.TAG, "Aware tried to burst but no nodes available to receive");
                 });
             }
         }
@@ -382,7 +487,6 @@ public class WiFiAwareManet extends AbstractManet {
                     if (role == Role.NONE) {
                         Log.d(Config.TAG,"no existing network found");
                         setStatus(Status.CHANGING_MEMBERSHIP);
-                        //no hub was found, assume hub role
                         assumeHubRole();
                     } else
                         Log.d(Config.TAG,"No need to change roles (currently "+role.name()+") as it appears discovery was successful");
@@ -437,15 +541,25 @@ public class WiFiAwareManet extends AbstractManet {
                 Log.e(Config.TAG, "Unable to initialize WiFi Aware: " + e.getMessage());
             }
         }
-        //clear out stale nodes
-        if ((nodes != null) && !nodes.isEmpty()) {
-            Iterator it = nodes.entrySet().iterator();
-            long timeToConsiderStale = System.currentTimeMillis() + TIME_TO_CONSIDER_STALE_DEVICE;
-            while (it.hasNext()) {
-                Map.Entry pair = (Map.Entry)it.next();
-                if ((long)pair.getValue() > timeToConsiderStale) {
-                    it.remove();
-                    //TODO consider notifying the link that the culling has occurred
+
+        removeUnresponsiveConnections();
+    }
+
+    private void removeUnresponsiveConnections() {
+        if ((connections != null) && !connections.isEmpty()) {
+            synchronized (connections) {
+                int i=0;
+                final long timeToConsiderStale = System.currentTimeMillis() - TIME_TO_CONSIDER_STALE_DEVICE;
+                while (i<connections.size()) {
+                    if (connections.get(i) == null) {
+                        connections.remove(i);
+                        continue;
+                    }
+                    if (timeToConsiderStale > connections.get(i).getLastConnection()) {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing stale WiFi Aware connection: "+((connections.get(i).getDevice()==null)?"device unknown":connections.get(i).getDevice().getLabel()));
+                        connections.remove(i);
+                    } else
+                        i++;
                 }
             }
         }

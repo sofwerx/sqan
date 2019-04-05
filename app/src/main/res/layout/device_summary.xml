@@ -165,13 +165,29 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:gravity="center_vertical"
-        android:padding="2dp"
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
         android:text="@string/callsign"
         android:textColor="@color/white"
         android:textSize="10sp"
         app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
         app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toBottomOf="@id/deviceCallsign"/>
+
+    <TextView
+        android:id="@+id/deviceIP"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
+        android:text="0.0.0.0"
+        android:textColor="@color/white"
+        android:textSize="10sp"
+        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
+        app:layout_constraintTop_toBottomOf="@id/deviceUUID"/>
 
     <TextView
         android:id="@+id/deviceDetails"
@@ -183,6 +199,6 @@
         android:paddingStart="2dp"
         app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
-        app:layout_constraintTop_toBottomOf="@id/deviceUUID"/>
+        app:layout_constraintTop_toBottomOf="@id/deviceIP"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

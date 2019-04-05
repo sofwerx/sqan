@@ -56,4 +56,7 @@
     <string name="teammates_fix_alert">Incomplete Teammate Info</string>
     <string name="fix_teammates">Fix</string>
     <string name="no_link_device">Do Not Link</string>
+    <string name="bt_discovery_problem_title">No New Teammates Found</string>
+    <string name="bt_discovery_problem_narrative">SqAN didn\'t find any new teammates. It seems like this scan may not have worked at all.</string>
+    <string name="bt_discovery_problem_narrative_reboot">SqAN didn\'t find any new teammates. This device hasn\'t been rebooted in %1$s and some devices have bluetooth discovery problems when they have not been recently rebooted. Try rebooting this device.</string>
 </resources>

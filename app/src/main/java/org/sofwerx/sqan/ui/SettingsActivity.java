@@ -63,7 +63,8 @@ public class SettingsActivity extends Activity {
                 SqAnVpnService.start(SqAnService.getInstance());
             else
                 SqAnVpnService.stop(SqAnService.getInstance());
-        } else if (Config.PREFS_WRITE_LOG.equalsIgnoreCase(key)) {
+        } else if (Config.PREFS_WRITE_LOG.equalsIgnoreCase(key)
+                || (Config.PREFS_IGNORE_0_0_0_0.equalsIgnoreCase(key))) {
             Config.recheckPreferences(this);
             CommsLog.init(this);
         }

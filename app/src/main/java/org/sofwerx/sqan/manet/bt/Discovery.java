@@ -106,7 +106,8 @@ public class Discovery {
             for (BluetoothDevice device : pairedDevices) {
                 handleFoundDevice(device);
             }
-        }
+        } else
+            Log.d(Config.TAG,"startDiscovery() - No previously paired devices available");
     }
 
     private static boolean hasPairedMac(MacAddress mac, Set<BluetoothDevice> pairedDevices) {
@@ -163,7 +164,6 @@ public class Discovery {
         if (isSqAn) {
             Log.d(Config.TAG,"SqAN Bluetooth device found");
             int uuid = SqAnDevice.UNASSIGNED_UUID;
-            //teammate = null;
             if ((teammate == null) && (deviceName != null)) {
                 try {
                     uuid = Integer.parseInt(deviceName.substring(SQAN_PREFIX.length()));

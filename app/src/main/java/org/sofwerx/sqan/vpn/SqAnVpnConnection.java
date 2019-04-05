@@ -74,19 +74,21 @@ public class SqAnVpnConnection implements Runnable {
                     packet.get(rawBytes);
                     VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
                     int destinationIp = NetUtil.getDestinationIpFromIpPacket(rawBytes);
-                    byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
-                    if (destinationIp != SqAnDevice.BROADCAST_IP) {
-                        SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
-                        if (device == null)
-                            Log.d(getTag(),"VpnPacket destined for an IP address that I do not recognize - broadcasting this message to all devices");
-                        else {
-                            Log.d(getTag(),"VpnPacket (DSCP "+NetUtil.getDscpType(dscp).name()+") being forwarded to "+device.getCallsign());
-                            outgoing.setDestination(device.getUUID());
+                    if (!Config.isIgnoringPacketsTo0000() || (destinationIp != 0)) {
+                        byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
+                        if (destinationIp != SqAnDevice.BROADCAST_IP) {
+                            SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
+                            if (device == null)
+                                Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
+                            else {
+                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ") being forwarded to " + device.getCallsign());
+                                outgoing.setDestination(device.getUUID());
+                            }
                         }
+                        outgoing.setData(rawBytes);
+                        Log.d(getTag(), "Outgoing bytes: " + NetUtil.getStringOfBytesForDebug(rawBytes));
+                        sqAnService.burst(outgoing);
                     }
-                    outgoing.setData(rawBytes);
-                    Log.d(getTag(),"Outgoing bytes: "+ NetUtil.getStringOfBytesForDebug(rawBytes));
-                    sqAnService.burst(outgoing);
 
                     packet.clear();
 

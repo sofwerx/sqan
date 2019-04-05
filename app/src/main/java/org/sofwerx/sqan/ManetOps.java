@@ -19,6 +19,7 @@ import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.RawBytesPacket;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
+import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
@@ -69,7 +70,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
                     case 2:
                         wifiManet = new WiFiAwareManet(handler,sqAnService,manetOps);
-                        btManet = new BtManetV2(handler,sqAnService,manetOps);
+                        //FIXME temporarily ignoring btMane to just trouble shoot WiFi Aware; btManet = new BtManetV2(handler,sqAnService,manetOps);
+                        btManet = null;
                         break;
 
                     case 3:
@@ -373,6 +375,10 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public AbstractManet getBtManet() { return btManet; }
 
     public void burst(AbstractPacket packet) {
+        burst(packet, TransportPreference.AGNOSTIC);
+    }
+
+    public void burst(final AbstractPacket packet, final TransportPreference preferredTransport) {
         if (packet == null) {
             Log.d(Config.TAG, "ManetOps cannot burst a null packet");
             return;
@@ -380,47 +386,74 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         if ((btManet == null) && (wifiManet == null))
             Log.d(Config.TAG,"ManetOps cannot burst without an available MANET");
         else {
-            try {
-                boolean btGood = (btManet != null) && (btManet.getStatus() == Status.CONNECTED);
-                boolean wifiGood = (wifiManet != null) && (wifiManet.getStatus() == Status.CONNECTED);
-                if (btGood && wifiGood) {
-                    if (packet.isHighPerformanceNeeded())
-                        wifiManet.burst(packet);
-                    else {
-                        if (PacketHeader.BROADCAST_ADDRESS == packet.getSqAnDestination()) {
-                            wifiManet.burst(packet);
-                            btManet.burst(packet);
-                        } else {
-                            SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
-                            if (device == null) {
-                                wifiManet.burst(packet);
-                                btManet.burst(packet);
+            if (handler != null) {
+                handler.post(() -> {
+                    try {
+                        if ((preferredTransport == null) || (preferredTransport == TransportPreference.AGNOSTIC)) {
+                            boolean btGood = (btManet != null) && (btManet.getStatus() == Status.CONNECTED);
+                            boolean wifiGood = (wifiManet != null) && (wifiManet.getStatus() == Status.CONNECTED);
+                            if (btGood && wifiGood) {
+                                if (packet.isHighPerformanceNeeded())
+                                    wifiManet.burst(packet);
+                                else {
+                                    if (PacketHeader.BROADCAST_ADDRESS == packet.getSqAnDestination()) {
+                                        wifiManet.burst(packet);
+                                        btManet.burst(packet);
+                                    } else {
+                                        SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
+                                        if (device == null) {
+                                            wifiManet.burst(packet);
+                                            btManet.burst(packet);
+                                        } else {
+                                            switch (device.getPreferredTransport()) {
+                                                case WIFI:
+                                                    wifiManet.burst(packet);
+                                                    break;
+
+                                                case BLUETOOTH:
+                                                    btManet.burst(packet);
+                                                    break;
+
+                                                default:
+                                                    wifiManet.burst(packet);
+                                                    btManet.burst(packet);
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
-                                switch (device.getPreferredTransport()) {
-                                    case WIFI:
-                                        wifiManet.burst(packet);
-                                        break;
-
-                                    case BLUETOOTH:
+                                //at least one mesh isn't completely healthy so send over both
+                                if (wifiManet != null)
+                                    wifiManet.burst(packet);
+                                if (btManet != null)
+                                    btManet.burst(packet);
+                            }
+                        } else {
+                            if ((preferredTransport == null) || (preferredTransport == TransportPreference.BOTH)) {
+                                if (wifiManet != null)
+                                    wifiManet.burst(packet);
+                                if (btManet != null)
+                                    btManet.burst(packet);
+                            } else if (preferredTransport == TransportPreference.WIFI) {
+                                if (wifiManet != null)
+                                    wifiManet.burst(packet);
+                                else {
+                                    if (btManet != null)
                                         btManet.burst(packet);
-                                        break;
-
-                                    default:
+                                }
+                            } else if (preferredTransport == TransportPreference.BLUETOOTH) {
+                                if (btManet != null)
+                                    btManet.burst(packet);
+                                else {
+                                    if (wifiManet != null)
                                         wifiManet.burst(packet);
-                                        btManet.burst(packet);
                                 }
                             }
                         }
+                    } catch (Exception e) {
+                        Log.e(Config.TAG, "Unable to burst packet: " + e.getMessage());
                     }
-                } else {
-                    //at least one mesh isn't completely healthy so send over both
-                    if (wifiManet != null)
-                        wifiManet.burst(packet);
-                    if (btManet != null)
-                        btManet.burst(packet);
-                }
-            } catch (Exception e) {
-                Log.e(Config.TAG,"Unable to burst packet: "+e.getMessage());
+                });
             }
         }
     }
@@ -468,5 +501,41 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         Log.d(Config.TAG,"Received a request for a burst via IPC");
         if ((packet != null) && (!packet.isAdminPacket())) //other apps are not allowed to send Admin packets
             burst(packet);
+    }
+
+    /**
+     * Does the current mesh strategy include a bluetooth manet
+     * @return
+     */
+    public boolean isBtManetSelected() {
+        return (btManet != null);
+    }
+
+    /**
+     * Does the current mesh strategy include a WiFi Direct manet
+     * @return
+     */
+    public boolean isWiFiDirectManetSelected() {
+        return ((wifiManet != null) && (wifiManet instanceof WiFiDirectManet));
+    }
+
+    /**
+     * Does the current mesh strategy include a WiFi Direct manet
+     * @return
+     */
+    public boolean isWiFiAwareManetSelected() {
+        return ((wifiManet != null) && (wifiManet instanceof WiFiAwareManet));
+    }
+
+    public boolean isBtManetAvailable() {
+        if (!isBtManetSelected() || !shouldBeActive)
+            return false;
+        return btManet.isRunning();
+    }
+
+    public boolean isWiFiManetAvailable() {
+        if ((wifiManet == null) || !shouldBeActive)
+            return false;
+        return wifiManet.isRunning();
     }
 }

@@ -32,6 +32,7 @@ public class Config {
     public final static String PREF_CLEAR_TEAM = "clearteam";
     private final static String PREFS_SAVED_TEAM = "savedteam";
     public final static String PREFS_VPN_MODE = "vpnmode";
+    public final static String PREFS_IGNORE_0_0_0_0 = "no0000";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
@@ -43,6 +44,7 @@ public class Config {
     private static boolean vpnLandingPage = true;
     private static boolean writeLog = true;
     private static boolean warnIncomplete = true;
+    private static boolean ignore0000 = true;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
 
@@ -118,6 +120,7 @@ public class Config {
         vpnLandingPage = prefs.getBoolean(PREFS_VPN_MODE,true);
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
         warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
+        ignore0000 = prefs.getBoolean(PREFS_IGNORE_0_0_0_0,true);
     }
 
     public static boolean isVpnEnabled() {
@@ -155,7 +158,8 @@ public class Config {
                 if (device.getUUID() > 0) {
                     SavedTeammate teammate = getTeammate(device.getUUID());
                     if (teammate == null) {
-                        teammate = new SavedTeammate(device.getUUID(),device.getNetworkId());
+                        teammate = new SavedTeammate(device.getUUID());
+                        teammate.setNetID(device.getNetworkId());
                         teammate.setCallsign(device.getCallsign());
                         teammate.setBluetoothMac(device.getBluetoothMac());
                         teammate.setLastContact(device.getLastConnect());
@@ -349,8 +353,9 @@ public class Config {
         return null;
     }
 
-    public static SavedTeammate saveTeammate(int sqAnAddress, String netID, String callsign, MacAddress btMAC) {
-        SavedTeammate savedTeammate = new SavedTeammate(sqAnAddress, netID);
+    public static SavedTeammate saveTeammate(int sqAnAddress, String netId, String callsign, MacAddress btMAC) {
+        SavedTeammate savedTeammate = new SavedTeammate(sqAnAddress);
+        savedTeammate.setNetID(netId);
         savedTeammate.setCallsign(callsign);
         savedTeammate.setBluetoothMac(btMAC);
         return saveTeammate(savedTeammate);
@@ -382,5 +387,5 @@ public class Config {
     public static void setVpnEnabled(boolean b) {
         vpnMode = true;
     }
-
+    public static boolean isIgnoringPacketsTo0000() { return ignore0000; }
 }

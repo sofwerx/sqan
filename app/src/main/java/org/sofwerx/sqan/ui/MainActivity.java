@@ -312,13 +312,19 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 dialog.setCanceledOnTouchOutside(true);
                 dialog.show();
             } else {
+                boolean checkBt = true;
+                boolean checkWiFi = true;
+                if ((sqAnService != null) && (sqAnService.getManetOps() != null)) {
+                    checkBt = sqAnService.getManetOps().isBtManetSelected();
+                    checkWiFi = sqAnService.getManetOps().isWiFiDirectManetSelected();
+                }
                 int teammatesMissing = 0;
                 int totalTeammates = 0;
                 synchronized (teammates) {
                     for (SavedTeammate teammate:teammates) {
                         if (teammate.isEnabled()) {
                             totalTeammates++;
-                            if (teammate.isIncomplete())
+                            if (teammate.isIncomplete(checkBt,checkWiFi))
                                 teammatesMissing++;
                         }
                     }

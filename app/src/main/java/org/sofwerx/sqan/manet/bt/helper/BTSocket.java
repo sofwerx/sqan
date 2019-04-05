@@ -108,7 +108,7 @@ public class BTSocket {
             if (teammate != null) {
                 CommsLog.log(CommsLog.Entry.Category.COMMS,"BT connection match to "+((teammate.getCallsign()==null)?"saved teammate":teammate.getCallsign())+" info found");
                 device = new SqAnDevice(teammate.getSqAnAddress(),teammate.getCallsign());
-                device.setNetworkId(teammate.getNetID());
+                //device.setNetworkId(teammate.getNetID());
                 device.setBluetoothMac(mac.toString());
                 if (SqAnDevice.add(device))
                     teammate.setSqAnId(device.getUUID());
