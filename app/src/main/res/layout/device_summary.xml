@@ -198,7 +198,7 @@
         android:textSize="10sp"
         android:paddingStart="2dp"
         app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
-        app:layout_constraintEnd_toStartOf="@id/deviceConnectivity"
+        app:layout_constraintEnd_toStartOf="@id/deviceLocationFrame"
         app:layout_constraintTop_toBottomOf="@id/deviceIP"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

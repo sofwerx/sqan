@@ -7,6 +7,8 @@ import android.util.TimeUtils;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.ipc.BftDevice;
+import org.sofwerx.sqan.manet.common.issues.AbstractCommsIssue;
+import org.sofwerx.sqan.manet.common.issues.PacketDropIssue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
@@ -57,6 +59,9 @@ public class SqAnDevice {
     private int ipV4Address = Integer.MIN_VALUE;
     private TransportPreference preferredTransport = TransportPreference.AGNOSTIC;
     private long connectionStart = Long.MIN_VALUE;
+    private final static int MAX_ISSUES_LOG = 20;
+    private ArrayList<AbstractCommsIssue> issues;
+    private int packetsDropped = 0;
 
     /**
      * SqAnDevice
@@ -65,6 +70,8 @@ public class SqAnDevice {
     public SqAnDevice(int uuid) {
         init(uuid);
     }
+
+    public long getFirstConnection() { return connectionStart; }
 
     /**
      * Constructor that creates a placeholder UUID that is later intended to be updated
@@ -311,6 +318,24 @@ public class SqAnDevice {
         synchronized (devices) {
             devices.remove(other);
         }
+    }
+
+    public void addIssue(AbstractCommsIssue issue) {
+        if (issue == null)
+            return;
+        if (issues == null)
+            issues = new ArrayList<>();
+        synchronized (issues) {
+            issues.add(issue);
+            if (issue instanceof PacketDropIssue)
+                packetsDropped++;
+            if (issues.size() > MAX_ISSUES_LOG)
+                issues.remove(0);
+        }
+    }
+
+    public int getPacketsDropped() {
+        return packetsDropped;
     }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }

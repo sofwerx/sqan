@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqAnVpnConnection implements Runnable {
-    private final static int MTU_SIZE = 1500;
+    //private final static int MTU_SIZE = 1500;
     private static final int MAX_PACKET_SIZE = Short.MAX_VALUE; //Max packet size cannot exceed MTU constraint of Short
     private static final long IDLE_INTERVAL_MS = TimeUnit.MILLISECONDS.toMillis(100);
     private final VpnService vpnService;
@@ -86,7 +86,7 @@ public class SqAnVpnConnection implements Runnable {
                             }
                         }
                         outgoing.setData(rawBytes);
-                        Log.d(getTag(), "Outgoing bytes: " + NetUtil.getStringOfBytesForDebug(rawBytes));
+                        //Log.d(getTag(), "Outgoing bytes: " + NetUtil.getStringOfBytesForDebug(rawBytes));
                         sqAnService.burst(outgoing);
                     }
 
@@ -124,9 +124,14 @@ public class SqAnVpnConnection implements Runnable {
             return null;
         }
         VpnService.Builder builder = vpnService.new Builder();
-        builder.setMtu(MTU_SIZE);
+        builder.setMtu(Config.getMtuSize());
         builder.addAddress(thisDevice.getVpnIpv4AddressString(),16);
         builder.addRoute(AddressUtil.VPN_NET_MASK,16);
+        if (Config.isMulticastEnabled()) {
+            for (String route:AddressUtil.VPN_MULTICAST_MASK) {
+                builder.addRoute(route, 8);
+            }
+        }
         final ParcelFileDescriptor vpnInterface;
         builder.setSession("SqAnVpn").setConfigureIntent(configureIntent);
         synchronized (vpnService) {

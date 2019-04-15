@@ -98,6 +98,12 @@ public class DeviceSummary extends ConstraintLayout {
                     showPing();
             }
             descOut.append(StringUtil.toDataSize(lastData));
+            long elapsedTime = (System.currentTimeMillis() - device.getFirstConnection())/1000l;
+            if (elapsedTime > 60l) {
+                descOut.append(" (");
+                descOut.append(StringUtil.getDataRate(device.getDataTally(),elapsedTime));
+                descOut.append(')');
+            }
             long lastLatency = device.getLastLatency();
             if (lastLatency > 0l) {
                 descOut.append("; latency ");
@@ -105,6 +111,11 @@ public class DeviceSummary extends ConstraintLayout {
                 descOut.append("ms (avg ");
                 descOut.append(Long.toString(device.getAverageLatency()));
                 descOut.append("ms)");
+            }
+            if (device.getPacketsDropped() > 0) {
+                descOut.append("; ");
+                descOut.append(Integer.toString(device.getPacketsDropped()));
+                descOut.append((device.getPacketsDropped()==1)?" pkt drop":" pkts drop");
             }
             CommsLog.Entry lastEntry = device.getLastEntry();
             if (lastEntry != null) {

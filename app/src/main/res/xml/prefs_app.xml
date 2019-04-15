@@ -51,11 +51,25 @@
             android:summary="Host a web page on this device that provides basic device stats. Primarily used for checking connectivity."
             android:defaultValue="true"/>
 
+        <EditTextPreference
+            android:key="mtu"
+            android:dependency="vpnmode"
+            android:title="MTU"
+            android:summary="VPN Maximum Transmission Unit size (bytes)"
+            android:defaultValue="1500"/>
+
+        <CheckBoxPreference
+            android:key="multicast"
+            android:dependency="vpnmode"
+            android:title="Forward multicast"
+            android:summary="Forward multicast traffic over the VPN"
+            android:defaultValue="true"/>
+
         <CheckBoxPreference
             android:key="no0000"
             android:dependency="vpnmode"
             android:title="Ignore 0.0.0.0"
-            android:summary="To not forward any traffic sent to IP address 0.0.0.0"
+            android:summary="Do not forward any traffic sent to IP address 0.0.0.0"
             android:defaultValue="true"/>
     </PreferenceCategory>
 

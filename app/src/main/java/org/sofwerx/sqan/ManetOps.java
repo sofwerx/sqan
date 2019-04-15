@@ -9,6 +9,7 @@ import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
 import org.sofwerx.sqan.ipc.IpcSaBroadcastTransmitter;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
+import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
@@ -398,25 +399,31 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                 else {
                                     if (PacketHeader.BROADCAST_ADDRESS == packet.getSqAnDestination()) {
                                         wifiManet.burst(packet);
-                                        btManet.burst(packet);
+                                        if (!BTSocket.isCongested())
+                                            btManet.burst(packet);
                                     } else {
                                         SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
                                         if (device == null) {
                                             wifiManet.burst(packet);
-                                            btManet.burst(packet);
+                                            if (!BTSocket.isCongested())
+                                                btManet.burst(packet);
                                         } else {
-                                            switch (device.getPreferredTransport()) {
-                                                case WIFI:
-                                                    wifiManet.burst(packet);
-                                                    break;
+                                            if (BTSocket.isCongested())
+                                                wifiManet.burst(packet);
+                                            else {
+                                                switch (device.getPreferredTransport()) {
+                                                    case WIFI:
+                                                        wifiManet.burst(packet);
+                                                        break;
 
-                                                case BLUETOOTH:
-                                                    btManet.burst(packet);
-                                                    break;
+                                                    case BLUETOOTH:
+                                                        btManet.burst(packet);
+                                                        break;
 
-                                                default:
-                                                    wifiManet.burst(packet);
-                                                    btManet.burst(packet);
+                                                    default:
+                                                        wifiManet.burst(packet);
+                                                        btManet.burst(packet);
+                                                }
                                             }
                                         }
                                     }

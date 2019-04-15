@@ -154,7 +154,7 @@
                     android:layout_marginStart="12dp"
                     android:gravity="center_vertical"
                     android:drawableStart="@drawable/ic_bt_green"
-                    android:text="BT Role"
+                    android:text="BT Role (Congested)"
                     android:textColor="@color/white_hint_green"
                     app:layout_constraintStart_toEndOf="@+id/mainRoleWiFi"
                     app:layout_constraintEnd_toStartOf="@+id/mainBackhaul"

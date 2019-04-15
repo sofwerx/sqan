@@ -25,6 +25,12 @@ public abstract class AbstractPacket {
             packetHeader.incrementHopCount();
     }
 
+    public boolean isLossy() {
+        if (packetHeader != null)
+            return packetHeader.lossyOk;
+        return true;
+    }
+
     /**
      * Sets if this packet needs to be expedited
      * @param highPerformanceNeeded true == push through the higher bandwidth connection

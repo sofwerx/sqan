@@ -19,6 +19,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.issues.PacketDropIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketDropException;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
@@ -29,6 +30,7 @@ import org.sofwerx.sqan.util.NetUtil;
 
 public class BTSocket {
     public final static int MAX_PACKET_SIZE = 65400; //FIXME arbitrary picked size
+    private final static int POOL_WARNING_SIZE = 1000; //warn if the write queue gets bigger than this
     private final static long MIN_TIME_BEFORE_TESTING_STALE = 1000l * 10l;
     private final static long MAX_TIME_BEFORE_STALE = 1000l * 60l * 5l;
     private final static String TAG = Config.TAG+".BTSocket";
@@ -49,6 +51,7 @@ public class BTSocket {
     private int id = connectionCounter.incrementAndGet();
     private long lastConnectInbound = Long.MIN_VALUE;
     private long lastConnectOutbound = Long.MIN_VALUE;
+    private static AtomicInteger poolCount = new AtomicInteger(0);
 
     public SqAnDevice setDeviceIfNull(SqAnDevice device) {
         if (this.device == null) {
@@ -124,6 +127,10 @@ public class BTSocket {
         Core.registerForCleanup(this);
         lastConnectInbound = System.currentTimeMillis();
         lastConnectOutbound = System.currentTimeMillis();
+    }
+
+    public static boolean isCongested() {
+        return poolCount.get() > POOL_WARNING_SIZE;
     }
 
     public void startConnections() {
@@ -256,10 +263,18 @@ public class BTSocket {
 
                                         if (thisDeviceEndpointRole == Role.SERVER) {
                                             if ((hopCount == 1) || AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()) && (hopCount < device.getHopsToDevice(packet.getOrigin()))) {
-                                                CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
-                                                Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true, true);
+                                                if (packet.isLossy() && BTSocket.isCongested())
+                                                    CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " not relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin() + ", " + hopCount + " hops) due to network congestion and packet marked as lossyOk");
+                                                else {
+                                                    CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " relaying (as server) " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops)");
+                                                    Core.send(data, packet.getSqAnDestination(), packet.getOrigin(), true, true);
+                                                }
                                             }
                                         } else { //when this device isnt in server mode, check all other connections and send based on hop comparisons
+                                            if (packet.isLossy() && BTSocket.isCongested()) {
+                                                CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " " + packet.getClass().getSimpleName() + "(origin " + packet.getOrigin()+", " + hopCount + " hops) not evaluated for relay since network is congested and packet marked as lossyOk");
+                                                continue;
+                                            }
                                             ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
                                             if (devices != null) {
                                                 for (SqAnDevice tgt : devices) {
@@ -273,7 +288,7 @@ public class BTSocket {
                                                             } else
                                                                 CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " is not relaying (as client) [hop count to originator "+tgt.getHopsToDevice(packet.getOrigin())+", active relays "+tgt.getActiveRelays()+"] " + packet.getClass().getSimpleName() +"(origin " + packet.getOrigin()+", " + hopCount + " hops) to "+tgt.getCallsign()+" ("+tgt.getUUID()+")");
                                                         } else
-                                                            CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " is not relaying (as client) [hops away "+tgt.getHopsAway());
+                                                            CommsLog.log(CommsLog.Entry.Category.COMMS, getLogHeader() + " is not relaying (as client) "+((tgt.getHopsAway() > 1000)?"[unreachable]":("[hops away "+tgt.getHopsAway()+"]")));
                                                     }
                                                 }
                                             }
@@ -282,6 +297,8 @@ public class BTSocket {
                                 }
                             }
                         } catch (PacketDropException e) {
+                            if (device != null)
+                                device.addIssue(new PacketDropIssue());
                             Log.e(TAG, getLogHeader()+" read error: " + e.getMessage());
                             if (readListener != null)
                                 readListener.onPacketDropped();
@@ -352,8 +369,11 @@ public class BTSocket {
                 }
                 found = inStream.read() == ALIGNMENT_BYTE_B;
             }
-            if (shift > 0)
-                Log.w(TAG,getLogHeader()+" alignment byte not found where expected; packet start shifted by "+shift+"b");
+            if (shift > 0) {
+                Log.w(TAG, getLogHeader() + " alignment byte not found where expected; packet start shifted by " + shift + "b");
+                if (device != null)
+                    device.addIssue(new PacketDropIssue());
+            }
         } catch (Exception e) {
             keepGoing.set(false);
             close();
@@ -381,9 +401,9 @@ public class BTSocket {
             inStream.read(data);
             byte checksum = (byte)inStream.read();
             byte calculatedChecksum = NetUtil.getChecksum(data);
-            if (checksum != calculatedChecksum)
-                throw new PacketDropException(getLogHeader()+" received a packet that did not have the proper checksum ("+calculatedChecksum+" expected but "+checksum+" received)");
-            else {
+            if (checksum != calculatedChecksum) {
+                throw new PacketDropException(getLogHeader() + " received a packet that did not have the proper checksum (" + calculatedChecksum + " expected but " + checksum + " received)");
+            } else {
                 //Log.d(TAG, getLogHeader() + " readPacketData() received data");
                 return data;
             }
@@ -404,9 +424,10 @@ public class BTSocket {
         synchronized (writeThreadLock) {
             if (writeThread==null) {
                 writeThread = Executors.newSingleThreadExecutor();
-                Log.d(TAG, getLogHeader()+" readThread created");
+                Log.d(TAG, getLogHeader()+"writeThread created");
             }
         }
+        poolCount.incrementAndGet();
         writeThread.execute(() -> {
             try {
                 if (data == null)
@@ -432,6 +453,9 @@ public class BTSocket {
                         close();
                     }
                 }
+            } finally {
+                if (poolCount.decrementAndGet() > POOL_WARNING_SIZE)
+                    CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Warning, BTSocket write queue is "+poolCount.get());
             }
         });
     }

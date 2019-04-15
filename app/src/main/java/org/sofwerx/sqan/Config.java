@@ -32,8 +32,10 @@ public class Config {
     public final static String PREF_CLEAR_TEAM = "clearteam";
     private final static String PREFS_SAVED_TEAM = "savedteam";
     public final static String PREFS_VPN_MODE = "vpnmode";
+    public final static String PREFS_VPN_MULTICAST = "multicast";
     public final static String PREFS_IGNORE_0_0_0_0 = "no0000";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
+    public final static String PREFS_VPN_MTU = "mtu";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
     private static boolean debugMode = false;
@@ -41,10 +43,12 @@ public class Config {
     private static boolean broadcastSa = true;
     private static boolean includeConnections = false;
     private static boolean vpnMode = true;
+    private static boolean multicast = true;
     private static boolean vpnLandingPage = true;
     private static boolean writeLog = true;
     private static boolean warnIncomplete = true;
     private static boolean ignore0000 = true;
+    private static int mtuSize = 1500;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
 
@@ -117,10 +121,16 @@ public class Config {
         broadcastSa = prefs.getBoolean(PREFS_ALLOW_SA_BROADCAST,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
         vpnMode = prefs.getBoolean(PREFS_VPN_MODE,true);
+        multicast = prefs.getBoolean(PREFS_VPN_MULTICAST,true);
         vpnLandingPage = prefs.getBoolean(PREFS_VPN_MODE,true);
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
         warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
         ignore0000 = prefs.getBoolean(PREFS_IGNORE_0_0_0_0,true);
+        try {
+            mtuSize = Integer.parseInt(prefs.getString(PREFS_VPN_MTU, "1500"));
+        } catch (NumberFormatException e) {
+            mtuSize = 1500;
+        }
     }
 
     public static boolean isVpnEnabled() {
@@ -388,4 +398,6 @@ public class Config {
         vpnMode = true;
     }
     public static boolean isIgnoringPacketsTo0000() { return ignore0000; }
+    public static boolean isMulticastEnabled() { return multicast; }
+    public static int getMtuSize() { return mtuSize; }
 }

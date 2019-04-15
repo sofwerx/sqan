@@ -58,6 +58,13 @@ public class SettingsActivity extends Activity {
             builder.setMessage(R.string.prefs_manet_changed_description);
             final AlertDialog dialog = builder.create();
             dialog.show();
+        } else if (Config.PREFS_VPN_MTU.equalsIgnoreCase(key)) {
+            Config.recheckPreferences(this);
+            AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);
+            builder.setTitle(R.string.shutdown_required);
+            builder.setMessage(R.string.prefs_vpn_changed_description);
+            final AlertDialog dialog = builder.create();
+            dialog.show();
         } else if (Config.PREFS_VPN_MODE.equalsIgnoreCase(key)) {
             if (Config.isVpnEnabled())
                 SqAnVpnService.start(SqAnService.getInstance());

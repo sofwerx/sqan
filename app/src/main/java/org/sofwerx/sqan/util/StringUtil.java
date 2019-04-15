@@ -67,4 +67,19 @@ public class StringUtil {
             return DateFormat.format(format, new java.util.Date(time)).toString();
         }
     }
+
+    public static String getDataRate(long dataTally, long elapsedTime) {
+        if (elapsedTime < 1)
+            return "-";
+        else {
+            int bps = (int)(dataTally/elapsedTime);
+            if (bps > 2048) {
+                bps = bps / 1024;
+                if (bps > 2048)
+                    return (bps/1024)+"Mbps";
+                return bps+"Kbps";
+            } else
+                return bps+"bps";
+        }
+    }
 }

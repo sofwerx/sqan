@@ -404,6 +404,11 @@ public class WiFiAwareManet extends AbstractManet {
         }
     }
 
+    //FIXME hey dummy! once its connected, use the https://developer.android.com/guide/topics/connectivity/wifi-aware#create_a_connection section rather than the message
+
+    //FIXME use the identity change listener to get the Aware MAC and know when it changes
+    //FIXME https://android.googlesource.com/platform/frameworks/base/+/master/wifi/java/android/net/wifi/aware/IdentityChangedListener.java
+
 
     private void burst(AbstractPacket packet, PeerHandle peerHandle) {
         if (packet == null) {

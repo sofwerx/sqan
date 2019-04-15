@@ -40,6 +40,7 @@ import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.bt.Discovery;
+import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
@@ -240,7 +241,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
                 default:
                     roleBT.setVisibility(View.INVISIBLE);
+
             }
+            if (BTSocket.isCongested())
+                roleBT.setTextColor(getColor(R.color.yellow));
+            else
+                roleBT.setTextColor(getColor(R.color.green));
             roleBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
         } else {
             roleWiFi.setVisibility(View.INVISIBLE);
