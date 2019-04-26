@@ -26,15 +26,15 @@ public class StringUtil {
             return "invalid size";
         if (dataSize > 0l) {
             if (dataSize < 2048l)
-                return Long.toString(dataSize)+" bytes";
+                return Long.toString(dataSize)+"b";
             dataSize = dataSize / 1024l;
             if (dataSize < 2048l)
-                return Long.toString(dataSize)+" kB";
+                return Long.toString(dataSize)+"kB";
             dataSize = dataSize / 1024l;
             if (dataSize < 2048l)
-                return Long.toString(dataSize)+" mB";
+                return Long.toString(dataSize)+"mB";
             dataSize = dataSize / 1024l;
-            return Long.toString(dataSize)+" gB";
+            return Long.toString(dataSize)+"gB";
         }
         return "no bytes";
     }

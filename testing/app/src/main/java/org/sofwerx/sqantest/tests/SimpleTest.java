@@ -57,7 +57,7 @@ public class SimpleTest extends AbstractTest {
 
     @Override
     public String getDescription() {
-        return null;
+        return "A simple test that provides a low rate connectivity. Mostly used to trouble shoot the actual testing process.";
     }
 
     @Override

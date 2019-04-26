@@ -84,12 +84,12 @@ public class TestProgress {
         out.append(StringUtil.getFormattedTime(startTime));
         out.append(" (elapsed time ");
         out.append(StringUtil.toDuration(System.currentTimeMillis()-startTime));
-        out.append(")\r\n");
+        out.append(")\r\n\r\n");
         if (slices.isEmpty()) {
             out.append("No data collected");
             return out.toString();
         }
-        out.append("Performance by time:\r\n");
+        out.append("** Performance by time **\r\n\r\n");
         for (TimeSlice slice:slices) {
             if (slice == null)
                 continue;
@@ -97,5 +97,9 @@ public class TestProgress {
             out.append("\r\n");
         }
         return out.toString();
+    }
+
+    public long getStartTime() {
+        return startTime;
     }
 }

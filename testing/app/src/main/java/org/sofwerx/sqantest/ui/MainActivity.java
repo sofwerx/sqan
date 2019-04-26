@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -65,6 +66,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     private TextView convoText, textSummaryText;
     private Button buttonTestType;
     private ImageView buttonTestStartStop;
+    private ProgressBar progressTest;
     private MapView map;
     private SqAnTestService service;
     private boolean serviceBound = false;
@@ -111,7 +113,10 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         textSummaryText = findViewById(R.id.mainTestSummary);
         buttonTestStartStop = findViewById(R.id.mainButtonStart);
         buttonTestType = findViewById(R.id.mainButtonTestName); //TODO
+        progressTest = findViewById(R.id.mainProgressTest);
         map = findViewById(R.id.mainMap);
+        View buttonAbout = findViewById(R.id.mainButtonAbout);
+        buttonAbout.setOnClickListener(v -> startActivity(new Intent(MainActivity.this,AboutActivity.class)));
         setupMap();
 
         if (buttonSendMessage != null) {
@@ -146,6 +151,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                             test.stop();
                             commandData[0] = AbstractTest.COMMAND_STOP_TEST;
                             test.burst(new TestPacket(service.getDeviceId(),commandData));
+                            startActivity(new Intent(MainActivity.this, ReportActivity.class));
                         } else {
                             test.start();
                             commandData[0] = test.getCommandType();
@@ -185,6 +191,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         if (test == null) {
             textSummaryText.setVisibility(View.INVISIBLE);
             buttonTestStartStop.setVisibility(View.INVISIBLE);
+            progressTest.setVisibility(View.INVISIBLE);
             buttonTestType.setText("No Test Selected");
             return;
         }
@@ -197,6 +204,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         buttonTestStartStop.setImageResource(test.isRunning()?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play);
         buttonTestStartStop.setVisibility(View.VISIBLE);
         buttonTestType.setText(test.getName());
+        progressTest.setVisibility(test.isRunning()?View.VISIBLE:View.INVISIBLE);
     }
 
     private void startService() {

@@ -10,7 +10,10 @@ import org.sofwerx.sqantest.tests.support.TestException;
 import org.sofwerx.sqantest.tests.support.TestPacket;
 import org.sofwerx.sqantest.tests.support.TestPacketListener;
 import org.sofwerx.sqantest.tests.support.TestProgress;
+import org.sofwerx.sqantest.util.FileUtil;
+import org.sofwerx.sqantest.util.StringUtil;
 
+import java.io.File;
 import java.io.StringWriter;
 
 public abstract class AbstractTest implements TestPacketListener {
@@ -84,6 +87,16 @@ public abstract class AbstractTest implements TestPacketListener {
             thread = null;
             handler = null;
         }
+        if (service != null) {
+            String filename;
+            if (testProgress == null)
+                filename = "Report";
+            else
+                filename = "Report "+getName()+" "+StringUtil.getFilesafeTime(testProgress.getStartTime())+".txt";
+            filename = filename.replace(' ','_');
+            File file = FileUtil.save(service, filename, getFullReport());
+            service.notifyOfReport(this, file);
+        }
     }
 
     /**
@@ -138,10 +151,8 @@ public abstract class AbstractTest implements TestPacketListener {
         }
     }
 
-    //FIXME stopped here - call this somewhere and then save to a file then call SqAnTestService.notify
     public String getFullReport() {
         StringWriter out = new StringWriter();
-        out.append("Test ");
         out.append(getName());
         if (isRunning)
             out.append(" (in progress)");

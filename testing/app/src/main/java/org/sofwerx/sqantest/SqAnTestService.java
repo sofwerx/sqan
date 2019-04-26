@@ -27,15 +27,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SqAnTestService extends Service implements IpcBroadcastTransceiver.IpcListener {
     private final static String TAG = "SqAnTestSvc";
     public final static int BROADCAST_ADDRESS = Integer.MIN_VALUE;
-    private final static int TEST_NOTIFICATION_ID = 2;
+    private final static int TEST_NOTIFICATION_ID = 200;
     private final static int NOTIFICATION_ID = 1;
     private final static String NOTIFICATION_CHANNEL = "sqan_test";
+    private final static String REPORT_NOTIFICATION_CHANNEL = "sqan_rpt";
     public final static String ACTION_STOP = "STOP";
     private AbstractTest test = new SimpleTest(this); //FIXME this is for testing the test mechanism only
     private AtomicBoolean isRunning = new AtomicBoolean(false);
     private IpcBroadcastTransceiver.IpcListener uiIpcListener = null;
     private static BftBroadcast bftBroadcast;
     private int thisDevice = BROADCAST_ADDRESS;
+    private NotificationChannel channel = null;
+    private NotificationChannel reportChannel = null;
 
     private final IBinder mBinder = new SqAnTestBinder();
 
@@ -70,8 +73,11 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
 
     @Override
     public void onTestPacketReceived(TestPacket packet) {
-        if (test != null)
-            test.onTestPacketReceived(packet);
+        if (packet != null) {
+            packet.setRcvTimeReceived();
+            if (test != null)
+                test.onTestPacketReceived(packet);
+        }
     }
 
     @Override
@@ -153,13 +159,17 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
         else {
             PendingIntent pendingIntent = null;
             try {
-                Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqantest.ui.MainActivity"));
+                Intent notificationIntent = new Intent(this, Class.forName("org.sofwerx.sqantest.ui.ReportActivity"));
                 pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
             } catch (ClassNotFoundException ignore) {
             }
 
             Notification.Builder builder;
-            builder = new Notification.Builder(this);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                buildReportNotificationChannel();
+                builder = new Notification.Builder(this,REPORT_NOTIFICATION_CHANNEL);
+            } else
+                builder = new Notification.Builder(this);
 
             String message = test.getName();
             if ((file != null) && file.exists()) {
@@ -175,15 +185,10 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
             }
 
             builder.setContentIntent(pendingIntent);
-            builder.setSmallIcon(R.drawable.ic_notify);
+            builder.setSmallIcon(R.drawable.ic_report);
             builder.setContentTitle("Report ready");
             builder.setTicker(message);
             builder.setContentText(message);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                buildNotificationChannel();
-                builder.setChannelId(NOTIFICATION_CHANNEL);
-            }
 
             notificationManager.notify(TEST_NOTIFICATION_ID, builder.build());
         }
@@ -215,7 +220,7 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
     public void startTest() {
         if (test != null) {
             test.start();
-            setForeground("SqAN Test "+test.getName()+" is running...");
+            setForeground(test.getName()+" is running...");
         }
     }
 
@@ -241,17 +246,16 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
         }
 
         Notification.Builder builder;
-        builder = new Notification.Builder(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            buildNotificationChannel();
+            builder = new Notification.Builder(this,NOTIFICATION_CHANNEL);
+        } else
+            builder = new Notification.Builder(this);
         builder.setContentIntent(pendingIntent);
         builder.setSmallIcon(R.drawable.ic_notify);
         builder.setContentTitle(getResources().getString(R.string.app_name));
         builder.setTicker(message);
         builder.setContentText(message);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            buildNotificationChannel();
-            builder.setChannelId(NOTIFICATION_CHANNEL);
-        }
 
         Intent intentStop = new Intent(this, SqAnTestService.class);
         intentStop.setAction(ACTION_STOP);
@@ -263,13 +267,29 @@ public class SqAnTestService extends Service implements IpcBroadcastTransceiver.
 
     private void buildNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "SqAN Test";
-            String description = "Testing Utility for SqAN";
-            int importance = NotificationManager.IMPORTANCE_MIN;
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL, name, importance);
-            channel.setDescription(description);
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+            if (channel == null) {
+                CharSequence name = "SqAN Test";
+                String description = "Testing Utility for SqAN";
+                int importance = NotificationManager.IMPORTANCE_DEFAULT;
+                channel = new NotificationChannel(NOTIFICATION_CHANNEL, name, importance);
+                channel.setDescription(description);
+                NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void buildReportNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (reportChannel == null) {
+                CharSequence name = "Reports";
+                String description = "Reports generated by tests";
+                int importance = NotificationManager.IMPORTANCE_DEFAULT;
+                reportChannel = new NotificationChannel(REPORT_NOTIFICATION_CHANNEL, name, importance);
+                reportChannel.setDescription(description);
+                NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(reportChannel);
+            }
         }
     }
 

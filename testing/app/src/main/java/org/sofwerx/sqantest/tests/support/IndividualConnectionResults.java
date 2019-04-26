@@ -56,7 +56,7 @@ public class IndividualConnectionResults {
         if (dev == null)
             dev = SqAnTestService.getDevice(node);
         out.append(((dev==null)||(dev.getCallsign()==null))?Integer.toString(node):dev.getCallsign());
-        out.append(" rx: ");
+        out.append(", Rx: ");
         out.append(StringUtil.toDataSize(rxBytes));
         if (droppedPackets > 0) {
             out.append(", ");

@@ -119,24 +119,24 @@ public class TimeSlice {
             out.append(StringUtil.getFormattedTime(System.currentTimeMillis()));
         else
             out.append(StringUtil.getFormattedTime(sliceStart+TimeSlice.TIME_SLICE_SIZE));
-        out.append(":\r\n");
+        out.append(": Tx ");
 
         int successRate = getPercentSuccess();
         int rxBps = getRxBytesPerSecond();
         int txBps = getTxBytesPerSecond();
-        out.append("Overall\r\nTx ");
         out.append(Integer.toString(txBps));
         out.append("bps, Rx ");
         out.append(Integer.toString(rxBps));
         out.append("bps (");
         out.append(Integer.toString(successRate));
-        out.append("% success)\r\n");
+        out.append("% success), ");
         out.append(Integer.toString(connections.size()));
         out.append(" connection");
         if (connections.size() != 1)
             out.append('s');
         out.append(" as follows:\r\n");
         for (IndividualConnectionResults connection:connections) {
+            out.append(" • ");
             out.append(connection.toString());
             out.append("\r\n");
         }

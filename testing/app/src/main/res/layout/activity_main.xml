@@ -12,6 +12,13 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+        <ProgressBar
+            android:id="@+id/mainProgressTest"
+            style="@android:style/Widget.DeviceDefault.ProgressBar"
+            android:visibility="invisible"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
         <Button
             android:id="@+id/mainButtonTestName"
             android:layout_width="wrap_content"
@@ -25,6 +32,14 @@
             android:layout_height="match_parent"
             android:gravity="center_vertical"
             android:src="@android:drawable/ic_media_play" />
+
+        <ImageView
+            android:id="@+id/mainButtonAbout"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:src="@android:drawable/ic_menu_info_details" />
+
     </LinearLayout>
 
     <TextView

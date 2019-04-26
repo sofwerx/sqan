@@ -66,6 +66,7 @@ public class TestPacket {
     public void setRcvTimeReceived(long rcvTimeReceived) {
         this.rcvTimeReceived = rcvTimeReceived;
     }
+    public void setRcvTimeReceived() { setRcvTimeReceived(System.currentTimeMillis());}
 
     public byte[] getData() {
         return data;
