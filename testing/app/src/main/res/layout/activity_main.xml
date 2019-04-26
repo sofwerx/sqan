@@ -7,17 +7,55 @@
     tools:context=".ui.MainActivity"
     android:orientation="vertical">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/mainButtonTestName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Basic Test" />
+
+        <ImageView
+            android:id="@+id/mainButtonStart"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:src="@android:drawable/ic_media_play" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/mainTestSummary"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.1"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:padding="2dp"
+        android:background="@color/colorPrimary"/>
+
     <org.osmdroid.views.MapView
         android:id="@+id/mainMap"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.9" />
+        android:layout_weight="0.7" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:padding="2dp"
+        android:background="@color/colorPrimary"/>
 
     <ScrollView
         android:id="@+id/mainScrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.1">
+        android:layout_weight="0.2">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -30,17 +68,24 @@
 
     </ScrollView>
 
-    <EditText
-        android:id="@+id/mainText"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="72dp"
-        android:hint="Message to send"/>
-
-    <Button
-        android:id="@+id/mainButtonTest"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="Send message" />
+        android:orientation="horizontal">
 
+        <EditText
+            android:id="@+id/mainText"
+            android:layout_width="0dp"
+            android:layout_height="72dp"
+            android:layout_weight="1"
+            android:hint="Message to send"/>
+
+        <ImageView
+            android:id="@+id/mainButtonSend"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:src="@android:drawable/ic_menu_send" />
+
+    </LinearLayout>
 </LinearLayout>

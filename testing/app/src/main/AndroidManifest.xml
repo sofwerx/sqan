@@ -36,7 +36,7 @@
 
 		<provider
             android:name="org.sofwerx.sqantest.providers.SqANFileProvider"
-            android:authorities="${applicationId}.mission.provider"
+            android:authorities="${applicationId}.report.provider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

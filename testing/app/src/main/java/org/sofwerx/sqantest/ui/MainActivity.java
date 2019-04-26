@@ -9,13 +9,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.ServiceConnection;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,14 +39,16 @@ import org.sofwerx.sqan.ipc.ChatMessage;
 import org.sofwerx.sqantest.IpcBroadcastTransceiver;
 import org.sofwerx.sqantest.R;
 import org.sofwerx.sqantest.SqAnTestService;
+import org.sofwerx.sqantest.tests.AbstractTest;
+import org.sofwerx.sqantest.tests.support.TestException;
+import org.sofwerx.sqantest.tests.support.TestPacket;
+import org.sofwerx.sqantest.tests.support.TestProgress;
 import org.sofwerx.sqantest.util.PackageUtil;
 
 import org.osmdroid.views.MapView;
 import org.sofwerx.sqantest.util.PermissionsHelper;
 
 import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -51,12 +56,15 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements IpcBroadcastTransceiver.IpcListener {
+    private final static long HELPER_UPDATE_RATE = 1000l * 5l;
     private final static String TAG = "SqAnTestSvc";
     private final static IGeoPoint CENTER_OF_CONUS = new GeoPoint(39.831341, -98.579933);
     private StringWriter convo = new StringWriter();
     private boolean first = true;
     private ScrollView scrollContainer;
-    private TextView convoText;
+    private TextView convoText, textSummaryText;
+    private Button buttonTestType;
+    private ImageView buttonTestStartStop;
     private MapView map;
     private SqAnTestService service;
     private boolean serviceBound = false;
@@ -67,8 +75,9 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     private ArrayList<Polyline> polylines = new ArrayList<>();
     private ArrayList<BftDevice> devices;
     private long lastChatMessage = Long.MIN_VALUE;
+    private Handler handler;
 
-    public boolean onCreateOptionsMenu(Menu menu) {
+    /*public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_main, menu);
         return true;
@@ -87,23 +96,26 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         }
 
         return super.onOptionsItemSelected(item);
-    }
+    }*/
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        View buttonTest = findViewById(R.id.mainButtonTest);
+        View buttonSendMessage = findViewById(R.id.mainButtonSend);
         EditText editText = findViewById(R.id.mainText);
         scrollContainer = findViewById(R.id.mainScrollView);
         convoText = findViewById(R.id.mainConvo);
         iconDevice = getDrawable(R.drawable.map_icon_device);
         iconThisDevice = getDrawable(R.drawable.map_icon_this_device);
+        textSummaryText = findViewById(R.id.mainTestSummary);
+        buttonTestStartStop = findViewById(R.id.mainButtonStart);
+        buttonTestType = findViewById(R.id.mainButtonTestName); //TODO
         map = findViewById(R.id.mainMap);
         setupMap();
 
-        if (buttonTest != null) {
-            buttonTest.setOnClickListener(view -> {
+        if (buttonSendMessage != null) {
+            buttonSendMessage.setOnClickListener(view -> {
                 String message = editText.getText().toString();
                 if ((message != null) && (message.length() == 0))
                     message = null;
@@ -124,6 +136,29 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 }
             });
         }
+        if (buttonTestStartStop != null) {
+            buttonTestStartStop.setOnClickListener(v -> {
+                if (service != null) {
+                    AbstractTest test = service.getTest();
+                    if (test != null) {
+                        byte[] commandData = new byte[1];
+                        if (test.isRunning()) {
+                            test.stop();
+                            commandData[0] = AbstractTest.COMMAND_STOP_TEST;
+                            test.burst(new TestPacket(service.getDeviceId(),commandData));
+                        } else {
+                            test.start();
+                            commandData[0] = test.getCommandType();
+                            test.burst(new TestPacket(service.getDeviceId(),commandData));
+                        }
+                        if (service != null)
+                            service.notifyOfTest(test);
+                        updateTestDisplay();
+                    }
+                }
+            });
+        }
+
         if (!PackageUtil.doesSqAnExist(this)) {
             Toast.makeText(this,"SqAN is not installed, so it cannot be tested.",Toast.LENGTH_LONG).show();
             finish();
@@ -141,6 +176,27 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
                 e.printStackTrace();
             }
         }
+    }
+
+    private void updateTestDisplay() {
+        AbstractTest test = null;
+        if (service != null)
+            test = service.getTest();
+        if (test == null) {
+            textSummaryText.setVisibility(View.INVISIBLE);
+            buttonTestStartStop.setVisibility(View.INVISIBLE);
+            buttonTestType.setText("No Test Selected");
+            return;
+        }
+        TestProgress progress = test.getProgress();
+        if (progress == null)
+            textSummaryText.setText("Problem starting test");
+        else
+            textSummaryText.setText(progress.getShortStatus(test.isRunning()));
+        textSummaryText.setVisibility(View.VISIBLE);
+        buttonTestStartStop.setImageResource(test.isRunning()?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play);
+        buttonTestStartStop.setVisibility(View.VISIBLE);
+        buttonTestType.setText(test.getName());
     }
 
     private void startService() {
@@ -164,6 +220,9 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
             service.setUiIpcListener(this);
             updateMap(service.getLastBftBroadcast());
         }
+        if (handler == null)
+            handler = new Handler();
+        handler.postDelayed(periodicHelper,HELPER_UPDATE_RATE);
     }
 
     @Override
@@ -171,8 +230,20 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
         if (service != null)
             service.setUiIpcListener(null);
         map.onPause();
+        if (handler != null)
+            handler.removeCallbacks(null);
         super.onPause();
     }
+
+    private final Runnable periodicHelper = new Runnable() {
+        @Override
+        public void run() {
+            updateTestDisplay();
+            //TODO
+            if (handler != null)
+                handler.postDelayed(periodicHelper,HELPER_UPDATE_RATE);
+        }
+    };
 
     protected ServiceConnection mConnection = new ServiceConnection() {
         @Override
@@ -183,6 +254,7 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
             serviceBound = true;
             service.setUiIpcListener(MainActivity.this);
             updateMap(service.getLastBftBroadcast());
+            updateTestDisplay();
         }
 
         @Override
@@ -278,6 +350,26 @@ public class MainActivity extends AppCompatActivity implements IpcBroadcastTrans
     @Override
     public void onSaBroadcastReceived(final BftBroadcast broadcast) {
         runOnUiThread(() -> updateMap(broadcast));
+    }
+
+    @Override
+    public void onTestPacketReceived(TestPacket packet) {
+        //ignore
+    }
+
+    @Override
+    public void onError(TestException error) {
+        //ignore
+    }
+
+    @Override
+    public void onOtherDataReceived(int origin, int size) {
+        //ignore
+    }
+
+    @Override
+    public void onTestCommand(byte command) {
+        runOnUiThread(() -> updateTestDisplay());
     }
 
     private GeoPoint findPoint(int uuid) {

@@ -9,6 +9,9 @@ import android.util.Log;
 
 import org.sofwerx.sqan.ipc.BftBroadcast;
 import org.sofwerx.sqan.ipc.BftDevice;
+import org.sofwerx.sqantest.tests.support.PacketException;
+import org.sofwerx.sqantest.tests.support.TestException;
+import org.sofwerx.sqantest.tests.support.TestPacket;
 
 import java.util.ArrayList;
 
@@ -24,6 +27,7 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
     private final static String PACKET_CHANNEL = "channel";
     private final static String RECEIVED = "rcv";
     private final static String CHAT_CHANNEL = "chat";
+    private final static String TEST_CHANNEL = "test";
     private static IpcBroadcastTransceiver receiver = null;
     private static boolean isSqAn;
     private static BftBroadcast broadcast = new BftBroadcast();
@@ -35,6 +39,10 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
     public interface IpcListener {
         void onChatPacketReceived(int origin, byte[] data);
         void onSaBroadcastReceived(BftBroadcast broadcast);
+        void onTestPacketReceived(TestPacket packet);
+        void onError(TestException error);
+        void onOtherDataReceived(int origin, int size);
+        void onTestCommand(byte command);
     }
 
     public static void register(Context context) {
@@ -94,6 +102,17 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
         }
     }
 
+    public static void broadcastTest(Context context, TestPacket packet) {
+        if ((context != null) && (packet != null)) {
+            Intent intent = new Intent(BROADCAST_PKT);
+            intent.putExtra(PACKET_BYTES,packet.toByteArray());
+            intent.putExtra(PACKET_CHANNEL,TEST_CHANNEL);
+            if (isSqAn)
+                intent.putExtra(RECEIVED,true);
+            context.sendBroadcast(intent);
+        }
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent != null) {
@@ -111,9 +130,30 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
                             if (listener != null)
                                 listener.onSaBroadcastReceived(broadcast);
                         } else if (CHAT_CHANNEL.equalsIgnoreCase(incomingChannel)) {
-                            int src = bundle.getInt(PACKET_ORIGIN,Integer.MIN_VALUE);
+                            int src = bundle.getInt(PACKET_ORIGIN,SqAnTestService.BROADCAST_ADDRESS);
                             if (listener != null)
                                 listener.onChatPacketReceived(src,bytes);
+                        } else if (TEST_CHANNEL.equalsIgnoreCase(incomingChannel)) {
+                            int src = bundle.getInt(PACKET_ORIGIN,SqAnTestService.BROADCAST_ADDRESS);
+                            if (listener != null) {
+                                if (bytes.length > 0) {
+                                    if (bytes.length == 1)
+                                        listener.onTestCommand(bytes[0]);
+                                    try {
+                                        TestPacket packet = TestPacket.newTestPacket(bytes);
+                                        if (packet.getOrigin() == SqAnTestService.BROADCAST_ADDRESS)
+                                            packet.setOrigin(src);
+                                        listener.onTestPacketReceived(TestPacket.newTestPacket(bytes));
+                                    } catch (PacketException e) {
+                                        listener.onError(e);
+                                    }
+                                } else
+                                    listener.onError(new PacketException("Empty test packet received over IPC"));
+                            }
+                        } else {
+                            int src = bundle.getInt(PACKET_ORIGIN,SqAnTestService.BROADCAST_ADDRESS);
+                            if (listener != null)
+                                listener.onOtherDataReceived(src,(bytes==null)?0:bytes.length);
                         }
                     }
                 }
