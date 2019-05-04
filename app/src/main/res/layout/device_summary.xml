@@ -47,15 +47,6 @@
         app:layout_constraintStart_toStartOf="parent"/>
 
     <ImageView
-        android:id="@+id/deviceConnectivity"
-        android:layout_width="30dp"
-        android:layout_height="match_parent"
-        android:src="@drawable/icon_signal_3"
-        android:visibility="invisible"
-        app:layout_constraintEnd_toStartOf="@+id/deviceBattery"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageView
         android:id="@+id/deviceForward"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -63,16 +54,6 @@
         android:tint="@color/white_hint_green"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"/>
-
-    <ImageView
-        android:id="@+id/deviceBattery"
-        android:layout_width="30dp"
-        android:layout_height="match_parent"
-        android:src="@drawable/icon_battery_50_charging"
-        android:layout_gravity="center_vertical"
-        android:visibility="invisible"
-        app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
-        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/deviceHops"
@@ -96,11 +77,54 @@
         app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintTop_toBottomOf="@id/deviceDetails" />
 
+
+    <ImageView
+        android:id="@+id/deviceBackhaul"
+        android:layout_width="30dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:src="@drawable/ic_backhaul_green"
+        app:layout_constraintStart_toEndOf="@+id/deviceCallsign"
+        app:layout_constraintEnd_toStartOf="@+id/deviceWiFiAware"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
+        android:id="@+id/deviceWiFiAware"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:text="AWARE"
+        android:textColor="@color/green"
+        android:textSize="8dp"
+        app:layout_constraintBottom_toBottomOf="@+id/deviceBackhaul"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBattery"
+        app:layout_constraintStart_toEndOf="@+id/deviceBackhaul"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/deviceBattery"
+        android:layout_width="30dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/icon_battery_50_charging"
+        android:layout_gravity="center_vertical"
+        android:visibility="invisible"
+        app:layout_constraintStart_toEndOf="@+id/deviceWiFiAware"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--<ImageView
+        android:id="@+id/deviceWiFiAware"
+        android:layout_width="30dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:src="@drawable/ic_wifi_green"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBackhaul"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />-->
+    <!--<TextView
         android:id="@+id/deviceBackhaul"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
         android:gravity="center_vertical"
         android:drawableStart="@drawable/ic_backhaul_green"
         android:text="Backhaul"
@@ -108,6 +132,18 @@
         app:layout_constraintStart_toEndOf="@+id/deviceConnections"
         app:layout_constraintEnd_toStartOf="@+id/deviceLocationFrame"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/deviceWiFiAware"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:drawableStart="@drawable/ic_wifi_green"
+        android:text="Aware"
+        android:textColor="@color/white_hint_green"
+        app:layout_constraintStart_toEndOf="@+id/deviceBackhaul"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />-->
 
     <FrameLayout
         android:id="@+id/deviceLocationFrame"
@@ -155,7 +191,7 @@
         android:padding="2dp"
         android:text="@string/callsign"
         android:textColor="@color/yellow"
-        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBackhaul"
         app:layout_constraintStart_toEndOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -170,7 +206,7 @@
         android:text="@string/callsign"
         android:textColor="@color/white"
         android:textSize="10sp"
-        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBackhaul"
         app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toBottomOf="@id/deviceCallsign"/>
 
@@ -185,7 +221,7 @@
         android:text="0.0.0.0"
         android:textColor="@color/white"
         android:textSize="10sp"
-        app:layout_constraintEnd_toStartOf="@+id/deviceConnectivity"
+        app:layout_constraintEnd_toStartOf="@+id/deviceBackhaul"
         app:layout_constraintStart_toStartOf="@id/deviceFrameTypePing"
         app:layout_constraintTop_toBottomOf="@id/deviceUUID"/>
 

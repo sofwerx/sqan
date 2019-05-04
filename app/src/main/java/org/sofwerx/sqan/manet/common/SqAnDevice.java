@@ -18,6 +18,7 @@ import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
+import java.net.Inet6Address;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,6 +63,9 @@ public class SqAnDevice {
     private final static int MAX_ISSUES_LOG = 20;
     private ArrayList<AbstractCommsIssue> issues;
     private int packetsDropped = 0;
+    private MacAddress awareMac;
+    private boolean awareServer = false;
+    //private Inet6Address ipv6 = null;
 
     /**
      * SqAnDevice
@@ -117,6 +121,20 @@ public class SqAnDevice {
         return null;
     }
 
+    /*public Inet6Address getIpv6() { return ipv6; }
+
+    public static SqAnDevice findByTransientAwareIPV6(Inet6Address ipv6) {
+        if ((ipv6 != null) && (devices != null) && !devices.isEmpty()) {
+            synchronized (devices) {
+                for (SqAnDevice device:devices) {
+                    if ((device != null) && device.ipv6.equals(ipv6))
+                        return device;
+                }
+            }
+        }
+        return null;
+    }*/
+
     private void init(int uuid) {
         if (uuid == UNASSIGNED_UUID) {
             this.uuid = nextUnassignedUUID.decrementAndGet();
@@ -154,12 +172,34 @@ public class SqAnDevice {
     public SqAnDevice getConflictingDevice() {
         int thisIpv4Address = getVpnIpv4AddressInt();
         if ((devices != null) && !devices.isEmpty()) {
-            for (SqAnDevice device:devices) {
-                if (device.getVpnIpv4AddressInt() == thisIpv4Address)
-                    return device;
+            synchronized (devices) {
+                for (SqAnDevice device : devices) {
+                    if (device.getVpnIpv4AddressInt() == thisIpv4Address)
+                        return device;
+                }
             }
         }
         return null;
+    }
+
+    /**
+     * Gets a list of devices with WiFi Aware MACs
+     * @return
+     */
+    public static ArrayList<SqAnDevice> getWiFiAwareDevices() {
+        ArrayList<SqAnDevice> awareDevices = null;
+        if ((devices != null) && !devices.isEmpty()) {
+            synchronized (devices) {
+                for (SqAnDevice device : devices) {
+                    if ((device != null) && (device.awareMac != null) && device.awareMac.isValid()) {
+                        if (awareDevices == null)
+                            awareDevices = new ArrayList<>();
+                        awareDevices.add(device);
+                    }
+                }
+            }
+        }
+        return awareDevices;
     }
 
     /**
@@ -337,6 +377,26 @@ public class SqAnDevice {
     public int getPacketsDropped() {
         return packetsDropped;
     }
+
+    public MacAddress getAwareMac() {
+        return awareMac;
+    }
+
+    public void setAwareMac(MacAddress awareMac) {
+        this.awareMac = awareMac;
+    }
+
+    /**
+     * Is this device hosting a WiFi Aware server
+     * @return
+     */
+    public boolean isAwareServer() { return awareServer; }
+
+    /**
+     * Sets if this device is hosting a WiFi Aware server
+     * @param awareServer
+     */
+    public void setAwareServer(boolean awareServer) { this.awareServer = awareServer; }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -831,6 +891,8 @@ public class SqAnDevice {
             callsign = other.callsign;
         if (other.uuidExtended != null)
             uuidExtended = other.uuidExtended;
+        if (other.awareMac != null)
+            awareMac = other.awareMac;
         if (other.lastLocation != null) {
             if ((lastLocation == null) || !lastLocation.isValid() || (other.lastLocation.getTime() > lastLocation.getTime()))
                 lastLocation = other.lastLocation;
@@ -1321,5 +1383,28 @@ public class SqAnDevice {
         if (other == null)
             return false;
         return getVpnIpv4AddressInt() == other.getVpnIpv4AddressInt();
+    }
+
+    private final static byte MASK_NONE =         (byte)0b00000000;
+    private final static byte MASK_BACKHAUL =     (byte)0b10000000;
+    private final static byte MASK_AWARE_SERVER = (byte)0b01000000;
+    private final static byte MASK_RESERVED_3 =   (byte)0b00100000;
+    private final static byte MASK_RESERVED_4 =   (byte)0b00010000;
+    private final static byte MASK_RESERVED_5 =   (byte)0b00001000;
+    private final static byte MASK_RESERVED_6 =   (byte)0b00000100;
+    private final static byte MASK_RESERVED_7 =   (byte)0b00000010;
+    private final static byte MASK_RESERVED_8 =   (byte)0b00000001;
+
+    public byte getFlags() {
+        byte flags = backhaulConnection?MASK_BACKHAUL:MASK_NONE;
+        if (awareServer)
+            flags = (byte)(flags | MASK_AWARE_SERVER);
+
+        return flags;
+    }
+
+    public void parseFlags(byte data) {
+        backhaulConnection = (MASK_BACKHAUL & data) == MASK_BACKHAUL;
+        awareServer = (MASK_AWARE_SERVER & data) == MASK_AWARE_SERVER;
     }
 }

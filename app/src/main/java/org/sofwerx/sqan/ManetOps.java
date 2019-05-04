@@ -71,8 +71,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
                     case 2:
                         wifiManet = new WiFiAwareManet(handler,sqAnService,manetOps);
-                        //FIXME temporarily ignoring btMane to just trouble shoot WiFi Aware; btManet = new BtManetV2(handler,sqAnService,manetOps);
-                        btManet = null;
+                        //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
+                        btManet = null; //TODO
                         break;
 
                     case 3:

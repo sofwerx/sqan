@@ -23,6 +23,8 @@ public class MacAddress {
         bytes = macToByteArray(mac);
     }
 
+    public MacAddress(byte[] bytes) { this.bytes = bytes; }
+
     /**
      * Provides a byte array for this MacAddress and will always return a value
      * @return

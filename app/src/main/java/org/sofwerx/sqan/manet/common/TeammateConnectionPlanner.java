@@ -17,6 +17,60 @@ import java.util.Random;
 public class TeammateConnectionPlanner {
 
     /**
+     * Reorders an array of devices to descending priority connection order for new WiFi connections
+     * @param wifiDevices
+     * @return
+     */
+    public static ArrayList<SqAnDevice> getDescendingPriorityWiFIConnections(ArrayList<SqAnDevice> wifiDevices) {
+        if ((wifiDevices == null) || wifiDevices.isEmpty())
+            return null;
+        ArrayList<SqAnDevice> priorityDevices = new ArrayList<>();
+
+        //put devices that arent directly connected and with one connection on top
+        int i=0;
+        SqAnDevice device;
+        while (i<wifiDevices.size()) {
+            device = wifiDevices.get(i);
+            if ((device != null) && device.isActive()) {
+                if (!device.isDirectBt() && !device.isDirectWiFi()) {
+                    if ((device.getRelayConnections() == null) || (device.getRelayConnections().size() < 2)) {
+                        priorityDevices.add(device);
+                        wifiDevices.remove(i);
+                        continue;
+                    }
+                }
+                i++;
+            } else
+                wifiDevices.remove(i);
+        }
+
+        //then add the rest of the devices that arent directly connected
+        i=0;
+        while (i<wifiDevices.size()) {
+            device = wifiDevices.get(i);
+            if (!device.isDirectBt() && !device.isDirectWiFi()) {
+                priorityDevices.add(device);
+                wifiDevices.remove(i);
+            } else
+                i++;
+        }
+
+        //then add the rest of the devices that just have bluetooth connectivity
+        i=0;
+        while (i<wifiDevices.size()) {
+            device = wifiDevices.get(i);
+            if (!device.isDirectWiFi()) {
+                priorityDevices.add(device);
+                wifiDevices.remove(i);
+            } else
+                i++;
+        }
+
+        return priorityDevices;
+    }
+
+
+    /**
      * Get an array of teammates in descending priority connection order
      * @return
      */

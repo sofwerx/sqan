@@ -24,12 +24,12 @@ public class DeviceSummary extends ConstraintLayout {
     private final static long TIME_TO_SHOW_FORWARDING = 1000l * 15l; //how long after a forward operation should the forwarding icon be visible
     private TextView callsign, uuid, ipv4, description;
     private TextView hops, links;
-    private ImageView iconConnectivity;
+    //private ImageView iconConnectivity;
     private ImageView iconPower;
     private ImageView iconLink;
     private ImageView iconLoc;
     private ImageView iconType;
-    private View markerBackhaul;
+    private View markerBackhaul, markerWiFiAware;
     private ImageView iconPing,iconForward;
     private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
@@ -58,12 +58,13 @@ public class DeviceSummary extends ConstraintLayout {
         uuid = view.findViewById(R.id.deviceUUID);
         ipv4 = view.findViewById(R.id.deviceIP);
         description = view.findViewById(R.id.deviceDetails);
-        iconConnectivity = view.findViewById(R.id.deviceConnectivity);
+        //iconConnectivity = view.findViewById(R.id.deviceConnectivity);
         iconPower = view.findViewById(R.id.deviceBattery);
         iconLink = view.findViewById(R.id.deviceLink);
         iconLoc = view.findViewById(R.id.deviceLocation);
         iconType = view.findViewById(R.id.deviceTypeIcon);
         markerBackhaul = view.findViewById(R.id.deviceBackhaul);
+        markerWiFiAware = view.findViewById(R.id.deviceWiFiAware);
         textDistance = view.findViewById(R.id.deviceDistance);
         textDistanceAccuracy = view.findViewById(R.id.deviceDistanceAccuracy);
         iconPing = view.findViewById(R.id.devicePing);
@@ -127,7 +128,6 @@ public class DeviceSummary extends ConstraintLayout {
             updateLinkDisplay(device);
             if (iconType != null)
                 iconType.setVisibility(VISIBLE);
-            markerBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
             if (device.getStatus() == SqAnDevice.Status.CONNECTED) {
                 int numHops = device.getHopsAway();
                 if (numHops < 0)
@@ -157,7 +157,7 @@ public class DeviceSummary extends ConstraintLayout {
             uuid.setVisibility(View.INVISIBLE);
             ipv4.setVisibility(View.INVISIBLE);
             iconPower.setVisibility(View.INVISIBLE);
-            iconConnectivity.setVisibility(View.INVISIBLE);
+            //iconConnectivity.setVisibility(View.INVISIBLE);
             markerBackhaul.setVisibility(View.INVISIBLE);
             hops.setVisibility(View.INVISIBLE);
             links.setVisibility(View.INVISIBLE);
@@ -218,11 +218,15 @@ public class DeviceSummary extends ConstraintLayout {
             hops.setVisibility(View.INVISIBLE);
             links.setVisibility(View.INVISIBLE);
             iconForward.setVisibility(View.INVISIBLE);
+            markerBackhaul.setVisibility(View.INVISIBLE);
+            markerWiFiAware.setVisibility(View.INVISIBLE);
         } else {
             callsign.setTextColor(getContext().getResources().getColor(R.color.yellow));
             uuid.setTextColor(getContext().getResources().getColor(R.color.white));
             ipv4.setTextColor(getContext().getResources().getColor(R.color.white));
             description.setTextColor(getContext().getResources().getColor(significant ? R.color.yellow : R.color.white_hint_green));
+            markerBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
+            markerWiFiAware.setVisibility(((device.getAwareMac()!=null)&&device.getAwareMac().isValid())?View.VISIBLE:View.INVISIBLE);
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.white_hint_green));
             if (iconLoc != null) {

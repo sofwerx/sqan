@@ -14,6 +14,8 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
+import javax.crypto.Mac;
+
 public class HeartbeatPacket extends AbstractPacket {
     private SqAnDevice device;
     private DetailLevel detailLevel;
@@ -68,8 +70,12 @@ public class HeartbeatPacket extends AbstractPacket {
                     if (!spaceTime.isValid())
                         spaceTime = null;
                     device.setLastLocation(spaceTime);
-                    if (buf.remaining() <4)
+                    if (buf.remaining() < MacAddress.MAC_BYTE_SIZE + 1 + 4)
                         return;
+                    byte[] awareMacBytes = new byte[MacAddress.MAC_BYTE_SIZE];
+                    buf.get(awareMacBytes);
+                    device.setAwareMac(new MacAddress(awareMacBytes));
+                    device.parseFlags(buf.get());
                     int relaySize = buf.getInt();
                     if (relaySize > 0) {
                         byte[] relayBytes = new byte[RelayConnection.SIZE];
@@ -181,7 +187,12 @@ public class HeartbeatPacket extends AbstractPacket {
             int nums = 0;
             if (relays != null)
                 nums = relays.size();
-            relayBuf = ByteBuffer.allocate(4 + nums * RelayConnection.SIZE);
+            relayBuf = ByteBuffer.allocate(MacAddress.MAC_BYTE_SIZE + 1 + 4 + nums * RelayConnection.SIZE);
+            MacAddress awareMac = device.getAwareMac();
+            if (awareMac == null)
+                awareMac = new MacAddress();
+            relayBuf.put(awareMac.toByteArray());
+            relayBuf.put(device.getFlags());
             relayBuf.putInt(nums);
             if (relays != null) {
                 for (RelayConnection relay:relays) {

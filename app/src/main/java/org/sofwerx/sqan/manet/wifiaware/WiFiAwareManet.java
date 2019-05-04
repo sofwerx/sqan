@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.DiscoverySessionCallback;
@@ -24,34 +25,39 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
+import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.common.TeammateConnectionPlanner;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
+import org.sofwerx.sqan.manet.common.sockets.client.Client;
+import org.sofwerx.sqan.manet.common.sockets.server.Server;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * MANET built over the Wi-Fi Aware™ (Neighbor Awareness Networking) capabilities
  * found on Android 8.0 (API level 26) and higher
  *  (https://developer.android.com/guide/topics/connectivity/wifi-aware)
- *
- * FIXME WiFiAwareManager is showing as Not Available for an unknown reason
- *
- *  TODO add support for Out of Band (OOB) discovery
  */
 public class WiFiAwareManet extends AbstractManet {
     private static final String SERVICE_ID = "sqan";
@@ -64,9 +70,11 @@ public class WiFiAwareManet extends AbstractManet {
     private final PublishConfig configPub;
     private final SubscribeConfig configSub;
     private static final long INTERVAL_LISTEN_BEFORE_PUBLISH = 1000l * 30l; //amount of time to listen for an existing hub before assuming the hub role
+    private static final long INTERVAL_BEFORE_FALLBACK_DISCOVERY = 1000l * 15l; //amount of time to try connecting with devices identified OOB before failing over to WiFi Aware Discovery
     private Role role = Role.NONE;
     private DiscoverySession discoverySession;
     private ArrayList<Connection> connections = new ArrayList<>();
+    private AtomicInteger messageIds = new AtomicInteger(0);
 
     private enum Role {HUB, SPOKE, NONE}
 
@@ -95,7 +103,7 @@ public class WiFiAwareManet extends AbstractManet {
                         handler.post(() -> {
                             Log.d(Config.TAG, "onAttached(session)");
                             awareSession = session;
-                            findOrCreateHub();
+                            findOrCreateHub(true);
                         });
                     }
                     isRunning.set(true);
@@ -145,14 +153,10 @@ public class WiFiAwareManet extends AbstractManet {
     }
 
     @Override
-    public int getMaximumPacketSize() {
-        return 64000; //TODO temp maximum
-    }
+    public int getMaximumPacketSize() { return 64000; /*TODO temp maximum */ }
 
     @Override
-    public void setNewNodesAllowed(boolean newNodesAllowed) {
-        //TODO
-    }
+    public void setNewNodesAllowed(boolean newNodesAllowed) {/*TODO*/ }
 
     @Override
     public String getName() { return "WiFi Aware™"; }
@@ -257,6 +261,7 @@ public class WiFiAwareManet extends AbstractManet {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware - startAdvertising()");
             if (discoverySession != null) {
+                Log.d(Config.TAG,"Aware closing discovery session");
                 discoverySession.close();
                 discoverySession = null;
                 setStatus(Status.CHANGING_MEMBERSHIP);
@@ -268,8 +273,6 @@ public class WiFiAwareManet extends AbstractManet {
                     public void onPublishStarted(PublishDiscoverySession session) {
                         Log.d(Config.TAG, "onPublishStarted()");
                         discoverySession = session;
-                        role = Role.HUB;
-                        setStatus(Status.CONNECTED);
                         if (listener != null)
                             listener.onStatus(status);
                     }
@@ -277,8 +280,10 @@ public class WiFiAwareManet extends AbstractManet {
                     @Override
                     public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
                         if (role == Role.NONE) {
-                            role = Role.SPOKE;
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onMessageReceived() - changing role to SPOKE");
+                            setStatus(Status.CONNECTED);
+                            role = Role.HUB;
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onMessageReceived() - changing role to "+role.name());
+                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
                         } else
                             Log.d(Config.TAG, "onMessageReceived()");
                         if (handler != null)
@@ -286,6 +291,57 @@ public class WiFiAwareManet extends AbstractManet {
                                 updatePeer(peerHandle);
                                 handleMessage(findConnection(peerHandle),message);
                             });
+                    }
+
+                    @Override
+                    public void onSubscribeStarted(final SubscribeDiscoverySession session) {
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onSubscribeStarted()");
+                        discoverySession = session;
+                        setStatus(Status.CONNECTED);
+                    }
+
+                    @Override
+                    public void onServiceDiscovered(PeerHandle peerHandle, byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onServiceDiscovered()");
+                        setStatus(Status.CONNECTED);
+                        if (role == Role.NONE) {
+                            role = Role.SPOKE;
+                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
+                        }
+                        if (handler != null)
+                            handler.post(() -> updatePeer(peerHandle));
+                        if (listener != null)
+                            listener.onStatus(status);
+                    }
+
+                    @Override
+                    public void onMessageSendSucceeded(int messageId) {
+                        super.onMessageSendSucceeded(messageId);
+                        Log.d(Config.TAG,"Aware message was successfully sent"); //TODO
+                    }
+
+                    @Override
+                    public void onSessionConfigFailed() {
+                        role = Role.NONE;
+                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session configuration failed");
+                    }
+
+                    @Override
+                    public void onSessionTerminated() {
+                        role = Role.NONE;
+                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session terminated");
+                    }
+
+                    @Override
+                    public void onSessionConfigUpdated() {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Aware session configuration upated");
+                    }
+
+                    @Override
+                    public void onMessageSendFailed(int messageId) {
+                        Log.w(Config.TAG,"Aware message "+messageId+" failed");
                     }
                 }, handler);
             }
@@ -332,6 +388,7 @@ public class WiFiAwareManet extends AbstractManet {
             Log.d(Config.TAG,"WiFi Aware received a message from "+device.getLabel()+" (Aware "+((connection.getPeerHandle()==null)?"unk peer handle":connection.getPeerHandle().hashCode())+")");
             device.setHopsAway(packet.getCurrentHopCount(), false, true);
             device.setLastConnect();
+            device.addToDataTally(message.length);
             if (packet.isDirectFromOrigin())
                 connection.setDevice(device);
         }
@@ -391,13 +448,62 @@ public class WiFiAwareManet extends AbstractManet {
                     @Override
                     public void onServiceDiscovered(PeerHandle peerHandle, byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
                         CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware onServiceDiscovered()");
-                        setStatus(Status.CONNECTED);
-                        if (role == Role.NONE)
+                        if (role == Role.NONE) {
                             role = Role.SPOKE;
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware onServiceDiscovered() - changing role to "+role.name());
+                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
+                            setStatus(Status.CONNECTED);
+                        }
                         if (handler != null)
                             handler.post(() -> updatePeer(peerHandle));
                         if (listener != null)
                             listener.onStatus(status);
+                    }
+
+                    @Override
+                    public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
+                        if (role == Role.NONE) {
+                            role = Role.SPOKE;
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware onMessageReceived() - changing role to "+role.name());
+                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
+                            setStatus(Status.CONNECTED);
+                        } else
+                            Log.d(Config.TAG, "Aware onMessageReceived()");
+                        if (handler != null)
+                            handler.post(() -> {
+                                updatePeer(peerHandle);
+                                handleMessage(findConnection(peerHandle),message);
+                            });
+                    }
+
+                    @Override
+                    public void onMessageSendSucceeded(int messageId) {
+                        super.onMessageSendSucceeded(messageId);
+                        Log.d(Config.TAG,"Aware message "+messageId+" was successfully sent");
+                    }
+
+                    @Override
+                    public void onSessionConfigFailed() {
+                        role = Role.NONE;
+                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session configuration failed");
+                    }
+
+                    @Override
+                    public void onSessionTerminated() {
+                        role = Role.NONE;
+                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session terminated");
+                    }
+
+                    @Override
+                    public void onSessionConfigUpdated() {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Aware session configuration upated");
+                    }
+
+                    @Override
+                    public void onMessageSendFailed(int messageId) {
+                        Log.w(Config.TAG,"Aware message "+messageId+" failed");
                     }
                 }, handler);
             }
@@ -436,8 +542,13 @@ public class WiFiAwareManet extends AbstractManet {
                 Log.d(Config.TAG, "Packet larger than WiFi Aware max; segmenting and sending");
                 //TODO segment and burst
             } else {
-                Log.d(Config.TAG,"WiFi Aware queuing packet to send to "+peerHandle.hashCode());
-                handler.post(() -> discoverySession.sendMessage(peerHandle, 0, bytes));
+                if (discoverySession != null)
+                    handler.post(() -> {
+                        Log.d(Config.TAG,"WiFi Aware sending a "+bytes.length+"b message "+(messageIds.get()+1)+" to "+peerHandle.hashCode());
+                        discoverySession.sendMessage(peerHandle, messageIds.incrementAndGet(), bytes);
+                    });
+                else
+                    Log.w(Config.TAG,"Cannot send burst as discovery session is null");
             }
         } else
             Log.d(Config.TAG,"Cannot burst, WiFi Aware is not supported");
@@ -482,22 +593,45 @@ public class WiFiAwareManet extends AbstractManet {
 
     /**
      * Looks for an existing hub on the network, if one isn't found, then assume that role
+     * @param oob true == rely on out-of-band discovered devices; false = rely on Advertise/Discovery
      */
-    private void findOrCreateHub() {
+    private void findOrCreateHub(boolean oob) {
         Log.d(Config.TAG,"findOrCreateHub()");
-        if (awareSession != null) {
-            startDiscovery();
-            if (handler != null) {
-                handler.postDelayed(() -> {
-                    if (role == Role.NONE) {
-                        Log.d(Config.TAG,"no existing network found");
-                        setStatus(Status.CHANGING_MEMBERSHIP);
-                        assumeHubRole();
-                    } else
-                        Log.d(Config.TAG,"No need to change roles (currently "+role.name()+") as it appears discovery was successful");
-                },INTERVAL_LISTEN_BEFORE_PUBLISH);
+        if ((awareSession != null) && (role == Role.NONE)) {
+            if (oob) {
+                ArrayList<SqAnDevice> devices = TeammateConnectionPlanner
+                        .getDescendingPriorityWiFIConnections(SqAnDevice.getWiFiAwareDevices());
+                if ((devices == null) || devices.isEmpty()) {
+                    findOrCreateHub(false);
+                    return;
+                }
+                for (SqAnDevice device : devices) {
+                    connectToDevice(device);
+                }
+                if (handler != null) {
+                    handler.postDelayed(() -> {
+                        findOrCreateHub(false);
+                    }, INTERVAL_BEFORE_FALLBACK_DISCOVERY);
+                }
+            } else {
+                startDiscovery();
+                if (handler != null) {
+                    handler.postDelayed(() -> {
+                        if (role == Role.NONE) {
+                            Log.d(Config.TAG, "no existing network found");
+                            setStatus(Status.CHANGING_MEMBERSHIP);
+                            assumeHubRole();
+                        } else
+                            Log.d(Config.TAG, "No need to change roles (currently " + role.name() + ") as it appears discovery was successful");
+                    }, INTERVAL_LISTEN_BEFORE_PUBLISH);
+                }
             }
         }
+    }
+
+    private void connectToDevice(SqAnDevice device) {
+        //TODO check to see if this connection is already being attempted
+        //TODO connect to this device
     }
 
     /**
@@ -588,6 +722,7 @@ public class WiFiAwareManet extends AbstractManet {
      * @param mac the new MAC assigned to this device for WiFiAware use
      */
     public void onMacChanged (byte[] mac) {
+        Config.getThisDevice().setAwareMac(new MacAddress(mac));
         //TODO
     }
 }
