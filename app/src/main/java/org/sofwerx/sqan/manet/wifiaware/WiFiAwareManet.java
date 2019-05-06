@@ -6,6 +6,11 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.net.NetworkSpecifier;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.DiscoverySessionCallback;
@@ -22,6 +27,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
@@ -36,16 +42,20 @@ import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.manet.common.sockets.client.Client;
 import org.sofwerx.sqan.manet.common.sockets.server.Server;
+import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 
+import java.io.StringWriter;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -59,9 +69,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * found on Android 8.0 (API level 26) and higher
  *  (https://developer.android.com/guide/topics/connectivity/wifi-aware)
  */
-public class WiFiAwareManet extends AbstractManet {
+public class WiFiAwareManet extends AbstractManet implements ServerStatusListener {
     private static final String SERVICE_ID = "sqan";
     private static final long TIME_TO_CONSIDER_STALE_DEVICE = 1000l * 60l * 5l;
+    private static final long DELAY_BEFORE_CONNECTING_TO_SERVER = 1000l * 10l; //lead time to give the other device if both are establishing a server-client relationship
     private WifiAwareManager wifiAwareManager;
     private BroadcastReceiver hardwareStatusReceiver;
     private final AttachCallback attachCallback;
@@ -75,6 +86,10 @@ public class WiFiAwareManet extends AbstractManet {
     private DiscoverySession discoverySession;
     private ArrayList<Connection> connections = new ArrayList<>();
     private AtomicInteger messageIds = new AtomicInteger(0);
+    private ConnectivityManager connectivityManager;
+    private Network awareNetwork;
+    private Client socketClient = null;
+    private Server socketServer = null;
 
     private enum Role {HUB, SPOKE, NONE}
 
@@ -89,6 +104,7 @@ public class WiFiAwareManet extends AbstractManet {
                     onMacChanged(mac);
                 }
             };
+            connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
             discoverySession = null;
             configPub = new PublishConfig.Builder()
                     .setServiceName(SERVICE_ID)
@@ -291,6 +307,7 @@ public class WiFiAwareManet extends AbstractManet {
                                 updatePeer(peerHandle);
                                 handleMessage(findConnection(peerHandle),message);
                             });
+                        connectToPeer(peerHandle);
                     }
 
                     @Override
@@ -312,6 +329,7 @@ public class WiFiAwareManet extends AbstractManet {
                             handler.post(() -> updatePeer(peerHandle));
                         if (listener != null)
                             listener.onStatus(status);
+                        connectToPeer(peerHandle);
                     }
 
                     @Override
@@ -410,24 +428,33 @@ public class WiFiAwareManet extends AbstractManet {
                         && hopCount < device.getHopsToDevice(origin)) {
                         CommsLog.log(CommsLog.Entry.Category.COMMS,"WiFi Aware relaying packet from "+origin+" ("+hopCount+" hops) to "+device.getLabel());
 
-                        if (device.isWiFiPreferred())
-                            burst(data,connection.getPeerHandle());
-                        if (device.isBtPreferred()) {
+                        if (reconstructed == null) {
+                            reconstructed = AbstractPacket.newFromBytes(data);
+                            reconstructed.incrementHopCount();
+                        }
+                        boolean sendViaBt = false;
+                        if (device.isWiFiPreferred()) {
+                            try {
+                                burst(reconstructed,device);
+                            } catch (ManetException e) {
+                                Log.e(Config.TAG,"Exception when trying to send packet to "+device.getLabel()+" over Aware: "+e.getMessage());
+                                sendViaBt = true;
+                            }
+                        }
+                        if (device.isBtPreferred() || sendViaBt) {
                             CommsLog.log(CommsLog.Entry.Category.COMMS,"WiFi Aware referring packet from "+origin+" ("+hopCount+" hops) to "+device.getLabel()+" for relay via bluetooth");
-                            if (reconstructed == null)
-                                reconstructed = AbstractPacket.newFromBytes(data);
                             SqAnService.burstVia(reconstructed, TransportPreference.BLUETOOTH);
                         }
                     }
                 }
             }
         } else
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Aware cannot relay a null packet or handle a null connection origin");
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Aware cannot relay a null packet or handle a null connection origin");
     }
 
     private void startDiscovery() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFi Aware discovery started");
+            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware discovery started");
             if (discoverySession != null) {
                 Log.d(Config.TAG,"Stopping previous Aware discoverySession to start new discoverySession");
                 discoverySession.close();
@@ -458,6 +485,7 @@ public class WiFiAwareManet extends AbstractManet {
                             handler.post(() -> updatePeer(peerHandle));
                         if (listener != null)
                             listener.onStatus(status);
+                        connectToPeer(peerHandle);
                     }
 
                     @Override
@@ -474,6 +502,7 @@ public class WiFiAwareManet extends AbstractManet {
                                 updatePeer(peerHandle);
                                 handleMessage(findConnection(peerHandle),message);
                             });
+                        connectToPeer(peerHandle);
                     }
 
                     @Override
@@ -510,11 +539,179 @@ public class WiFiAwareManet extends AbstractManet {
         }
     }
 
-    //FIXME hey dummy! once its connected, use the https://developer.android.com/guide/topics/connectivity/wifi-aware#create_a_connection section rather than the message
+    private void connectToPeer(PeerHandle peerHandle) {
+        Connection connection = findPeer(peerHandle);
+        if (connection == null) {
+            burst(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),peerHandle);
+            updatePeer(peerHandle);
+            connection = findPeer(peerHandle);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if ((peerHandle == null) || (discoverySession == null) || (connection == null))
+                return;
+            if (connection.getCallback() != null) //this connection is already being handled
+                return;
+
+            Log.d(Config.TAG,"Establishing Aware network conection to "+peerHandle.hashCode());
+            connection.setCallback(new AwareManetConnectionCallback(connection));
+            NetworkSpecifier networkSpecifier = discoverySession.createNetworkSpecifierPassphrase(peerHandle,conformPasscodeToWiFiAwareRequirements(Config.getPasscode()));
+            NetworkRequest networkRequest = new NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
+                    .setNetworkSpecifier(networkSpecifier)
+                    .build();
+
+            connectivityManager.requestNetwork(networkRequest,connection.getCallback());
+        }
+    }
+
+
+    private final static int MIN_PASSPHRASE_LENGTH = 8; //FIXME unable to find these definitively, so they are guesses
+    private final static int MAX_PASSPHRASE_LENGTH = 63; //FIXME unable to find these definitively, so they are guesses
+    /**
+     * Adjusts the passcode to meet WiFi Aware requirements
+     * @param passcode
+     * @return
+     */
+    private String conformPasscodeToWiFiAwareRequirements(String passcode) {
+        if ((passcode != null) && (passcode.length() >= MIN_PASSPHRASE_LENGTH) && (passcode.length() <= MAX_PASSPHRASE_LENGTH))
+            return passcode;
+        StringWriter out = new StringWriter();
+
+        int i=0;
+        while (i < MIN_PASSPHRASE_LENGTH) {
+            if (i < passcode.length())
+                out.append(passcode.charAt(i));
+            else
+                out.append('x');
+            i++;
+        }
+        while ((i < MAX_PASSPHRASE_LENGTH) && (i < passcode.length())) {
+            out.append(passcode.charAt(i));
+            i++;
+        }
+        String output = out.toString();
+        Log.d(Config.TAG,"Passphrase \""+passcode+"\" adjusted to \""+output+"\" to conform with WiFi Aware requirements");
+        return out.toString();
+    }
 
     //FIXME use the identity change listener to get the Aware MAC and know when it changes
     //FIXME https://android.googlesource.com/platform/frameworks/base/+/master/wifi/java/android/net/wifi/aware/IdentityChangedListener.java
 
+    /*******************/
+
+    @Override
+    public void onServerBacklistClient(InetAddress address) {
+        if (address != null) {
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server blacklisted "+address.toString());
+        }
+        //TODO
+    }
+
+    @Override
+    public void onServerError(String error) {
+        CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server error: "+error);
+        //ignore this for now as the mesh tries to self-heal
+    }
+
+    @Override
+    public void onServerFatalError() {
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Fatal server error");
+        stopSocketConnections(false);
+    }
+
+    @Override
+    public void onServerClosed() {
+        socketServer = null;
+        if (isRunning.get()) {
+            if (socketClient == null) {
+                //TODO
+            }
+        }
+    }
+
+    @Override
+    public void onServerClientDisconnected(InetAddress address) {
+        if (address != null) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS, address.toString()+" disconnected");
+            //ignore this for now; maybe revisited later to help address mesh changes
+        }
+    }
+
+    @Override
+    public void onNewClient(SqAnDevice device) {
+        if (listener != null)
+            listener.onDevicesChanged(device);
+        onAuthenticatedOnNet();
+    }
+
+    @Override
+    public void burst(AbstractPacket packet) throws ManetException {
+        if (packet != null) {
+            if (socketClient != null) {//packets from clients always get sent to the server
+                Log.d(Config.TAG,"burst(packet) sent as a Client");
+                burst(packet, (SqAnDevice)null);
+            } else if (socketServer != null) {
+                Log.d(Config.TAG,"burst(packet) sent as a Server");
+                SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
+                if (device == null) {
+                    boolean multiHopNeeded = false;
+                    if (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS) {
+                        if (connections != null)
+                            burst(packet, (SqAnDevice)null);
+                    } else {
+                        boolean found = false;
+                        //TODO
+                        multiHopNeeded = found;
+                    }
+                    if (multiHopNeeded) {
+                        //TODO try to find a node that can reach this device
+                        //TODO for multi-hop
+                    }
+                } else //the destination device is in this manet
+                    burst(packet, device);
+            }
+        } else
+            Log.d(Config.TAG,"Cannot send null packet");
+    }
+
+    private void burst(AbstractPacket packet, SqAnDevice device) throws ManetException {
+        Log.d(Config.TAG,"Packet burst...");
+        if (packet != null) {
+            boolean sent = false;
+            if ((socketClient != null) && socketClient.isReady())
+                sent = socketClient.burst(packet); //clients only send packets to the server
+            if (socketServer != null) { //but servers can send packets to clients that are destined for different devices
+                if (device == null)
+                    socketServer.burst(packet, packet.getSqAnDestination());
+                else
+                    socketServer.burst(packet, device.getUUID());
+                sent = true;
+            }
+            if (!sent) {
+                if ((connections != null) && !connections.isEmpty()) {
+                    synchronized (connections) {
+                        for (Connection connection:connections) {
+                            if ((connection.getDevice() != null) && (connection.getPeerHandle() != null)) {
+                                if (AddressUtil.isApplicableAddress(connection.getDevice().getUUID(), packet.getSqAnDestination())) {
+                                    Log.d(Config.TAG,"Failing over to send packet to "+connection.getDevice().getLabel()+" via Aware message (socket connection not available)");
+                                    burst(packet, connection.getPeerHandle());
+                                    sent = true;
+                                }
+                            }
+                        }
+                    }
+                } else
+                    Log.d(Config.TAG, "Aware tried to burst but no nodes available to receive");
+            }
+            if (sent) {
+                if (listener != null)
+                    listener.onTx(packet);
+            }
+        } else
+            Log.d(Config.TAG,"Trying to burst over manet but packet was null");
+    }
+
+    /*******************/
 
     private void burst(AbstractPacket packet, PeerHandle peerHandle) {
         if (packet == null) {
@@ -544,8 +741,9 @@ public class WiFiAwareManet extends AbstractManet {
             } else {
                 if (discoverySession != null)
                     handler.post(() -> {
-                        Log.d(Config.TAG,"WiFi Aware sending a "+bytes.length+"b message "+(messageIds.get()+1)+" to "+peerHandle.hashCode());
+                        Log.d(Config.TAG,"Aware sending a "+bytes.length+"b message "+(messageIds.get()+1)+" to "+peerHandle.hashCode());
                         discoverySession.sendMessage(peerHandle, messageIds.incrementAndGet(), bytes);
+                        ManetOps.addBytesToTransmittedTally(bytes.length);
                     });
                 else
                     Log.w(Config.TAG,"Cannot send burst as discovery session is null");
@@ -554,26 +752,18 @@ public class WiFiAwareManet extends AbstractManet {
             Log.d(Config.TAG,"Cannot burst, WiFi Aware is not supported");
     }
 
-    @Override
-    public void burst(final AbstractPacket packet) throws ManetException {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (handler != null) {
-                handler.post(() -> {
-                    if ((connections != null) && !connections.isEmpty()) {
-                        synchronized (connections) {
-                            Log.d(Config.TAG, "Aware burst(packet)");
-                            for (Connection connection:connections) {
-                                if ((connection.getDevice() != null) && (connection.getPeerHandle() != null)) {
-                                    if (AddressUtil.isApplicableAddress(connection.getDevice().getUUID(), packet.getSqAnDestination()))
-                                        burst(packet, connection.getPeerHandle());
-                                }
-                            }
-                        }
-                    } else
-                        Log.d(Config.TAG, "Aware tried to burst but no nodes available to receive");
-                });
-            }
+    private void stopSocketConnections(boolean announce) {
+        if (socketClient != null) {
+            socketClient.close();
+            Log.d(Config.TAG,"socketClient closing...");
+            socketClient = null;
         }
+        if (socketServer != null) {
+            socketServer.close(announce);
+            Log.d(Config.TAG,"socketServer closing...");
+            socketServer = null;
+        }
+        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
     }
 
     @Override
@@ -596,42 +786,36 @@ public class WiFiAwareManet extends AbstractManet {
      * @param oob true == rely on out-of-band discovered devices; false = rely on Advertise/Discovery
      */
     private void findOrCreateHub(boolean oob) {
-        Log.d(Config.TAG,"findOrCreateHub()");
-        if ((awareSession != null) && (role == Role.NONE)) {
-            if (oob) {
-                ArrayList<SqAnDevice> devices = TeammateConnectionPlanner
-                        .getDescendingPriorityWiFIConnections(SqAnDevice.getWiFiAwareDevices());
-                if ((devices == null) || devices.isEmpty()) {
-                    findOrCreateHub(false);
-                    return;
-                }
-                for (SqAnDevice device : devices) {
-                    connectToDevice(device);
-                }
-                if (handler != null) {
-                    handler.postDelayed(() -> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Log.d(Config.TAG, "findOrCreateHub()");
+            if ((awareSession != null) && (role == Role.NONE)) {
+                if (oob && false) { //TODO skipping OOB discovery for now
+                    ArrayList<SqAnDevice> devices = TeammateConnectionPlanner
+                            .getDescendingPriorityWiFIConnections(SqAnDevice.getWiFiAwareDevices());
+                    if ((devices == null) || devices.isEmpty()) {
                         findOrCreateHub(false);
-                    }, INTERVAL_BEFORE_FALLBACK_DISCOVERY);
-                }
-            } else {
-                startDiscovery();
-                if (handler != null) {
-                    handler.postDelayed(() -> {
-                        if (role == Role.NONE) {
-                            Log.d(Config.TAG, "no existing network found");
-                            setStatus(Status.CHANGING_MEMBERSHIP);
-                            assumeHubRole();
-                        } else
-                            Log.d(Config.TAG, "No need to change roles (currently " + role.name() + ") as it appears discovery was successful");
-                    }, INTERVAL_LISTEN_BEFORE_PUBLISH);
+                        return;
+                    }
+                    if (handler != null) {
+                        handler.postDelayed(() -> {
+                            findOrCreateHub(false);
+                        }, INTERVAL_BEFORE_FALLBACK_DISCOVERY);
+                    }
+                } else {
+                    startDiscovery();
+                    if (handler != null) {
+                        handler.postDelayed(() -> {
+                            if (role == Role.NONE) {
+                                Log.d(Config.TAG, "no existing network found");
+                                setStatus(Status.CHANGING_MEMBERSHIP);
+                                assumeHubRole();
+                            } else
+                                Log.d(Config.TAG, "No need to change roles (currently " + role.name() + ") as it appears discovery was successful");
+                        }, INTERVAL_LISTEN_BEFORE_PUBLISH);
+                    }
                 }
             }
         }
-    }
-
-    private void connectToDevice(SqAnDevice device) {
-        //TODO check to see if this connection is already being attempted
-        //TODO connect to this device
     }
 
     /**
@@ -644,6 +828,16 @@ public class WiFiAwareManet extends AbstractManet {
 
     @Override
     public void disconnect() throws ManetException {
+        super.disconnect();
+        stopSocketConnections(true);
+        if ((connections != null) && !connections.isEmpty() && (connectivityManager != null)) {
+            synchronized (connections) {
+                for (Connection connection:connections) {
+                    if (connection.getCallback() != null)
+                        connectivityManager.unregisterNetworkCallback(connection.getCallback());
+                }
+            }
+        }
         if (hardwareStatusReceiver != null) {
             try {
                 context.unregisterReceiver(hardwareStatusReceiver);
@@ -662,7 +856,6 @@ public class WiFiAwareManet extends AbstractManet {
         }
         setStatus(Status.OFF);
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
-        isRunning.set(true);
     }
 
     @Override
@@ -724,5 +917,90 @@ public class WiFiAwareManet extends AbstractManet {
     public void onMacChanged (byte[] mac) {
         Config.getThisDevice().setAwareMac(new MacAddress(mac));
         //TODO
+    }
+
+    private class AwareManetConnectionCallback extends ConnectivityManager.NetworkCallback {
+        private final Connection connection;
+        public AwareManetConnectionCallback(Connection connection) {
+            super();
+            this.connection = connection;
+        }
+
+        @Override
+        public void onAvailable(Network network) {
+            Log.d(Config.TAG,"Aware onAvailable() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
+            //TODO
+        }
+
+        @Override
+        public void onLinkPropertiesChanged(Network network, LinkProperties linkProperties) {
+            Log.d(Config.TAG,"Aware onLinkPropertiesChanged() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
+            try {
+                NetworkInterface awareNi = NetworkInterface.getByName(linkProperties.getInterfaceName());
+                Enumeration inetAddresses = awareNi.getInetAddresses();
+                Inet6Address ipv6 = null;
+                while (inetAddresses.hasMoreElements()) {
+                    InetAddress addr = (InetAddress) inetAddresses.nextElement();
+                    if (addr instanceof Inet6Address) {
+                        if (addr.isLinkLocalAddress()) {
+                            ipv6 = (Inet6Address)addr;
+                            if (!ipv6.equals(Config.getThisDevice().getAwareServerIp())) {
+                                Log.d(Config.TAG,"Aware IP address changed to "+ipv6.getHostAddress());
+                                stopSocketConnections(false);
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (connection.getDevice() == null)
+                    return;
+                if (ipv6 != null) {
+                    SqAnDevice other = connection.getDevice();
+                    if (shouldLocalDeviceHost(other)) {
+                        Log.d(Config.TAG,"Aware server connection with "+other.getLabel()+" should be hosted by this device");
+                        socketServer = new Server(new SocketChannelConfig(null, SQAN_PORT), parser, WiFiAwareManet.this);
+                        socketServer.start();
+                        Config.getThisDevice().setAwareServerIp(ipv6);
+                    } else {
+                        Log.d(Config.TAG,"Aware server connection with "+other.getLabel()+" should be hosted by the other device; waiting a short time to allow the server to set-up");
+                        socketClient = new Client(new SocketChannelConfig(other.getAwareServerIp().getHostAddress(), SQAN_PORT), parser);
+                        handler.postDelayed((Runnable) () -> {
+                            if ((socketClient != null) && isRunning.get()) {
+                                Log.d(Config.TAG,"Aware starting client connection");
+                                socketClient.start();
+                            }
+                        },DELAY_BEFORE_CONNECTING_TO_SERVER);
+                        Config.getThisDevice().clearAwareServerIp();
+                    }
+                } else
+                    Config.getThisDevice().clearAwareServerIp();
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onLost(Network network) {
+            Log.d(Config.TAG,"Aware onLost() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
+            //TODO
+        }
+    }
+
+    /**
+     * Decides if this device or the remote other device should be the server
+     * @param other
+     * @return true == this device should be the server; false == other device is assumed to be the server
+     */
+    private boolean shouldLocalDeviceHost(SqAnDevice other) {
+        if ((socketServer != null) || (other == null))
+            return true;
+        if (other.isAwareServer())
+            return false;
+        SqAnDevice thisDevice = Config.getThisDevice();
+        if (thisDevice == null)
+            return false;
+        if ((thisDevice.getRelayConnections() != null) && (other.getRelayConnections() != null)) //favor fewer connections
+            return thisDevice.getRelayConnections().size() < other.getRelayConnections().size();
+        return thisDevice.getUUID() > other.getUUID();
     }
 }

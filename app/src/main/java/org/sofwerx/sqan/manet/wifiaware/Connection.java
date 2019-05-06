@@ -1,5 +1,6 @@
 package org.sofwerx.sqan.manet.wifiaware;
 
+import android.net.ConnectivityManager;
 import android.net.wifi.aware.PeerHandle;
 
 import org.sofwerx.sqan.manet.common.SqAnDevice;
@@ -7,6 +8,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 public class Connection {
     private PeerHandle peerHandle;
     private SqAnDevice device;
+    private ConnectivityManager.NetworkCallback callback;
     private long lastConnection = Long.MIN_VALUE;
 
     public Connection(PeerHandle peerHandle, SqAnDevice device) {
@@ -32,4 +34,12 @@ public class Connection {
     public long getLastConnection() { return lastConnection; }
     public void setLastConnection(long lastConnection) { this.lastConnection = lastConnection; }
     public void setLastConnection() { setLastConnection(System.currentTimeMillis()); }
+
+    public ConnectivityManager.NetworkCallback getCallback() {
+        return callback;
+    }
+
+    public void setCallback(ConnectivityManager.NetworkCallback callback) {
+        this.callback = callback;
+    }
 }

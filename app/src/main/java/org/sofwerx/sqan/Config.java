@@ -28,6 +28,7 @@ public class Config {
     private final static String PREFS_UUID_EXTENDED = "uuid_extended";
     private final static String PREFS_UUID = "uuid";
     private final static String PREFS_CALLSIGN = "callsign";
+    private final static String PREFS_PASSCODE = "passcode";
     public final static String PREFS_MANET_ENGINE = "manetType";
     public final static String PREF_CLEAR_TEAM = "clearteam";
     private final static String PREFS_SAVED_TEAM = "savedteam";
@@ -38,6 +39,7 @@ public class Config {
     public final static String PREFS_VPN_MTU = "mtu";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
+    private final static String DEFAULT_PASSCODE = "SwxTest";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean broadcastSa = true;
@@ -51,6 +53,7 @@ public class Config {
     private static int mtuSize = 1500;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
+    private static String passcode;
 
     public static void init(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
@@ -59,6 +62,8 @@ public class Config {
         int uuid = prefs.getInt(PREFS_UUID,UuidUtil.getNewUUID());
         String uuidExtended = prefs.getString(PREFS_UUID_EXTENDED,UuidUtil.getNewExtendedUUID());
         String callsign = prefs.getString(PREFS_CALLSIGN,UuidUtil.getRandomCallsign());
+        passcode = prefs.getString(PREFS_PASSCODE,DEFAULT_PASSCODE);
+        //TODO replace this with a negotiated passcode
         SharedPreferences.Editor edit = prefs.edit();
         edit.putInt(PREFS_UUID,uuid);
         edit.putString(PREFS_UUID_EXTENDED,uuidExtended);
@@ -111,6 +116,8 @@ public class Config {
 
     public static boolean isWarnIncompleteEnabled() { return warnIncomplete; }
     public static void setWarnIncompleteEnabled(boolean enabled) { warnIncomplete = enabled; }
+
+    public static String getPasscode() { return passcode; }
 
     public static boolean isLoggingEnabled() { return writeLog; }
 

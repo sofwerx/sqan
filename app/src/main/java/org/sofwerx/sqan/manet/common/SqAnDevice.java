@@ -19,6 +19,7 @@ import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
 import java.net.Inet6Address;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,6 +32,7 @@ public class SqAnDevice {
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     public final static int BROADCAST_IP = AddressUtil.getSqAnVpnIpv4Address(PacketHeader.BROADCAST_ADDRESS);
     private final static int MAX_RELAY_CONNECTIONS_TO_SAVE = 20;
+    public final static byte[] NO_IPV6_ADDRESS = {(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0,(byte)0};
     private static AtomicInteger nextUnassignedUUID = new AtomicInteger(-1);
     private static ArrayList<SqAnDevice> devices;
     private int uuid; //this is the persistent SqAN ID for this device
@@ -64,7 +66,8 @@ public class SqAnDevice {
     private ArrayList<AbstractCommsIssue> issues;
     private int packetsDropped = 0;
     private MacAddress awareMac;
-    private boolean awareServer = false;
+    private Inet6Address awareServerIp;
+    //private boolean awareServer = false;
     //private Inet6Address ipv6 = null;
 
     /**
@@ -390,13 +393,45 @@ public class SqAnDevice {
      * Is this device hosting a WiFi Aware server
      * @return
      */
-    public boolean isAwareServer() { return awareServer; }
+    public boolean isAwareServer() { return awareServerIp != null; }
 
     /**
-     * Sets if this device is hosting a WiFi Aware server
-     * @param awareServer
+     * Sets the IPV6 address of this device IF this device is an aware server
+     * @param awareServerIp IPV6 address of this device if aware server (or null if not)
      */
-    public void setAwareServer(boolean awareServer) { this.awareServer = awareServer; }
+    public void setAwareServerIp(Inet6Address awareServerIp) { this.awareServerIp = awareServerIp; }
+
+    public void setAwareServerIp(byte[] bytes) {
+        if ((bytes == null) || (bytes.length != NO_IPV6_ADDRESS.length)) {
+            awareServerIp = null;
+            return;
+        } else {
+            boolean isNoValue = true;
+            for (int i=0;i<bytes.length;i++) {
+                if (bytes[i] != 0) {
+                    isNoValue = false;
+                    break;
+                }
+            }
+            if (isNoValue)
+                awareServerIp = null;
+            else {
+                try {
+                    awareServerIp = (Inet6Address) Inet6Address.getByAddress(bytes);
+                } catch (UnknownHostException e) {
+                    awareServerIp = null;
+                }
+            }
+        }
+    }
+
+    /**
+     * Gets the IPV6 address of this device IF this device is an aware server
+     * @return IPV6 address of this device if aware server (or null if not)
+     */
+    public Inet6Address getAwareServerIp() { return awareServerIp; }
+
+    public void clearAwareServerIp() { awareServerIp = null; }
 
     public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -1387,7 +1422,7 @@ public class SqAnDevice {
 
     private final static byte MASK_NONE =         (byte)0b00000000;
     private final static byte MASK_BACKHAUL =     (byte)0b10000000;
-    private final static byte MASK_AWARE_SERVER = (byte)0b01000000;
+    private final static byte MASK_RESERVED_2 =   (byte)0b01000000;
     private final static byte MASK_RESERVED_3 =   (byte)0b00100000;
     private final static byte MASK_RESERVED_4 =   (byte)0b00010000;
     private final static byte MASK_RESERVED_5 =   (byte)0b00001000;
@@ -1397,14 +1432,11 @@ public class SqAnDevice {
 
     public byte getFlags() {
         byte flags = backhaulConnection?MASK_BACKHAUL:MASK_NONE;
-        if (awareServer)
-            flags = (byte)(flags | MASK_AWARE_SERVER);
 
         return flags;
     }
 
     public void parseFlags(byte data) {
         backhaulConnection = (MASK_BACKHAUL & data) == MASK_BACKHAUL;
-        awareServer = (MASK_AWARE_SERVER & data) == MASK_AWARE_SERVER;
     }
 }
