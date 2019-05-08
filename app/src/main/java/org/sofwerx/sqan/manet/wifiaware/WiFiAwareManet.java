@@ -97,7 +97,6 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         super(handler, context,listener);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             wifiAwareManager = null;
-            hardwareStatusReceiver = null;
             identityChangedListener = new IdentityChangedListener() {
                 @Override
                 public void onIdentityChanged(byte[] mac) {
@@ -179,21 +178,22 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
 
     @Override
     public void init() throws ManetException {
-        //if (!isRunning) {
-            isRunning.set(true);
-            if (hardwareStatusReceiver == null) {
-                hardwareStatusReceiver = new BroadcastReceiver() {
-                    @Override
-                    public void onReceive(Context context, Intent intent) {
-                        if (handler != null)
-                            handler.post(() -> onWiFiAwareStatusChanged());
-                    }
-                };
-                IntentFilter filter = new IntentFilter(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED);
-                context.registerReceiver(hardwareStatusReceiver, filter);
-            }
-            if (wifiAwareManager == null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (!isRunning.get()) {
+            Log.d(Config.TAG,"WiFiAwareManet init()");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                isRunning.set(true);
+                if (hardwareStatusReceiver == null) {
+                    hardwareStatusReceiver = new BroadcastReceiver() {
+                        @Override
+                        public void onReceive(Context context, Intent intent) {
+                            if (handler != null)
+                                handler.post(() -> onWiFiAwareStatusChanged());
+                        }
+                    };
+                    IntentFilter filter = new IntentFilter(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED);
+                    context.registerReceiver(hardwareStatusReceiver, filter, null, handler);
+                }
+                if (wifiAwareManager == null) {
                     NetUtil.turnOnWiFiIfNeeded(context);
                     NetUtil.forceLeaveWiFiNetworks(context); //TODO include a check to protect an active connection if its used for data backhaul
                     wifiAwareManager = (WifiAwareManager) context.getSystemService(Context.WIFI_AWARE_SERVICE);
@@ -205,7 +205,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                     }
                 }
             }
-        //}
+        }
     }
 
     @Override
@@ -841,10 +841,10 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         if (hardwareStatusReceiver != null) {
             try {
                 context.unregisterReceiver(hardwareStatusReceiver);
-                hardwareStatusReceiver = null;
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
+            hardwareStatusReceiver = null;
         }
         if (discoverySession != null) {
             discoverySession.close();

@@ -35,13 +35,11 @@
             android:summary="Notify me when a setup for a teammate has incomplete information and needs to be repaired."
             android:defaultValue="true"/>
 
-        <PreferenceCategory
-            android:title="Encryption">
-            <EditTextPreference
-                android:key="passcode"
-                android:title="Network Passcode"
-                android:summary="The passcode used to for the network. This is a tempory solution until a network negotiated passcode scheme is put in place." />
-        </PreferenceCategory>
+        <EditTextPreference
+            android:key="passcode"
+            android:title="Network Passcode"
+            android:summary="The passcode used to for the network. This is a temporary solution until a network negotiated passcode scheme is put in place." />
+
     </PreferenceCategory>
 
     <PreferenceCategory

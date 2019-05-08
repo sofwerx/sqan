@@ -273,12 +273,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         Log.d(Config.TAG,"Disconnecting WiFiManet...");
         if (hardwareStatusReceiver != null) {
             try {
+                //FIXME stopped here
                 context.unregisterReceiver(hardwareStatusReceiver); //FIXME, this is being treated as a different receiver for some reason (context maybe?) and not unregistering but causing the original receiver to leak
                 Log.d(Config.TAG,"WiFi Direct Broadcast Receiver unregistered");
-                hardwareStatusReceiver = null;
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
+            hardwareStatusReceiver = null;
         }
         if (nsd != null) {
             nsd.stopDiscovery(manager, channel, null);
