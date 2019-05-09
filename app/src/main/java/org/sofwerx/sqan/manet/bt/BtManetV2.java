@@ -46,6 +46,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     private static final long OLD_DEVICE_CHECK_INTERVAL = 1000l * 60l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
     private static final String SERVICE_NAME = "SqAN";
+    private final static String TAG = Config.TAG+".BTSocket";
     private BluetoothAdapter bluetoothAdapter;
     private long nextTeammateCheck = Long.MIN_VALUE;
     private long nextOldDeviceCheck = Long.MIN_VALUE;
@@ -101,7 +102,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public void init() throws ManetException {
-        Log.d(Config.TAG,"BtManetV2 init()");
+        Log.d(TAG,"BtManetV2 init()");
         isRunning.set(true);
         setStatus(Status.ADVERTISING_AND_DISCOVERING);
         connectToTeammates();
@@ -110,7 +111,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     private boolean reportedAtMax = false;
     private void connectToTeammates() {
-        Log.d(Config.TAG,"BtManetV2.connectToTeammates()");
+        Log.d(TAG,"BtManetV2.connectToTeammates()");
         nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         boolean addedNewCheck = false;
         boolean notSeekingNew = false;
@@ -126,7 +127,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                         MacAddress mac = teammate.getBluetoothMac();
                         if ((mac != null) && !Core.isMacConnected(mac)) {
                             String macString = mac.toString();
-                            Log.d(Config.TAG, "Teammate " + teammate.getLabel() + " is not connected yet");
+                            Log.d(TAG, "Teammate " + teammate.getLabel() + " is not connected yet");
                             BluetoothDevice device = getDevice(macString);
                             if (device != null) {
                                 pendingConnections++;
@@ -148,7 +149,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
             }
         }
         if (!addedNewCheck) {
-            Log.d(Config.TAG, "No teammates found without a current connection or connection attempt");
+            Log.d(TAG, "No teammates found without a current connection or connection attempt");
             if (notSeekingNew)
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"BT MANET considers itself at capacity and is not seeking new connections as a client (with "+pendingConnections+" pending connections)");
         }
@@ -156,15 +157,15 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     private void burst(final byte[] bytes, final int destination, final int origin) {
         if (bytes == null) {
-            Log.d(Config.TAG, "Cannot send empty byte array");
+            Log.d(TAG, "Cannot send empty byte array");
             return;
         }
         if (bytes.length > getMaximumPacketSize()) {
-            Log.d(Config.TAG, "Packet larger than " + getName() + " max; segmenting and sending");
+            Log.d(TAG, "Packet larger than " + getName() + " max; segmenting and sending");
             //TODO segment and burst
         } else {
             handler.post(() -> {
-                Log.d(Config.TAG, "burst() - " + bytes.length + "b");
+                Log.d(TAG, "burst() - " + bytes.length + "b");
                 Core.send(bytes, destination, origin);
             });
         }
@@ -176,11 +177,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
             return;
         if (packet.getOrigin() != Config.getThisDevice().getUUID()) {
             if (packet.getCurrentHopCount() > MAX_HOP_COUNT) {
-                Log.d(Config.TAG,"Packet dropped - exceeded max hop count.");
+                Log.d(TAG,"Packet dropped - exceeded max hop count.");
                 return;
             }
         }
-        Log.d(Config.TAG,"Bursting "+packet.getClass().getSimpleName());
+        Log.d(TAG,"Bursting "+packet.getClass().getSimpleName());
         burst(packet.toByteArray(), packet.getSqAnDestination(), packet.getOrigin());
         if (listener != null)
             listener.onTx(packet);
@@ -256,19 +257,19 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public void onNewConnectionAccepted(BTSocket newConnection) {
-        Log.d(Config.TAG,"Socket #"+newConnection.getBtSocketIdNum()+" acceptListener.onNewConnectionAccepted()");
+        Log.d(TAG,"Socket #"+newConnection.getBtSocketIdNum()+" acceptListener.onNewConnectionAccepted()");
         //TODO
     }
 
     @Override
     public void onError(Exception e, String where) {
-        Log.d(Config.TAG,"Socket, "+where+", acceptListener.onError(): "+e.getMessage());
+        Log.d(TAG,"Socket, "+where+", acceptListener.onError(): "+e.getMessage());
         //TODO
     }
 
     @Override
     public void onConnectSuccess(BTSocket clientSocket) {
-        Log.d(Config.TAG,"Socket #"+clientSocket.getBtSocketIdNum()+" connectionListener.onConnectSuccess()");
+        Log.d(TAG,"Socket #"+clientSocket.getBtSocketIdNum()+" connectionListener.onConnectSuccess()");
         setStatus(Status.CONNECTED);
         MacAddress mac = clientSocket.getMac();
         if (mac != null) {
@@ -276,7 +277,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
             if (device == null) {
                 SavedTeammate teammate = Config.getTeammateByBtMac(mac);
                 if (teammate == null)
-                    Log.e(Config.TAG,"Could not find saved teammate with MAC "+mac.toString());
+                    Log.e(TAG,"Could not find saved teammate with MAC "+mac.toString());
                 else {
                     device = new SqAnDevice(teammate.getSqAnAddress());
                     device.setBluetoothMac(mac.toString());
@@ -290,14 +291,14 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public void onConnectionError(Exception exception, String where) {
-        Log.e(Config.TAG,"connectionListener.onConnectionError() @ "+where+": "+((exception==null)?"":exception.getMessage()));
+        Log.e(TAG,"connectionListener.onConnectionError() @ "+where+": "+((exception==null)?"":exception.getMessage()));
         //TODO
     }
 
     @Override
     public void onSuccess(AbstractPacket packet) {
         if (packet == null) {
-            Log.e(Config.TAG,"readListener reported receiving data, but packet was null");
+            Log.e(TAG,"readListener reported receiving data, but packet was null");
             //TODO
             return;
         }
@@ -306,7 +307,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
     @Override
     public void onError(IOException e) {
-        Log.e(Config.TAG,"Read Error: "+e.getMessage());
+        Log.e(TAG,"Read Error: "+e.getMessage());
     }
 
     @Override

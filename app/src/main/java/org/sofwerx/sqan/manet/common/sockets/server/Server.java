@@ -8,6 +8,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
@@ -85,6 +86,7 @@ public class Server {
      * @throws IOException
      */
     private void buildServer() throws IOException {
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Building WiFi server");
         final InetSocketAddress address = new InetSocketAddress(config.getPort());
         this.server = ServerSocketChannel.open();
         server.configureBlocking(false);
@@ -176,6 +178,7 @@ public class Server {
     }
 
     public void start() {
+        Log.d(Config.TAG,"WiFi Direct server start()");
         serverThread = new HandlerThread("WiFiServer") {
             @Override
             protected void onLooperPrepared() {
