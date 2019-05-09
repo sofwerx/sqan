@@ -72,6 +72,13 @@
             android:defaultValue="true"/>
 
         <CheckBoxPreference
+            android:key="bigpipesonly"
+            android:dependency="vpnmode"
+            android:title="Large Data over Big Pipes Only"
+            android:summary="Only send large data (like video streams) over connections with large pipes (like WiFi)."
+            android:defaultValue="true"/>
+
+        <CheckBoxPreference
             android:key="no0000"
             android:dependency="vpnmode"
             android:title="Ignore 0.0.0.0"

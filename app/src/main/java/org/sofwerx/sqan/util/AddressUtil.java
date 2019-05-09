@@ -60,5 +60,5 @@ public class AddressUtil {
     }
 
     public final static String VPN_NET_MASK = "169.254.0.0";
-    public final static String[] VPN_MULTICAST_MASK = {"224.0.0.0","225.0.0.0","226.0.0.0"};
+    public final static String[] VPN_MULTICAST_MASK = {"224.0.0.0","225.0.0.0","226.0.0.0","239.0.0.0"};
 }

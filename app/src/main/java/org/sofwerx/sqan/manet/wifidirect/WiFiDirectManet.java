@@ -42,7 +42,7 @@ import java.util.List;
  *  (https://developer.android.com/training/connect-devices-wirelessly/wifi-direct)
  */
 public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.PeerListListener, WiFiDirectDiscoveryListener, WifiP2pManager.ConnectionInfoListener, ServerStatusListener {
-    private final static String TAG = Config.TAG+".BTSocket";
+    private final static String TAG = Config.TAG+".WiFiDirect";
     private final static String FALLBACK_GROUP_OWNER_IP = "192.168.49.1"; //the WiFi Direct Group owner always uses this address; hardcoding it is a little hackish, but is used when all other IP detection method attempts fail
     private final static long DELAY_BEFORE_REQUESTING_CONNECTION_INFO_AGAIN = 1000l * 60l;
     private final static long DELAY_BEFORE_CONNECTING = 1000l * 15l; //delay to prevent two devices from trying to connect at the same time

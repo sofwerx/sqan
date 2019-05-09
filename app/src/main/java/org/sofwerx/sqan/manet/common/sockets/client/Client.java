@@ -21,6 +21,7 @@ import java.nio.channels.SocketChannel;
  * The Client to connect with the Server over TCP/IP
  */
 public class Client extends Thread {
+    private final static String TAG = Config.TAG+".Client";
     //private final static String DEFAULT_LINK_NAME = "TCP/IP datalink";
     private DownlinkThread downlinkThread;
     private SocketChannelConfig config;
@@ -56,7 +57,7 @@ public class Client extends Thread {
     @Override
     public void run() {
         if (config == null) {
-            Log.d(Config.TAG,"Client not configured completely; terminating");
+            Log.d(TAG,"Client not configured completely; terminating");
             close();
         } else {
             Looper.prepare();
@@ -85,7 +86,7 @@ public class Client extends Thread {
                         datalink.read(uplink, downlink);
                 } catch (Exception e) {
                     if (keepRunning) {
-                        Log.e(Config.TAG, "Client.DownlinkThread.run error: " + e.getMessage());
+                        Log.e(TAG, "Client.DownlinkThread.run error: " + e.getMessage());
                         restartClient();
                     }
                     /*if (health != LinkHealth.ERROR) {
@@ -110,7 +111,7 @@ public class Client extends Thread {
     }
 
     public boolean burst(final AbstractPacket packet, boolean tryEvenIfLinkInErrorState) {
-        Log.d(Config.TAG,"burst");
+        Log.d(TAG,"burst");
         if (!isAlive())
             return false;
         if ((handler != null) && (packet != null)) {
@@ -120,22 +121,22 @@ public class Client extends Thread {
                         try {
                             datalink.queue(packet, uplink,listener);
                         } catch (Exception e) {
-                            Log.e(Config.TAG, e.getMessage());
+                            Log.e(TAG, e.getMessage());
                             buildSocket(); //reset the connection
                         }
                     } else {
                         if ((uplink == null) || (datalink == null) || !uplink.isConnected())
                             buildSocket(); //reset the connection
-                        Log.d(Config.TAG, "Not sending burst; datalink is null");
+                        Log.d(TAG, "Not sending burst; datalink is null");
                     }
                 } else {
                     if (System.currentTimeMillis() > linkStartTime + TIME_TO_WAIT_FOR_LINK_TO_INITIATE) {
-                        Log.d(Config.TAG, "Tried to send a burst over an unprepared uplink - trying to build the sockets again");
+                        Log.d(TAG, "Tried to send a burst over an unprepared uplink - trying to build the sockets again");
                         terminateLink(false);
                         setConfig(config);
                         buildSocket();
                     } else
-                        Log.d(Config.TAG, "Tried to send a burst, but the link is still initializing");
+                        Log.d(TAG, "Tried to send a burst, but the link is still initializing");
                 }
             });
         }
@@ -143,7 +144,7 @@ public class Client extends Thread {
     }
 
     private void buildSocket() {
-        Log.d(Config.TAG,"buildSocket()");
+        Log.d(TAG,"buildSocket()");
         if (config != null) {
             String host = config.getIp();
             int port = config.getPort();
@@ -188,7 +189,7 @@ public class Client extends Thread {
     public void close(boolean forceful) {
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
         if (isAlive()) {
-            Log.d(Config.TAG, "SocketRelayThread.close() called");
+            Log.d(TAG, "SocketRelayThread.close() called");
             if ((handler != null) && !forceful) {
                 handler.post(() -> {
                     terminateLink(true);
@@ -201,7 +202,7 @@ public class Client extends Thread {
                     looper.quitSafely();
             }
         } else
-            Log.d(Config.TAG, "Duplicate call to SocketRelayThread.close() ignored");
+            Log.d(TAG, "Duplicate call to SocketRelayThread.close() ignored");
     }
 
     private void sendHangup() {
@@ -215,7 +216,7 @@ public class Client extends Thread {
     }
 
     private void terminateLink(boolean sendHangup) {
-        Log.d(Config.TAG,"terminating socket link");
+        Log.d(TAG,"terminating socket link");
         if (sendHangup)
             sendHangup();
         if (downlinkThread != null) {

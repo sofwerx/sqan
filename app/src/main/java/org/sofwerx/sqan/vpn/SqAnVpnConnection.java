@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqAnVpnConnection implements Runnable {
     //private final static int MTU_SIZE = 1500;
+    private static final int SIZE_TO_ROUTE_WIFI_ONLY = 256; //byte size to be considered too large and should be sent over broad pipes only
     private static final int MAX_PACKET_SIZE = Short.MAX_VALUE; //Max packet size cannot exceed MTU constraint of Short
     private static final long IDLE_INTERVAL_MS = TimeUnit.MILLISECONDS.toMillis(100);
     private final VpnService vpnService;
@@ -81,11 +82,13 @@ public class SqAnVpnConnection implements Runnable {
                             if (device == null)
                                 Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
                             else {
-                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ") being forwarded to " + device.getCallsign());
+                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ") being sent to " + device.getLabel());
                                 outgoing.setDestination(device.getUUID());
                             }
                         }
                         outgoing.setData(rawBytes);
+                        if (Config.isLargeDataWiFiOnly() && (length > SIZE_TO_ROUTE_WIFI_ONLY))
+                            outgoing.setHighPerformanceNeeded(true);
                         //Log.d(getTag(), "Outgoing bytes: " + NetUtil.getStringOfBytesForDebug(rawBytes));
                         sqAnService.burst(outgoing);
                     }

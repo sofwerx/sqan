@@ -35,6 +35,7 @@ public class Config {
     public final static String PREFS_VPN_MODE = "vpnmode";
     public final static String PREFS_VPN_MULTICAST = "multicast";
     public final static String PREFS_IGNORE_0_0_0_0 = "no0000";
+    public final static String PREFS_LARGE_DATA_WIFI_ONLY = "bigpipesonly";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
     public final static String PREFS_VPN_MTU = "mtu";
     public final static String PREFS_WRITE_LOG = "log";
@@ -50,6 +51,7 @@ public class Config {
     private static boolean writeLog = true;
     private static boolean warnIncomplete = true;
     private static boolean ignore0000 = true;
+    private static boolean largeDataWiFiOnly = true;
     private static int mtuSize = 1500;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
@@ -133,6 +135,7 @@ public class Config {
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
         warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
         ignore0000 = prefs.getBoolean(PREFS_IGNORE_0_0_0_0,true);
+        largeDataWiFiOnly = prefs.getBoolean(PREFS_LARGE_DATA_WIFI_ONLY,true);
         try {
             mtuSize = Integer.parseInt(prefs.getString(PREFS_VPN_MTU, "1500"));
         } catch (NumberFormatException e) {
@@ -405,6 +408,7 @@ public class Config {
         vpnMode = true;
     }
     public static boolean isIgnoringPacketsTo0000() { return ignore0000; }
+    public static boolean isLargeDataWiFiOnly() { return largeDataWiFiOnly; }
     public static boolean isMulticastEnabled() { return multicast; }
     public static int getMtuSize() { return mtuSize; }
 }

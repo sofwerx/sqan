@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 class WiFiDirectNSD {
+    private final static String TAG = Config.TAG+".WiFiNSD";
     private final static String SQAN_INSTANCE_TAG = "_sqan";
     private final static String FIELD_UUID = "uuid";
     private final static String FIELD_GROUP_SSID = "a";
@@ -35,7 +36,7 @@ class WiFiDirectNSD {
      */
     void startAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, boolean force) {
         if (!isAdvertisingMode || force) {
-            Log.d(Config.TAG,"startAdvertising called");
+            Log.d(TAG,"startAdvertising called");
             isAdvertisingMode = true;
             String callsign = Config.getThisDevice().getSafeCallsign();
             HashMap<String,String> record = new HashMap();
@@ -49,14 +50,14 @@ class WiFiDirectNSD {
                     new WifiP2pManager.ActionListener() {
                         @Override
                         public void onSuccess() {
-                                Log.d(Config.TAG,"Advertising addLocalService.onSuccess()");
+                                Log.d(TAG,"Advertising addLocalService.onSuccess()");
                             if (listener != null)
                                 listener.onAdvertisingStarted();
                         }
 
                         @Override
                         public void onFailure(int code) {
-                            Log.d(Config.TAG,"Advertising addLocalService.onFailure("+ Util.getFailureStatusString(code)+")");
+                            Log.d(TAG,"Advertising addLocalService.onFailure("+ Util.getFailureStatusString(code)+")");
                         }
                     });
             manager.setDnsSdResponseListeners(channel, servListener, txtListener);
@@ -72,26 +73,26 @@ class WiFiDirectNSD {
                     new WifiP2pManager.ActionListener() {
                         @Override
                         public void onSuccess() {
-                            Log.d(Config.TAG,"serviceRequest.onSuccess()");
+                            Log.d(TAG,"serviceRequest.onSuccess()");
                             manager.discoverServices(channel,
                                     new WifiP2pManager.ActionListener() {
                                         @Override
                                         public void onSuccess() {
-                                            Log.d(Config.TAG,"discoverServices.onSuccess()");
+                                            Log.d(TAG,"discoverServices.onSuccess()");
                                             if (listener != null)
                                                 listener.onDiscoveryStarted();
                                         }
 
                                         @Override
                                         public void onFailure(int code) {
-                                            Log.d(Config.TAG,"discoverServices.onFailure("+Util.getFailureStatusString(code)+")");
+                                            Log.d(TAG,"discoverServices.onFailure("+Util.getFailureStatusString(code)+")");
                                         }
                                     });
                         }
 
                         @Override
                         public void onFailure(int code) {
-                            Log.d(Config.TAG,"serviceRequest.onFailure("+Util.getFailureStatusString(code)+")");
+                            Log.d(TAG,"serviceRequest.onFailure("+Util.getFailureStatusString(code)+")");
                         }
                     });
             CommsLog.log(CommsLog.Entry.Category.STATUS,"Discovery mode started");
@@ -99,19 +100,19 @@ class WiFiDirectNSD {
     }
 
     void stopAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
-        Log.d(Config.TAG,"stopAdvertising called");
+        Log.d(TAG,"stopAdvertising called");
         if (isAdvertisingMode) {
             isAdvertisingMode = false;
             if (listener == null) {
                 manager.clearLocalServices(channel, new WifiP2pManager.ActionListener() {
                     @Override
                     public void onSuccess() {
-                        Log.d(Config.TAG,"clearLocalServices.onSuccess()");
+                        Log.d(TAG,"clearLocalServices.onSuccess()");
                     }
 
                     @Override
                     public void onFailure(int code) {
-                        Log.d(Config.TAG,"clearLocalServices.onFailure("+Util.getFailureStatusString(code)+")");
+                        Log.d(TAG,"clearLocalServices.onFailure("+Util.getFailureStatusString(code)+")");
                     }
                 });
             } else
@@ -129,12 +130,12 @@ class WiFiDirectNSD {
                         new WifiP2pManager.ActionListener() {
                             @Override
                             public void onSuccess() {
-                                Log.d(Config.TAG,"Net Service Discovery clearServiceRequests.onSuccess()");
+                                Log.d(TAG,"Net Service Discovery clearServiceRequests.onSuccess()");
                             }
 
                             @Override
                             public void onFailure(int code) {
-                                Log.d(Config.TAG,"Net Service Discovery clearServiceRequests.onFailure("+Util.getFailureStatusString(code)+")");
+                                Log.d(TAG,"Net Service Discovery clearServiceRequests.onFailure("+Util.getFailureStatusString(code)+")");
                             }
                         });
             else
@@ -173,16 +174,16 @@ class WiFiDirectNSD {
                     } catch (Exception ignore) {
                     }
                 }
-                Log.d(Config.TAG, "SQAN: DnsSdTxtRecord available on " + fullDomain + " : " + record.toString() + ", device " + device.deviceName);
+                Log.d(TAG, "SQAN: DnsSdTxtRecord available on " + fullDomain + " : " + record.toString() + ", device " + device.deviceName);
                 if (listener != null)
                     listener.onDeviceDiscovered(device);
             } else
-                Log.d(Config.TAG, "Other: DnsSdTxtRecord available on "+fullDomain+" : "+record.toString()+", device "+device.deviceName);
+                Log.d(TAG, "Other: DnsSdTxtRecord available on "+fullDomain+" : "+record.toString()+", device "+device.deviceName);
         }
     };
 
     private WifiP2pManager.DnsSdServiceResponseListener servListener = (instanceName, registrationType, device) -> {
         //TODO
-        Log.d(Config.TAG, "Service Available " + instanceName+": "+device.deviceName+", but no action taken in WifiP2pManager.DnsSdServiceResponseListener");
+        Log.d(TAG, "Service Available " + instanceName+": "+device.deviceName+", but no action taken in WifiP2pManager.DnsSdServiceResponseListener");
     };
 }

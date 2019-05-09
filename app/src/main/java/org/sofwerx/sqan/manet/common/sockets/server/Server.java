@@ -35,6 +35,7 @@ import java.util.Set;
  * The Server to host Clients over TCP/IP
  */
 public class Server {
+    private final static String TAG = Config.TAG+".Server";
     private final static int MAX_SOCKETS_ACCEPTED = 24;
     private SocketChannelConfig config;
     private boolean restart;
@@ -178,7 +179,7 @@ public class Server {
     }
 
     public void start() {
-        Log.d(Config.TAG,"WiFi Direct server start()");
+        Log.d(TAG,"WiFi Direct server start()");
         serverThread = new HandlerThread("WiFiServer") {
             @Override
             protected void onLooperPrepared() {
@@ -192,7 +193,7 @@ public class Server {
                     } catch (Throwable t) {
                 /*        if (restart) {
                             CommsLog.log(CommsLog.Entry.Category.STATUS, "Could not start server; shutting server down...");
-                            Log.w(Config.TAG, t.getMessage());
+                            Log.w(TAG, t.getMessage());
                             restart = false;
                             try {
                                 if (selector != null) {
@@ -229,7 +230,7 @@ public class Server {
      */
     public void burst(AbstractPacket packet, int address) {
         if (handler == null) {
-            Log.d(Config.TAG, "Burst requested, but Handler is not ready yet");
+            Log.d(TAG, "Burst requested, but Handler is not ready yet");
             return;
         }
         if (packet != null) {
@@ -252,22 +253,22 @@ public class Server {
             handler.post(() -> {
                 if (announce)
                     burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
-                Log.d(Config.TAG, "Server shutting down...");
+                Log.d(TAG, "Server shutting down...");
                 keepRunning = false;
                 if (selector != null) {
                     try {
                         selector.close();
-                        Log.d(Config.TAG, "Server selector.close() complete");
+                        Log.d(TAG, "Server selector.close() complete");
                     } catch (IOException e) {
-                        Log.e(Config.TAG, "Server selector.close() error: " + e.getMessage());
+                        Log.e(TAG, "Server selector.close() error: " + e.getMessage());
                     }
                 }
                 if (server != null) {
                     try {
                         server.close();
-                        Log.d(Config.TAG, "Server server.close() complete");
+                        Log.d(TAG, "Server server.close() complete");
                     } catch (IOException e) {
-                        Log.e(Config.TAG, "Server server.close() error: " + e.getMessage());
+                        Log.e(TAG, "Server server.close() error: " + e.getMessage());
                     }
                 }
                 if (serverThread != null)
@@ -277,21 +278,21 @@ public class Server {
             });
         } else {
             keepRunning = false;
-            Log.d(Config.TAG, "Handler is null but Server shutting down anyway...");
+            Log.d(TAG, "Handler is null but Server shutting down anyway...");
             if (selector != null) {
                 try {
                     selector.close();
-                    Log.d(Config.TAG, "Handler is null but Server selector.close() complete");
+                    Log.d(TAG, "Handler is null but Server selector.close() complete");
                 } catch (IOException e) {
-                    Log.e(Config.TAG, "Handler is null and Server selector.close() error: " + e.getMessage());
+                    Log.e(TAG, "Handler is null and Server selector.close() error: " + e.getMessage());
                 }
             }
             if (server != null) {
                 try {
                     server.close();
-                    Log.d(Config.TAG, "Handler is null but Server server.close() complete");
+                    Log.d(TAG, "Handler is null but Server server.close() complete");
                 } catch (IOException e) {
-                    Log.e(Config.TAG, "Handler is null and Server server.close() error: " + e.getMessage());
+                    Log.e(TAG, "Handler is null and Server server.close() error: " + e.getMessage());
                 }
             }
             if (serverThread != null)

@@ -399,7 +399,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                 else {
                                     if (PacketHeader.BROADCAST_ADDRESS == packet.getSqAnDestination()) {
                                         wifiManet.burst(packet);
-                                        if (!BTSocket.isCongested())
+                                        if (!BTSocket.isCongested() && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                             btManet.burst(packet);
                                     } else {
                                         SqAnDevice device = SqAnDevice.findByUUID(packet.getSqAnDestination());
@@ -432,24 +432,24 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                 //at least one mesh isn't completely healthy so send over both
                                 if (wifiManet != null)
                                     wifiManet.burst(packet);
-                                if (btManet != null)
+                                if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                     btManet.burst(packet);
                             }
                         } else {
                             if ((preferredTransport == null) || (preferredTransport == TransportPreference.BOTH)) {
                                 if (wifiManet != null)
                                     wifiManet.burst(packet);
-                                if (btManet != null)
+                                if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                     btManet.burst(packet);
                             } else if (preferredTransport == TransportPreference.WIFI) {
                                 if (wifiManet != null)
                                     wifiManet.burst(packet);
                                 else {
-                                    if (btManet != null)
+                                    if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                         btManet.burst(packet);
                                 }
                             } else if (preferredTransport == TransportPreference.BLUETOOTH) {
-                                if (btManet != null)
+                                if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                     btManet.burst(packet);
                                 else {
                                     if (wifiManet != null)
