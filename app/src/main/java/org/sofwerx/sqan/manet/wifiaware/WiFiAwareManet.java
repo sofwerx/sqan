@@ -171,7 +171,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
     }
 
     @Override
-    public int getMaximumPacketSize() { return 255; /*TODO temp maximum */ }
+    public int getMaximumPacketSize() { return 255; /*TODO temp maximum that reflects Aware message limitations */ }
 
     @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {/*TODO*/ }
@@ -846,7 +846,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         }
         if (hardwareStatusReceiver != null) {
             try {
-                context.unregisterReceiver(hardwareStatusReceiver);
+                context.unregisterReceiver(hardwareStatusReceiver); //FIXME this receiver is leaking for some reason
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }

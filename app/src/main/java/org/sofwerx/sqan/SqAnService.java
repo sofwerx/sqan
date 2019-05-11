@@ -422,49 +422,38 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     }
 
     public static void shutdown(boolean keepActivity) {
-        if (thisService != null)
+        if (thisService != null) {
             thisService.requestShutdown(keepActivity);
+            thisService = null;
+        }
     }
 
     public void requestShutdown(boolean keepActivity) {
-        releaseWakeLock();
         if (!keepActivity && (listener != null) && (listener instanceof Activity)) {
             try {
                 ((Activity)listener).finish();
             } catch (Exception e) {
             }
         }
-        SqAnVpnService.stop(this);
-        CommsLog.clear();
-        Config.savePrefs(this);
-        if (handler == null) {
+        if (handler == null)
             shutdown();
-            SqAnDevice.clearAllDevices(null);
-            stopSelf();
-        } else {
+        else {
             handler.post(() -> {
                 shutdown();
-                SqAnDevice.clearAllDevices(null);
-                stopSelf();
             });
         }
     }
 
     private void shutdown() {
         CommsLog.log(CommsLog.Entry.Category.STATUS,"SqAnService shutdown initiated");
-        manetOps.shutdown();
-        try {
-            stopForeground(true);
-        } catch (Exception ignore) {
-        }
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.cancelAll();
-        }
-        if (handler != null) {
-            Log.d(Config.TAG,"SqAnService removing periodicHelper callback");
-            handler.removeCallbacks(periodicHelper);
-            handler = null;
+        releaseWakeLock();
+        SqAnVpnService.stop(this);
+        vpnService = null;
+        CommsLog.clear();
+        Config.savePrefs(this);
+        if (manetOps != null) {
+            manetOps.shutdown();
+            manetOps = null;
         }
         if (alarmManager != null) {
             /*if (pendingIntentCommsRetry != null) {
@@ -492,7 +481,32 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             device.setRoleWiFi(SqAnDevice.NodeRole.OFF);
             device.setRoleBT(SqAnDevice.NodeRole.OFF);
         }
+        if (handler != null) {
+            handler.removeCallbacks(periodicHelper);
+            Log.d(Config.TAG,"SqAnService removing periodicHelper callback");
+            handler.postDelayed(() -> {
+                clearServiceAndNotifications();
+                handler = null;
+            },1000l * 10l); //let the MANET clean-up before completing shutdown
+        } else
+            clearServiceAndNotifications();
+        SqAnService.thisService = null;
+    }
+
+    private void clearServiceAndNotifications() {
+        Log.d(Config.TAG,"Clearing notifications and foreground service");
+        try {
+            stopForeground(true);
+        } catch (Exception ignore) {
+        }
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.cancelAll();
+        }
         thisService = null;
+        SqAnDevice.clearAllDevices(null);
+        Log.d(Config.TAG,"Shutdown complete. Stopping....");
+        stopSelf();
     }
 
     public void onStatusChange(final Status status, final String error) {

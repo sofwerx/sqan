@@ -26,6 +26,7 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
     private final static String PACKET_ORIGIN = "src";
     private final static String PACKET_CHANNEL = "channel";
     private final static String RECEIVED = "rcv";
+    private final static String HIGH_PERFORMANCE_ONLY = "high"; //packets marked with this will be routed through high performance pipes
     private static IpcBroadcastTransceiver receiver = null;
     private static IpcBroadcastListener listener = null;
     private static boolean isSqAn;
@@ -100,6 +101,8 @@ public class IpcBroadcastTransceiver extends BroadcastReceiver {
                             packet = new ChannelBytesPacket(new PacketHeader(Config.getThisDevice().getUUID()));
                             ((ChannelBytesPacket) packet).setChannel(channel);
                             ((ChannelBytesPacket) packet).setData(bytes);
+                            if (bundle.getBoolean(HIGH_PERFORMANCE_ONLY,false))
+                                packet.setHighPerformanceNeeded(true);
                         }
                         if (packet != null)
                             listener.onIpcPacketReceived(packet);
