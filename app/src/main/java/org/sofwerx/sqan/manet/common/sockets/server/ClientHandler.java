@@ -148,7 +148,14 @@ public class ClientHandler {
         }
     }
 
-    public static void addToWriteQue(ByteBuffer out, int address) {
+    /**
+     * Add a message to the outgoing queue
+     * @param out buffer to send
+     * @param address address to send to
+     * @return true == at least one recepient was found for this message
+     */
+    public static boolean addToWriteQue(ByteBuffer out, int address) {
+        boolean sent = false;
         if (out != null) {
             for (ClientHandler h : HANDLER_MAP.values()) {
                 boolean send = true;
@@ -159,6 +166,7 @@ public class ClientHandler {
                     send = false;
                 }
                 if (send) {
+                    sent = true;
                     Log.d(TAG, "#" + h.id + out.limit()+"b added to writeQueue for client");
                     h.writeQueue.add(out.duplicate());
                     //TODO call read and write here possibly as a way to speed up the data burst from the server
@@ -166,6 +174,7 @@ public class ClientHandler {
                     Log.d(TAG, "#" + h.id +"Outgoing packet does not apply to client #");
             }
         }
+        return sent;
     }
 
     private boolean readBody(boolean firstTime) {

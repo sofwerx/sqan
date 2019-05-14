@@ -56,6 +56,7 @@ public class SqAnDevice {
     private int hopsAway = 0;
     private boolean directBt = false;
     private boolean directWiFi = false;
+    private boolean directWiFiHiPerf = false; //is high performance WiFi connected
     private long lastHopUpdate = Long.MIN_VALUE;
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
@@ -186,7 +187,7 @@ public class SqAnDevice {
     }
 
     /**
-     * Gets a list of devices with WiFi Aware MACs
+     * Gets a list of devices with WiFi Aware MACs or IPV6s
      * @return
      */
     public static ArrayList<SqAnDevice> getWiFiAwareDevices() {
@@ -194,10 +195,12 @@ public class SqAnDevice {
         if ((devices != null) && !devices.isEmpty()) {
             synchronized (devices) {
                 for (SqAnDevice device : devices) {
-                    if ((device != null) && (device.awareMac != null) && device.awareMac.isValid()) {
-                        if (awareDevices == null)
-                            awareDevices = new ArrayList<>();
-                        awareDevices.add(device);
+                    if (device != null) {
+                        if (((device.awareMac != null) && device.awareMac.isValid()) || (device.awareServerIp != null)) {
+                            if (awareDevices == null)
+                                awareDevices = new ArrayList<>();
+                            awareDevices.add(device);
+                        }
                     }
                 }
             }
@@ -236,13 +239,22 @@ public class SqAnDevice {
         return Integer.MAX_VALUE;
     }
 
-    public void setHopsAway(int hops, boolean directBt, boolean directWiFi) {
+    public void setHopsAway(int hops, boolean directBt, boolean directWiFi) { setHopsAway(hops, directBt, directWiFi,directWiFiHiPerf); }
+    public void setHopsAway(int hops, boolean directBt, boolean directWiFi, boolean directWiFiHiPerf) {
         hopsAway = hops;
         if (hopsAway == 0) {
             this.directBt = directBt;
             this.directWiFi = directWiFi;
+            this.directWiFiHiPerf = directWiFiHiPerf;
         }
     }
+
+    /**
+     * Is this device connected with a high performance version of WiFi (as opposed to something like using WiFi
+     * Aware messages
+     * @return
+     */
+    public boolean isDirectWiFiHighPerformance() { return directWiFiHiPerf; }
 
     /**
      * Is this device directly connected via WiFi
@@ -1269,7 +1281,8 @@ public class SqAnDevice {
         return networkId;
     }
     public void setNetworkId(String networkId) { this.networkId = networkId; }
-    public void setConnected(int hopsAway, boolean directBt, boolean directWiFi) {
+    public void setConnected(int hopsAway, boolean directBt, boolean directWiFi) { setConnected(hopsAway, directBt, directWiFi,directWiFiHiPerf); }
+    public void setConnected(int hopsAway, boolean directBt, boolean directWiFi, boolean directWiFiHiPerf) {
         setStatus(Status.CONNECTED);
         setLastConnect(System.currentTimeMillis());
         if (connectTime < 0l)
@@ -1277,11 +1290,11 @@ public class SqAnDevice {
         if (hopsAway > this.hopsAway) {
             if (System.currentTimeMillis() > lastHopUpdate + TIME_TO_CONSIDER_HOP_COUNT_STALE) {
                 lastHopUpdate = System.currentTimeMillis();
-                setHopsAway(hopsAway, directBt, directWiFi);
+                setHopsAway(hopsAway, directBt, directWiFi, directWiFiHiPerf);
             }
         } else {
             lastHopUpdate = System.currentTimeMillis();
-            setHopsAway(hopsAway, directBt, directWiFi);
+            setHopsAway(hopsAway, directBt, directWiFi, directWiFiHiPerf);
         }
     }
 

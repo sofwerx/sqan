@@ -21,7 +21,7 @@ public class TeammateConnectionPlanner {
      * @param wifiDevices
      * @return
      */
-    public static ArrayList<SqAnDevice> getDescendingPriorityWiFIConnections(ArrayList<SqAnDevice> wifiDevices) {
+    public static ArrayList<SqAnDevice> getDescendingPriorityWiFiConnections(ArrayList<SqAnDevice> wifiDevices) {
         if ((wifiDevices == null) || wifiDevices.isEmpty())
             return null;
         ArrayList<SqAnDevice> priorityDevices = new ArrayList<>();
@@ -60,6 +60,17 @@ public class TeammateConnectionPlanner {
         while (i<wifiDevices.size()) {
             device = wifiDevices.get(i);
             if (!device.isDirectWiFi()) {
+                priorityDevices.add(device);
+                wifiDevices.remove(i);
+            } else
+                i++;
+        }
+
+        //then add the rest of the devices that don't have high performance wifi
+        i=0;
+        while (i<wifiDevices.size()) {
+            device = wifiDevices.get(i);
+            if (!device.isDirectWiFiHighPerformance()) {
                 priorityDevices.add(device);
                 wifiDevices.remove(i);
             } else

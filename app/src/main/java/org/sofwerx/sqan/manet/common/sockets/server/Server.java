@@ -115,6 +115,10 @@ public class Server {
         CommsLog.log(CommsLog.Entry.Category.STATUS, "Server started port: " + address.getPort());
     }
 
+    public boolean isRunning() {
+        return keepRunning && (serverThread != null) && serverThread.isAlive();
+    }
+
     private void readAndProcess() throws IOException {
         long secondTime = 0l;
         int acceptCount = 0;
@@ -227,23 +231,28 @@ public class Server {
      * Send a packet to a specific client (or all clients)
      * @param packet
      * @param address the client SqAnAddress (or PacketHeader.BROADCAST_ADDRESS for all clients)
+     * @return true == the server is trying to send this packet
      */
-    public void burst(AbstractPacket packet, int address) {
+    public boolean burst(AbstractPacket packet, int address) {
         if (handler == null) {
             Log.d(TAG, "Burst requested, but Handler is not ready yet");
-            return;
+            return false;
         }
+        boolean sent = false;
         if (packet != null) {
             byte[] bytes = packet.toByteArray();
             CommsLog.log(CommsLog.Entry.Category.COMMS,"Server bursting "+bytes.length+"b packet to "+address);
             ByteBuffer out = ByteBuffer.allocate(4 + bytes.length);
             out.putInt(bytes.length);
             out.put(bytes);
-            ClientHandler.addToWriteQue(out,address);
-            if (manetListener != null)
-                manetListener.onTx(packet);
-            ManetOps.addBytesToTransmittedTally(bytes.length);
+            sent = ClientHandler.addToWriteQue(out,address);
+            if (sent) {
+                if (manetListener != null)
+                    manetListener.onTx(packet);
+                ManetOps.addBytesToTransmittedTally(bytes.length);
+            }
         }
+        return sent;
     }
 
     public void close(final boolean announce) {
