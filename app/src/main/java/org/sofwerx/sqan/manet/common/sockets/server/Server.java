@@ -29,8 +29,6 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 
-//FIXME establishing a connection with a client, then shutting down the app, then restarting the app leads to a problem with the port not being released and the server restart not fully taking
-
 /**
  * The Server to host Clients over TCP/IP
  */
@@ -47,6 +45,8 @@ public class Server {
     private HandlerThread serverThread;
     private Handler handler;
     private final ManetListener manetListener;
+    private long lastConnection;
+    private long idleTimeout = -1l;
 
     public Server(SocketChannelConfig config, PacketParser parser, ServerStatusListener listener) {
         this.config = config;
@@ -56,7 +56,7 @@ public class Server {
             manetListener = parser.getManet().getListener();
         else
             manetListener = null;
-        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
+        //Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
     }
 
     private int acceptClients(int acceptCount) throws IOException {
@@ -113,6 +113,7 @@ public class Server {
         // NOTE: the key for the server MUST have a null attachment
         server.register(selector, SelectionKey.OP_ACCEPT);
         CommsLog.log(CommsLog.Entry.Category.STATUS, "Server started port: " + address.getPort());
+        lastConnection = System.currentTimeMillis();
     }
 
     public boolean isRunning() {
@@ -159,6 +160,22 @@ public class Server {
             }
 
             ClientHandler.removeUnresponsiveConnections();
+            if (idleTimeout > 0l) {
+                int clientCount = ClientHandler.getActiveConnectionCount();
+                if (clientCount > 0) {
+                    Log.d(TAG,"Server has "+clientCount+" active connection"+((clientCount==1)?"":"s"));
+                    lastConnection = System.currentTimeMillis();
+                } else {
+                    if (lastConnection > 0l) {
+                        Log.d(TAG,"Server has no active connections");
+                        long elapsed = System.currentTimeMillis() - lastConnection;
+                        if (elapsed > idleTimeout) {
+                            Log.d(TAG, "Server has had no connections for " + Long.toString(elapsed)+"ms; shutting down");
+                            close(false);
+                        }
+                    }
+                }
+            }
 
             // Make sure the operations are set correctly
             int connectionCount = selector.keys().size();
@@ -183,45 +200,23 @@ public class Server {
     }
 
     public void start() {
-        Log.d(TAG,"WiFi Direct server start()");
-        serverThread = new HandlerThread("WiFiServer") {
+        Log.d(TAG,"IP server start()");
+        serverThread = new HandlerThread("IpServer") {
             @Override
             protected void onLooperPrepared() {
                 handler = new Handler(serverThread.getLooper());
                 keepRunning = true;
                 restart = true;
-                //while (keepRunning) {
-                    try {
-                        buildServer();
-                        readAndProcess();
-                    } catch (Throwable t) {
-                /*        if (restart) {
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Could not start server; shutting server down...");
-                            Log.w(TAG, t.getMessage());
-                            restart = false;
-                            try {
-                                if (selector != null) {
-                                    selector.close();
-                                    selector = null;
-                                }
-                            } catch (IOException ignore) {
-                            }
-                            try {
-                                server.close();
-                                server = null;
-                            } catch (IOException ignore) {
-                            }
-                        } else {
-                *///            keepRunning = false;
-                            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Severe processing error while running in Server mode");
-                            if (listener == null)
-                                close(false);
-                            else
-                                listener.onServerFatalError();
-                //            break;
-                //        }
-                    }
-                //}
+                try {
+                    buildServer();
+                    readAndProcess();
+                } catch (Throwable t) {
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Severe processing error while running in Server mode");
+                    if (listener == null)
+                        close(false);
+                    else
+                        listener.onServerFatalError();
+                }
             }
         };
         serverThread.start();
@@ -256,14 +251,16 @@ public class Server {
     }
 
     public void close(final boolean announce) {
+        keepRunning = false;
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
         if (handler != null) {
-            handler.removeCallbacks(null);
+            //handler.removeCallbacks(null);
             handler.post(() -> {
                 if (announce)
                     burst(new DisconnectingPacket(Config.getThisDevice().getUUID()), PacketHeader.BROADCAST_ADDRESS);
                 Log.d(TAG, "Server shutting down...");
-                keepRunning = false;
+                handler.removeCallbacksAndMessages(null);
+                handler = null;
                 if (selector != null) {
                     try {
                         selector.close();
@@ -282,8 +279,6 @@ public class Server {
                 }
                 if (serverThread != null)
                     serverThread.quitSafely();
-                if (listener != null)
-                    listener.onServerClosed();
             });
         } else {
             keepRunning = false;
@@ -306,8 +301,15 @@ public class Server {
             }
             if (serverThread != null)
                 serverThread.quit();
-            if (listener != null)
-                listener.onServerClosed();
         }
+        if (listener != null)
+            listener.onServerClosed();
     }
+
+    /**
+     * Server will shutdown if it doesn't have
+     * @param idleLength time in ms (negative == no timeout)
+     */
+    public void setIdleTimeout(long idleLength) { this.idleTimeout = idleLength; }
+    public void clearIdleTimeout() { idleTimeout = -1l; }
 }

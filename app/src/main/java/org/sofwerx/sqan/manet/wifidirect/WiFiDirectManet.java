@@ -44,6 +44,7 @@ import java.util.List;
 public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.PeerListListener, WiFiDirectDiscoveryListener, WifiP2pManager.ConnectionInfoListener, ServerStatusListener {
     private final static String TAG = Config.TAG+".WiFiDirect";
     private final static String FALLBACK_GROUP_OWNER_IP = "192.168.49.1"; //the WiFi Direct Group owner always uses this address; hardcoding it is a little hackish, but is used when all other IP detection method attempts fail
+    private final static long SERVER_MAX_IDLE_TIME = 1000l * 60l * 2l;
     private final static long DELAY_BEFORE_REQUESTING_CONNECTION_INFO_AGAIN = 1000l * 60l;
     private final static long DELAY_BEFORE_CONNECTING = 1000l * 15l; //delay to prevent two devices from trying to connect at the same time
     private WifiP2pManager.Channel channel;
@@ -166,7 +167,8 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (!isRunning.get())
             return;
         if (socketServer == null) {
-            socketServer = new Server(new SocketChannelConfig(null, SQAN_PORT), parser, this);
+            socketServer = new Server(new SocketChannelConfig((String)null, SQAN_PORT), parser, this);
+            socketServer.setIdleTimeout(SERVER_MAX_IDLE_TIME);
             if ((manager != null) && (channel != null)) {
                 if (nsd == null)
                     nsd = new WiFiDirectNSD(this);
@@ -274,8 +276,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         Log.d(TAG,"Disconnecting WiFiManet...");
         if (hardwareStatusReceiver != null) {
             try {
-                //FIXME stopped here
-                context.unregisterReceiver(hardwareStatusReceiver); //FIXME, this is being treated as a different receiver for some reason (context maybe?) and not unregistering but causing the original receiver to leak
+                context.unregisterReceiver(hardwareStatusReceiver);
                 Log.d(TAG,"WiFi Direct Broadcast Receiver unregistered");
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();

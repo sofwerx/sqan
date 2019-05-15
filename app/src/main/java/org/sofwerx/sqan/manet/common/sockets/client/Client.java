@@ -148,7 +148,11 @@ public class Client extends Thread {
         if (config != null) {
             String host = config.getIp();
             int port = config.getPort();
-            InetSocketAddress address = new InetSocketAddress(host, port);
+            InetSocketAddress address;
+            if (config.getInetAddress() == null)
+                address = new InetSocketAddress(host, port);
+            else
+                address = new InetSocketAddress(config.getInetAddress(),port);
             uplink = null;
             try {
                 uplink = SocketChannel.open(address);

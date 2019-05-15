@@ -19,6 +19,7 @@ import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,6 +42,13 @@ public class ClientHandler {
         INACTIVE, READING_PACKET, READING_PREAMBLE, READING_RESPONSE, WRITING_CHALLENGE
     }
 
+    public static int getActiveConnectionCount() {
+        Set<Map.Entry<Integer, Long>> entries = START_TIME_MAP.entrySet();
+        if (entries == null)
+            return 0;
+        return entries.size();
+    }
+
     public static void removeUnresponsiveConnections() {
         long now = System.currentTimeMillis();
         Iterator<Map.Entry<Integer, Long>> i = START_TIME_MAP.entrySet().iterator();
@@ -60,14 +68,10 @@ public class ClientHandler {
                 i.remove();
             }
         }
-        //if (listener != null)
-        //    listener.onServerNumberOfConnections(HANDLER_MAP.size());
     }
 
     private ByteBuffer challengeBuffer;
     private final SocketChannel client;
-    //private final int serverSqAnAddress;
-    //private final int clientSqAnAddress;
     private final Integer id = ID.incrementAndGet();
     private final byte[] password = null;
     private ByteBuffer sizeBuffer = ByteBuffer.allocate(4); //just used to get the size
@@ -82,7 +86,6 @@ public class ClientHandler {
         this.client = client;
         ClientHandler.listener = listener;
         InetSocketAddress address = (InetSocketAddress) client.getRemoteAddress();
-        //InetSocketAddress myAddress = (InetSocketAddress) client.getLocalAddress();
         CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Connection established with client "+address.getAddress());
         Long blacklistTime = BLACKLIST_MAP.get(address.getAddress());
         if (blacklistTime != null) {

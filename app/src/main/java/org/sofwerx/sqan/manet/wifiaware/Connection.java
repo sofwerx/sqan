@@ -1,14 +1,19 @@
 package org.sofwerx.sqan.manet.wifiaware;
 
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.wifi.aware.PeerHandle;
 
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.util.StringUtil;
+
+import java.io.StringWriter;
 
 public class Connection {
     private PeerHandle peerHandle;
     private SqAnDevice device;
     private ConnectivityManager.NetworkCallback callback;
+    private Network network;
     private long lastConnection = Long.MIN_VALUE;
 
     public Connection(PeerHandle peerHandle, SqAnDevice device) {
@@ -41,5 +46,34 @@ public class Connection {
 
     public void setCallback(ConnectivityManager.NetworkCallback callback) {
         this.callback = callback;
+    }
+
+    public void setNetwork(Network network) { this.network = network; }
+    public Network getNetwork() { return network; }
+
+    @Override
+    public String toString() {
+        StringWriter out = new StringWriter();
+        out.append("PeerHandle: ");
+        if (peerHandle == null)
+            out.append("null");
+        else
+            out.append(Integer.toString(peerHandle.hashCode()));
+        out.append("; device ");
+        if (device == null)
+            out.append("null");
+        else
+            out.append(device.getLabel());
+        out.append("; callback ");
+        if (callback == null)
+            out.append("null");
+        else
+            out.append("present");
+        out.append("; connected ");
+        if (lastConnection <0l)
+            out.append("never");
+        else
+            out.append(StringUtil.toDuration(System.currentTimeMillis()-lastConnection));
+        return out.toString();
     }
 }

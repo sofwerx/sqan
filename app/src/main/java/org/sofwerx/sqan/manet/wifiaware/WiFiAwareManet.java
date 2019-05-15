@@ -56,6 +56,7 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -68,8 +69,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class WiFiAwareManet extends AbstractManet implements ServerStatusListener {
     private final static String TAG = Config.TAG+".Aware";
-
     private static final String SERVICE_ID = "sqan";
+    private final static long SERVER_MAX_IDLE_TIME = 1000l * 60l;
     private static final long TIME_TO_CONSIDER_STALE_DEVICE = 1000l * 60l * 5l;
     private static final long DELAY_BEFORE_CONNECTING_TO_SERVER = 1000l * 10l; //lead time to give the other device if both are establishing a server-client relationship
     private WifiAwareManager wifiAwareManager;
@@ -228,6 +229,21 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         return null;
     }
 
+    private Connection findPeer(SqAnDevice device) {
+        if ((device != null) && (connections != null) && !connections.isEmpty()) {
+            int id = device.getUUID();
+            synchronized (connections) {
+                for (Connection connection : connections) {
+                    if ((connection != null) && (connection.getDevice() != null) && (connection.getDevice().getUUID() == id)) {
+                        Log.d(TAG,"findPeer found "+connection.getDevice().getLabel());
+                        return connection;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private Connection findConnectionWithTransientID(final int id) {
         if ((connections != null) && !connections.isEmpty()) {
             synchronized (connections) {
@@ -257,8 +273,9 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                 if (device == null) {
                     device = new SqAnDevice();
                     Log.d(TAG, "WiFi Aware ID " + netId + " does not match an existing device, creating a new device");
-                } else
-                    Log.d(TAG, "WiFi Aware ID " + netId + " matches existing device: " + device.getLabel());
+                } else {
+                    //Log.d(TAG, "WiFi Aware ID " + netId + " matches existing device: " + device.getLabel());
+                }
                 CommsLog.log(CommsLog.Entry.Category.CONNECTION, "New WiFi Aware connection (" + peerHandle.hashCode() + ") for " + device.getLabel());
                 device.setConnected(0, false, true, device.isDirectWiFiHighPerformance());
                 old = new Connection(peerHandle, device);
@@ -272,15 +289,40 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         }
     }
 
-    private void startAdvertising() {
+    private void updatePeer(SqAnDevice device) {
+        if (device == null)
+            return;
+        Connection old = findPeer(device);
+        if (old == null) {
+            if (connections == null)
+                connections = new ArrayList<>();
+            synchronized (connections) {
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "New WiFi Aware connection for "+ device.getLabel());
+                device.setConnected(0, false, true, device.isDirectWiFiHighPerformance());
+                old = new Connection(null, device);
+                old.setLastConnection();
+                connections.add(old);
+            }
+            SqAnService.burstVia(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),TransportPreference.WIFI);
+        } else {
+            Log.d(TAG,"updatePeer() found existing connection to "+device.getLabel());
+            old.setLastConnection();
+        }
+    }
+
+    private void stopDiscovery() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CommsLog.log(CommsLog.Entry.Category.STATUS, "startAdvertising()");
             if (discoverySession != null) {
-                Log.d(TAG,"Closing discovery session");
+                Log.d(TAG, "Closing discovery session");
                 discoverySession.close();
                 discoverySession = null;
-                setStatus(Status.CHANGING_MEMBERSHIP);
             }
+        }
+    }
+
+    private void startAdvertising() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware start advertising");
             if (awareSession != null) {
                 setStatus(Status.ADVERTISING);
                 awareSession.publish(configPub, new DiscoverySessionCallback() {
@@ -288,6 +330,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                     public void onPublishStarted(PublishDiscoverySession session) {
                         Log.d(TAG, "onPublishStarted()");
                         discoverySession = session;
+                        setStatus(Status.CONNECTED);
                         if (listener != null)
                             listener.onStatus(status);
                     }
@@ -296,34 +339,29 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                     public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
                         if (role == Role.NONE) {
                             setStatus(Status.CONNECTED);
-                            role = Role.HUB;
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "awareSession onMessageReceived() - changing role to "+role.name());
-                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
+                            //FIXME setRole(Role.HUB);
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware message received - changing role to "+role.name());
                         } else
                             Log.d(TAG, "onMessageReceived()");
                         if (handler != null)
                             handler.post(() -> {
                                 updatePeer(peerHandle);
+                                connectToPeer(peerHandle,false);
                                 handleMessage(findConnection(peerHandle),message);
                             });
-                        connectToPeer(peerHandle);
                     }
 
                     @Override
                     public void onSubscribeStarted(final SubscribeDiscoverySession session) {
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "awareSession onSubscribeStarted()");
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware subscription started");
                         discoverySession = session;
                         setStatus(Status.CONNECTED);
                     }
 
                     @Override
                     public void onServiceDiscovered(PeerHandle peerHandle, byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "awareSession onServiceDiscovered()");
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware service discovered");
                         setStatus(Status.CONNECTED);
-                        if (role == Role.NONE) {
-                            role = Role.SPOKE;
-                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
-                        }
                         if (handler != null)
                             handler.post(() -> updatePeer(peerHandle));
                         if (listener != null)
@@ -339,15 +377,13 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
 
                     @Override
                     public void onSessionConfigFailed() {
-                        role = Role.NONE;
-                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"awareSession onSessionConfigFailed()");
+                        setRole(Role.NONE);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session configuration failed");
                     }
 
                     @Override
                     public void onSessionTerminated() {
-                        role = Role.NONE;
-                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                        setRole(Role.NONE);
                         CommsLog.log(CommsLog.Entry.Category.CONNECTION,"awareSession onSessionTerminated()");
                     }
 
@@ -487,20 +523,19 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                 awareSession.subscribe(configSub, new DiscoverySessionCallback() {
                     @Override
                     public void onSubscribeStarted(final SubscribeDiscoverySession session) {
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "onSubscribeStarted()");
+                        CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware subscription started");
                         discoverySession = session;
                         setStatus(Status.CONNECTED);
                     }
 
                     @Override
                     public void onServiceDiscovered(PeerHandle peerHandle, byte[] serviceSpecificInfo, List<byte[]> matchFilter) {
-                        CommsLog.log(CommsLog.Entry.Category.STATUS, "onServiceDiscovered()");
-                        if (role == Role.NONE) {
-                            role = Role.SPOKE;
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "onServiceDiscovered() - changing role to "+role.name());
-                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
-                            setStatus(Status.CONNECTED);
-                        }
+                        //if (role == Role.NONE) {
+                        //    setRole(Role.SPOKE);
+                        //    CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware service discovered - changing role to "+role.name());
+                        //} else
+                            CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware service discovered");
+                        setStatus(Status.CONNECTED);
                         if (handler != null)
                             handler.post(() -> updatePeer(peerHandle));
                         if (listener != null)
@@ -510,19 +545,18 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
 
                     @Override
                     public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
-                        if (role == Role.NONE) {
-                            role = Role.SPOKE;
-                            CommsLog.log(CommsLog.Entry.Category.STATUS, "onMessageReceived() - changing role to "+role.name());
-                            Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
+                        //if (role == Role.NONE) {
+                        //    setRole(Role.SPOKE);
+                        //    CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware message received - changing role to "+role.name());
                             setStatus(Status.CONNECTED);
-                        } else
+                        //} else
                             Log.d(TAG, "onMessageReceived()");
                         if (handler != null)
                             handler.post(() -> {
                                 updatePeer(peerHandle);
                                 handleMessage(findConnection(peerHandle),message);
                             });
-                        connectToPeer(peerHandle);
+                        connectToPeer(peerHandle,false);
                     }
 
                     @Override
@@ -533,16 +567,14 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
 
                     @Override
                     public void onSessionConfigFailed() {
-                        role = Role.NONE;
-                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"onSessionConfigFailed()");
+                        setRole(Role.NONE);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session configuration failed");
                     }
 
                     @Override
                     public void onSessionTerminated() {
-                        role = Role.NONE;
-                        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"onSessionTerminated()");
+                        setRole(Role.NONE);
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Aware session terminated");
                     }
 
                     @Override
@@ -559,31 +591,87 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         }
     }
 
-    private void connectToPeer(PeerHandle peerHandle) {
+    private void connectToPeer(PeerHandle peerHandle) { connectToPeer(peerHandle,true); }
+    private void connectToPeer(PeerHandle peerHandle, boolean burst) {
+        if (peerHandle == null)
+            return;
+        Log.d(TAG,"connectToPeer(peerHandle): "+Integer.toString(peerHandle.hashCode()));
         Connection connection = findPeer(peerHandle);
         if (connection == null) {
-            burst(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),peerHandle);
+            burst = true;
             updatePeer(peerHandle);
             connection = findPeer(peerHandle);
         }
+        if (burst)
+            burst(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),peerHandle);
+        connectToPeer(connection);
+    }
+
+    private void connectToPeer(SqAnDevice device) {
+        if (device == null)
+            return;
+        Log.d(TAG,"connectToPeer(device): "+device.getLabel());
+        Connection connection = findPeer(device);
+        if ((device.getAwareMac() == null) && (device.getAwareServerIp() == null))
+            Log.d(TAG,"Cannot connectToPeer("+device.getLabel()+") as that device does not have any Aware info");
+        if (connection == null) {
+            HeartbeatPacket packet = new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM);
+            if (device.isUuidKnown())
+                packet.setDestination(device.getUUID());
+            try {
+                burst(packet,device);
+            } catch (ManetException ignore) {
+            }
+            updatePeer(device);
+            connection = findPeer(device);
+            connectToPeer(connection);
+        }
+    }
+
+    private void connectToPeer(Connection connection) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if ((peerHandle == null) || (discoverySession == null) || (connection == null))
+            if (connection == null) {
+                Log.w(TAG,"Cannot connectToPeer - null connection");
                 return;
+            }
             if (connection.getCallback() != null) //this connection is already being handled
                 return;
-
-            Log.d(TAG,"Establishing Aware network connection to "+peerHandle.hashCode());
-            connection.setCallback(new AwareManetConnectionCallback(connection));
-            NetworkSpecifier networkSpecifier = discoverySession.createNetworkSpecifierPassphrase(peerHandle,conformPasscodeToWiFiAwareRequirements(Config.getPasscode()));
+            Log.d(TAG,"connectToPeer("+connection.toString()+")");
+            SqAnDevice device = connection.getDevice();
+            PeerHandle peerHandle = connection.getPeerHandle();
+            if (device == null) {
+                if (peerHandle == null) {
+                    Log.w(TAG,"Cannot connectToPeer, both Device and PeerHandle are null");
+                    return;
+                }
+                Log.d(TAG, "Establishing Aware network connection to " + peerHandle.hashCode());
+            } else
+                Log.d(TAG, "Establishing Aware network connection to " + device.getLabel());
+            //NetworkSpecifier networkSpecifier = discoverySession.createNetworkSpecifierPassphrase(peerHandle, conformPasscodeToWiFiAwareRequirements(Config.getPasscode()));
+            String passcode = conformPasscodeToWiFiAwareRequirements(Config.getPasscode()); //TODO
+            NetworkSpecifier networkSpecifier = null;
+            if ((device.getAwareMac() != null) && device.getAwareMac().isValid()) {
+                Log.d(TAG,"Building an aware network specifier based on OOB details as "+((socketServer==null)?"Responder":"Initiatior"));
+                networkSpecifier = awareSession.createNetworkSpecifierOpen((socketServer==null)?WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER:WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR,device.getAwareMac().toByteArray());
+            } else if ((peerHandle != null) && (discoverySession != null)) {
+                Log.d(TAG,"Building an aware network specifier based on PeerHandle");
+                networkSpecifier = discoverySession.createNetworkSpecifierOpen(peerHandle);
+            }
+            if (networkSpecifier == null) {
+                Log.d(TAG,"Unable to build a network specifier so not establishing an Aware network connection at this time");
+                //connection.setCallback(null);
+                return;
+            }
             NetworkRequest networkRequest = new NetworkRequest.Builder()
                     .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
                     .setNetworkSpecifier(networkSpecifier)
                     .build();
 
+            Log.d(TAG,"Requesting a network connection...");
+            connection.setCallback(new AwareManetConnectionCallback(connection));
             connectivityManager.requestNetwork(networkRequest,connection.getCallback());
         }
     }
-
 
     private final static int MIN_PASSPHRASE_LENGTH = 8; //FIXME unable to find these definitively, so they are guesses
     private final static int MAX_PASSPHRASE_LENGTH = 63; //FIXME unable to find these definitively, so they are guesses
@@ -642,11 +730,9 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
     @Override
     public void onServerClosed() {
         socketServer = null;
-        if (isRunning.get()) {
-            if (socketClient == null) {
-                //TODO
-            }
-        }
+        if (role == Role.HUB)
+            role = Role.NONE;
+        //TODO
     }
 
     @Override
@@ -679,13 +765,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                                 burst(packet, (SqAnDevice)null);
                         } else {
                             //TODO actually look at multi-hop logic here
-                            //boolean found = false;
                             burst(packet,(SqAnDevice) null); //TODO remove this once multihop logic is in place
-                            //multiHopNeeded = found;
-                        }
-                        if (multiHopNeeded) {
-                            //TODO try to find a node that can reach this device
-                            //TODO for multi-hop
                         }
                     } else //the destination device is in this manet
                         burst(packet, device);
@@ -764,9 +844,11 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
             } else {
                 if (discoverySession != null)
                     handler.post(() -> {
-                        Log.d(TAG,"Sending Message "+(messageIds.get()+1)+" ("+bytes.length+"b) to "+peerHandle.hashCode());
-                        discoverySession.sendMessage(peerHandle, messageIds.incrementAndGet(), bytes);
-                        ManetOps.addBytesToTransmittedTally(bytes.length);
+                        if (discoverySession != null) {
+                            Log.d(TAG, "Sending Message " + (messageIds.get() + 1) + " (" + bytes.length + "b) to " + peerHandle.hashCode());
+                            discoverySession.sendMessage(peerHandle, messageIds.incrementAndGet(), bytes);
+                            ManetOps.addBytesToTransmittedTally(bytes.length);
+                        }
                     });
                 else
                     Log.w(TAG,"Cannot send burst as discovery session is null");
@@ -786,7 +868,25 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
             Log.d(TAG,"socketServer closing...");
             socketServer = null;
         }
-        Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+        setRole(Role.NONE);
+    }
+
+    private void setRole(Role role) {
+        if (this.role != role) {
+            this.role = role;
+            switch (role) {
+                case HUB:
+                    Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
+                    break;
+                case SPOKE:
+                    Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.SPOKE);
+                    break;
+                default:
+                    Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
+            }
+            if (listener != null)
+                listener.onStatus(getStatus());
+        }
     }
 
     @Override
@@ -833,21 +933,27 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                             break;
                         }
                         if (device.isAwareServer()) {
-                            startClient(device,false);
+                            startClient(device,true);
                             break;
                         }
                     }
                     if (shouldHost) {
                         Log.d(TAG,"This device should host the server, requesting server start...");
-                        startServer(true);
+                        ArrayList<SqAnDevice> wifiDevices = TeammateConnectionPlanner
+                                .getDescendingPriorityWiFiConnections(SqAnDevice.getWiFiAwareDevices());
+                        if ((wifiDevices != null) && !wifiDevices.isEmpty() && startServer(true)) {
+                            for (SqAnDevice wifiDevice:wifiDevices) { //try to connect to all prioritized devices
+                                connectToPeer(wifiDevice);
+                            }
+                        }
                         return;
                     }
                     Log.d(TAG,"No suitable host device found during OOB discovery and this device does not seem like the best host");
-                } else if (role == Role.NONE){
+                } else if (status == Status.OFF) { //TODO this may be a problem
                     startDiscovery();
                     if (handler != null) {
                         handler.postDelayed(() -> {
-                            if (role == Role.NONE) {
+                            if (getActiveConnectionCount() == 0) {
                                 Log.d(TAG, "no existing network found");
                                 setStatus(Status.CHANGING_MEMBERSHIP);
                                 assumeHubRole();
@@ -858,6 +964,12 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                 }
             }
         }
+    }
+
+    private int getActiveConnectionCount() {
+        if ((connections == null) || connections.isEmpty())
+            return 0;
+        return connections.size();
     }
 
     /**
@@ -882,7 +994,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         }
         if (hardwareStatusReceiver != null) {
             try {
-                context.unregisterReceiver(hardwareStatusReceiver); //FIXME this receiver is leaking for some reason
+                context.unregisterReceiver(hardwareStatusReceiver);
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
             }
@@ -971,8 +1083,8 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         @Override
         public void onAvailable(Network network) {
             Log.d(TAG,"Aware onAvailable() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
-            if (Config.getThisDevice() != null)
-                handleNetworkChange(network,connection,Config.getThisDevice().getAwareServerIp());
+            //if (Config.getThisDevice() != null)
+            //    handleNetworkChange(network,connection,Config.getThisDevice().getAwareServerIp());
         }
 
         @Override
@@ -987,7 +1099,9 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
                     if (addr instanceof Inet6Address) {
                         if (addr.isLinkLocalAddress()) {
                             ipv6 = (Inet6Address) addr;
-                            if (!ipv6.equals(Config.getThisDevice().getAwareServerIp())) {
+                            if (Config.getThisDevice().getAwareServerIp() == null)
+                                Log.d(TAG, "Aware IP address assigned as " + ipv6.getHostAddress());
+                            else if (!ipv6.equals(Config.getThisDevice().getAwareServerIp())) {
                                 Log.d(TAG, "Aware IP address changed to " + ipv6.getHostAddress());
                                 stopSocketConnections(false);
                             }
@@ -1008,50 +1122,84 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         @Override
         public void onLost(Network network) {
             Log.d(TAG,"Aware onLost() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
+            if (connection != null)  {
+                try {
+                    connectivityManager.unregisterNetworkCallback(this);
+                    connection.setCallback(null);
+                } catch (Exception e) {
+                    Log.w(TAG,"Unable to unregister this NetworkCallback: "+e.getMessage());
+                }
+            }
             if (Config.getThisDevice() != null)
-                handleNetworkChange(network,connection,Config.getThisDevice().getAwareServerIp());
+                handleNetworkChange(null,connection,Config.getThisDevice().getAwareServerIp());
+        }
+
+        @Override
+        public void onUnavailable() {
+            Log.d(TAG, "NetworkCallback onUnavailable()");
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network, NetworkCapabilities networkCapabilities) {
+            Log.d(TAG, "NetworkCallback onCapabilitiesChanged()");
+        }
+
+        @Override
+        public void onLosing(Network network, int maxMsToLive) {
+            Log.d(TAG, "NetworkCallback onLosing()");
         }
     }
 
     private void handleNetworkChange(Network network, Connection connection, Inet6Address ipv6) {
         Log.d(TAG,"handleNetworkChange()");
-        if ((connection == null) || (connection.getDevice() == null)) {
-            Log.d(TAG,"handleNetworkChange ignored as connection or connection device is null");
+        if (connection == null) {
+            Log.d(TAG,"handleNetworkChange ignored as connection is null");
             return;
         }
-        if (network == null) {
-            Log.d(TAG,"handleNetworkChange ignored as netowrk is null");
-            return;
-        }
+        connection.setNetwork(network);
         if (ipv6 != null) {
             SqAnDevice other = connection.getDevice();
+            if (other == null)
+                return;
             if (shouldLocalDeviceHost(other)) {
                 Log.d(TAG,"Aware server connection with "+other.getLabel()+" should be hosted by this device");
                 Config.getThisDevice().setAwareServerIp(ipv6);
                 startServer(true);
             } else {
                 Log.d(TAG,"Aware server connection with "+other.getLabel()+" should be hosted by the other device; waiting a short time to allow the server to set-up");
-                handler.postDelayed(() -> {startClient(other,false); },DELAY_BEFORE_CONNECTING_TO_SERVER);
+                handler.postDelayed(() -> {
+                    startClient(other,false);
+                    },DELAY_BEFORE_CONNECTING_TO_SERVER);
             }
         } else
             Config.getThisDevice().clearAwareServerIp();
     }
 
-    private void startServer(boolean onlyIfNotAlreadyRunning) {
+    private boolean startServer(boolean onlyIfNotAlreadyRunning) {
+        stopDiscovery();
         Log.d(TAG,"startServer("+onlyIfNotAlreadyRunning+")");
         if (socketServer != null) {
             if (onlyIfNotAlreadyRunning && socketServer.isRunning()) {
                 Log.d(TAG,"ignoring request to start socketServer as it is already running");
-                return;
+                return false;
             }
             Log.d(TAG,"Stopping previous socketServer to establish new socketServer connection");
             socketServer.close(false);
         }
-        socketServer = new Server(new SocketChannelConfig(null, SQAN_PORT), parser, WiFiAwareManet.this);
-        socketServer.start();
+
+        if (isRunning.get()) {
+            socketServer = new Server(new SocketChannelConfig((String) null, SQAN_PORT), parser, WiFiAwareManet.this);
+            socketServer.setIdleTimeout(SERVER_MAX_IDLE_TIME);
+            socketServer.start();
+            setRole(Role.HUB);
+            if (listener != null)
+                listener.onStatus(getStatus());
+        }
+        return true;
     }
 
     private void startClient(SqAnDevice other, boolean onlyIfNotAlreadyRunning) {
+        stopDiscovery();
         if (other == null)
             return;
         Log.d(TAG,"startClient("+other.getLabel()+","+onlyIfNotAlreadyRunning+")");
@@ -1067,12 +1215,15 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
             Log.d(TAG,"Stopping previous socketClient to establish new socketClient connection");
             socketClient.close(true);
         }
-        socketClient = new Client(new SocketChannelConfig(other.getAwareServerIp().getHostAddress(), SQAN_PORT), parser);
 
-        if ((socketClient != null) && isRunning.get()) {
+        if (isRunning.get()) {
+            setRole(Role.SPOKE);
             Log.d(TAG,"Aware starting client connection");
+            socketClient = new Client(new SocketChannelConfig(other.getAwareServerIp(), SQAN_PORT), parser);
             socketClient.start();
         }
+        if (listener != null)
+            listener.onStatus(getStatus());
         Config.getThisDevice().clearAwareServerIp();
     }
 
@@ -1082,15 +1233,30 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
      * @return true == this device should be the server; false == other device is assumed to be the server
      */
     private boolean shouldLocalDeviceHost(SqAnDevice other) {
-        if ((socketServer != null) || (other == null))
+        if ((socketServer != null) || (other == null)) {
+            Log.d(TAG,"The local device should host as "+((socketServer!=null)?" socketServer != null":"the other device is null"));
             return true;
-        if (other.isAwareServer())
+        }
+        if (other.isAwareServer()) {
+            Log.d(TAG,"The local device should not host as the other device is an Aware Server");
             return false;
+        }
         SqAnDevice thisDevice = Config.getThisDevice();
-        if (thisDevice == null)
+        if (thisDevice == null) {
+            Log.d(TAG,"The local device should not host as this device is null");
             return false;
-        if ((thisDevice.getRelayConnections() != null) && (other.getRelayConnections() != null)) //favor fewer connections
-            return thisDevice.getRelayConnections().size() < other.getRelayConnections().size();
-        return thisDevice.getUUID() > other.getUUID();
+        }
+        boolean favorThisDevice;
+        if ((thisDevice.getRelayConnections() != null) && (other.getRelayConnections() != null)) {
+            //favor fewer connections
+            if ((thisDevice.getRelayConnections().size() != other.getRelayConnections().size()) && (thisDevice.getRelayConnections().size() > 1) && (thisDevice.getRelayConnections().size() > 1)) {
+                favorThisDevice = thisDevice.getRelayConnections().size() < other.getRelayConnections().size();
+                Log.d(TAG,"The "+(favorThisDevice?"local":"other")+" device should host as it has fewer connections");
+                return favorThisDevice;
+            }
+        }
+        favorThisDevice = thisDevice.getUUID() > other.getUUID();
+        Log.d(TAG,"The "+(favorThisDevice?"local":"other")+" device should host as it has a higher UUID");
+        return favorThisDevice;
     }
 }
