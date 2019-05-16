@@ -149,10 +149,17 @@ public class Client extends Thread {
             String host = config.getIp();
             int port = config.getPort();
             InetSocketAddress address;
-            if (config.getInetAddress() == null)
+            if (config.getIp() != null)
                 address = new InetSocketAddress(host, port);
-            else
-                address = new InetSocketAddress(config.getInetAddress(),port);
+            else {
+                String addressTExt = config.getInetAddress().getHostAddress();
+                addressTExt = addressTExt.replace("\\","");
+                address = new InetSocketAddress(addressTExt, port);
+            }
+            if (address.isUnresolved()) {
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Client is unable to resolve the address: "+address.toString());
+                close();
+            }
             uplink = null;
             try {
                 uplink = SocketChannel.open(address);

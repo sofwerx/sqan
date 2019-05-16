@@ -36,7 +36,7 @@ public class Server {
     private final static String TAG = Config.TAG+".Server";
     private final static int MAX_SOCKETS_ACCEPTED = 24;
     private SocketChannelConfig config;
-    private boolean restart;
+    //private boolean restart;
     private Selector selector;
     private ServerSocketChannel server;
     private final PacketParser parser;
@@ -206,7 +206,7 @@ public class Server {
             protected void onLooperPrepared() {
                 handler = new Handler(serverThread.getLooper());
                 keepRunning = true;
-                restart = true;
+                //restart = true;
                 try {
                     buildServer();
                     readAndProcess();
@@ -236,7 +236,10 @@ public class Server {
         boolean sent = false;
         if (packet != null) {
             byte[] bytes = packet.toByteArray();
-            CommsLog.log(CommsLog.Entry.Category.COMMS,"Server bursting "+bytes.length+"b packet to "+address);
+            if (address == PacketHeader.BROADCAST_ADDRESS)
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"Server broadcasting "+bytes.length+"b packet");
+            else
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"Server bursting "+bytes.length+"b packet to "+address);
             ByteBuffer out = ByteBuffer.allocate(4 + bytes.length);
             out.putInt(bytes.length);
             out.put(bytes);

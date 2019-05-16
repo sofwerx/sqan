@@ -1,4 +1,4 @@
-package org.sofwerx.sqan.manet.wifiaware;
+package org.sofwerx.sqan.manet.wifiaware.v1;
 
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -9,6 +9,7 @@ import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
 
+@Deprecated
 public class Connection {
     private PeerHandle peerHandle;
     private SqAnDevice device;

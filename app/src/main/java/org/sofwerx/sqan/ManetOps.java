@@ -23,7 +23,7 @@ import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManet;
+import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManetV2;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
@@ -70,7 +70,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         break;
 
                     case 2:
-                        wifiManet = new WiFiAwareManet(handler,sqAnService,ManetOps.this);
+                        wifiManet = new WiFiAwareManetV2(handler,sqAnService,ManetOps.this);
                         //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
                         btManet = null; //TODO
                         break;
@@ -549,11 +549,11 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     /**
-     * Does the current mesh strategy include a WiFi Direct manet
+     * Does the current mesh strategy include a WiFi Aware manet
      * @return
      */
     public boolean isWiFiAwareManetSelected() {
-        return ((wifiManet != null) && (wifiManet instanceof WiFiAwareManet));
+        return ((wifiManet != null) && (wifiManet instanceof WiFiAwareManetV2));
     }
 
     public boolean isBtManetAvailable() {

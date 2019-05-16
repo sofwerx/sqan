@@ -2,8 +2,12 @@ package org.sofwerx.sqan.util;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.aware.WifiAwareManager;
+import android.os.Build;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
@@ -12,6 +16,12 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 
 import java.io.StringWriter;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 
 public class NetUtil {
     public enum ConnectionType {WIFI,MOBILE,NOT_CONNECTED};
@@ -252,5 +262,75 @@ public class NetUtil {
             return Byte.MIN_VALUE;
         byte dscpByte = packet[1];
         return (byte)(dscpByte & MASK_DSCP);
+    }
+
+    public static Inet6Address getAwareAddress(Context context, Network network) {
+        if (context == null)
+            return null;
+        ConnectivityManager connMgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        /*if (network == null) { //try to find the Aware network
+            Network[] networks = connMgr.getAllNetworks();
+            if (networks != null) {
+                Log.d(Config.TAG,networks.length+" available networks");
+                for (Network nw:networks) {
+                    //TODO trying to find the aware network here
+                }
+            }
+        }*/
+        if (network == null)
+            return null;
+        LinkProperties linkProperties = connMgr.getLinkProperties(network);
+        return getAwareAddress(linkProperties);
+    }
+
+    public static Inet6Address getAwareAddress(LinkProperties linkProperties) {
+        Inet6Address ipv6 = null;
+
+        try {
+            NetworkInterface awareNi = NetworkInterface.getByName(linkProperties.getInterfaceName());
+            Enumeration inetAddresses = awareNi.getInetAddresses();
+            while (inetAddresses.hasMoreElements()) {
+                InetAddress addr = (InetAddress) inetAddresses.nextElement();
+                if (addr instanceof Inet6Address) {
+                    if (addr.isLinkLocalAddress()) {
+                        ipv6 = (Inet6Address) addr;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception ignore) {
+        }
+
+        return ipv6;
+    }
+
+    private final static int MIN_PASSPHRASE_LENGTH = 8; //TODO unable to find these definitively, so they are guesses
+    private final static int MAX_PASSPHRASE_LENGTH = 63; //TODO unable to find these definitively, so they are guesses
+
+    /**
+     * Adjusts the passcode to meet WiFi Aware requirements
+     * @param passcode
+     * @return
+     */
+    public static String conformPasscodeToWiFiAwareRequirements(String passcode) {
+        if ((passcode != null) && (passcode.length() >= MIN_PASSPHRASE_LENGTH) && (passcode.length() <= MAX_PASSPHRASE_LENGTH))
+            return passcode;
+        StringWriter out = new StringWriter();
+
+        int i=0;
+        while (i < MIN_PASSPHRASE_LENGTH) {
+            if (i < passcode.length())
+                out.append(passcode.charAt(i));
+            else
+                out.append('x');
+            i++;
+        }
+        while ((i < MAX_PASSPHRASE_LENGTH) && (i < passcode.length())) {
+            out.append(passcode.charAt(i));
+            i++;
+        }
+        String output = out.toString();
+        Log.d(Config.TAG,"Passphrase \""+passcode+"\" adjusted to \""+output+"\" to conform with WiFi Aware requirements");
+        return out.toString();
     }
 }
