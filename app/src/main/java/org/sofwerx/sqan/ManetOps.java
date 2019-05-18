@@ -328,6 +328,15 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     @Override
     public void onTx(AbstractPacket packet) {
+        if (packet == null)
+            return;
+        if (sqAnService.listener != null)
+            sqAnService.listener.onDataTransmitted();
+        sqAnService.onPositiveComms();
+    }
+
+    @Override
+    public void onTx(byte[] payload) {
         if (sqAnService.listener != null)
             sqAnService.listener.onDataTransmitted();
         sqAnService.onPositiveComms();

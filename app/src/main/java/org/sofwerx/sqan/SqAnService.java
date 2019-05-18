@@ -54,7 +54,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
     private final static long INTERVAL_BETWEEN_HEALTH_CHECK = 1000l * 60l;
     private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
-    private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 50l;
+    private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 20l;
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;

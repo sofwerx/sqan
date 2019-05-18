@@ -35,7 +35,6 @@ public class DeviceSummary extends ConstraintLayout {
     private boolean unavailable = false;
     private boolean significant = false;
     private Animation pingAnimation;
-    private long lastData = 0;
 
     public DeviceSummary(@NonNull Context context) {
         super(context);
@@ -92,13 +91,12 @@ public class DeviceSummary extends ConstraintLayout {
             callsign.setText(device.getCallsign());
             StringWriter descOut = new StringWriter();
             descOut.append("Rx: ");
-            long currentTally = device.getDataTally();
-            if (lastData != currentTally) {
-                lastData = currentTally;
+            if (device.isDataTallyGuiNeedUpdate()) {
+                device.markDataTallyDisplayed();
                 if (device.isActive())
                     showPing();
             }
-            descOut.append(StringUtil.toDataSize(lastData));
+            descOut.append(StringUtil.toDataSize(device.getDataTally()));
             long elapsedTime = (System.currentTimeMillis() - device.getFirstConnection())/1000l;
             if (elapsedTime > 60l) {
                 descOut.append(" (");

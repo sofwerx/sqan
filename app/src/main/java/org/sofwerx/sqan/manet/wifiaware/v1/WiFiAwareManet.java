@@ -1250,6 +1250,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
     }
 
     private void startClient(SqAnDevice other, boolean onlyIfNotAlreadyRunning) {
+        //FIXME - the client isnt working as the IPV6 address isnt being accepted as a legal arguement for the SocketChannel
         //stopDiscovery();
         if (other == null)
             return;

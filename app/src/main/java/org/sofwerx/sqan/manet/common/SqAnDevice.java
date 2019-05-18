@@ -43,6 +43,7 @@ public class SqAnDevice {
     private int transientAwareId = UNASSIGNED_UUID;
     private long lastConnect = Long.MIN_VALUE;
     private long rxDataTally = 0l; //talley of received bytes from this node
+    private long displayedRxTally = 0l; //a counter used to help update the GUI when a "ping" happens
     private Status status = Status.OFFLINE;
     private ArrayList<Long> latencies;
     private long discoveryTime = -1l; //used to mark when this device was discovered
@@ -1277,6 +1278,8 @@ public class SqAnDevice {
     public long getDataTally() {
         return rxDataTally;
     }
+    public void markDataTallyDisplayed() { displayedRxTally = rxDataTally; }
+    public boolean isDataTallyGuiNeedUpdate() { return rxDataTally > displayedRxTally; }
     public String getNetworkId() {
         return networkId;
     }

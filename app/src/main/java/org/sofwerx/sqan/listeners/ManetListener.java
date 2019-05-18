@@ -25,6 +25,12 @@ public interface ManetListener {
     void onTx(AbstractPacket packet);
 
     /**
+     * Called when a byte array is transmitted over the MANET
+     * @param payload
+     */
+    void onTx(byte[] payload);
+
+    /**
      * Called when this packet failed to transmit
      * @param packet
      */
