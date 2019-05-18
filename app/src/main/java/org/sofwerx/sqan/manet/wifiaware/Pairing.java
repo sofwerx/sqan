@@ -140,12 +140,29 @@ public class Pairing {
             return false;
         if ((device != null) && (other.device != null))
             return device.isSame(other.device);
-        if ((peerHandle != null) && (other.peerHandle != null))
-            return (peerHandle.hashCode() == other.peerHandle.hashCode())
-                    || (alternatePeerHandle.hashCode() == other.alternatePeerHandle.hashCode())
-                    || (alternatePeerHandle.hashCode() == other.peerHandle.hashCode())
-                    || (peerHandle.hashCode() == other.alternatePeerHandle.hashCode());
-        return connection == other.connection; //this should never happen
+        return isMatchingPeerHandle((other));
+    }
+
+    private boolean isMatchingPeerHandle(Pairing other) {
+        if (other == null)
+            return false;
+        boolean match = false;
+        if ((peerHandle != null) && (other.peerHandle != null)) {
+            match = peerHandle.hashCode() == other.peerHandle.hashCode();
+        }
+        if (!match) {
+            if (peerHandle != null) {
+                if (other.alternatePeerHandle != null)
+                    match = match || (peerHandle.hashCode() == other.alternatePeerHandle.hashCode());
+            }
+            if (alternatePeerHandle != null) {
+                if (other.peerHandle != null)
+                    match = match || (alternatePeerHandle.hashCode() == other.peerHandle.hashCode());
+                if (other.alternatePeerHandle != null)
+                    match = match || (alternatePeerHandle.hashCode() == other.alternatePeerHandle.hashCode());
+            }
+        }
+        return match;
     }
 
     /**

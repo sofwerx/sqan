@@ -43,7 +43,8 @@ public class ClientHandler {
     }
 
     public static int getActiveConnectionCount() {
-        Set<Map.Entry<Integer, Long>> entries = START_TIME_MAP.entrySet();
+        //Set<Map.Entry<Integer, Long>> entries = START_TIME_MAP.entrySet();
+        Set<Map.Entry<Integer, ClientHandler>> entries = HANDLER_MAP.entrySet();
         if (entries == null)
             return 0;
         return entries.size();
@@ -101,6 +102,7 @@ public class ClientHandler {
     }
 
     public void closeClient() {
+        Log.d(TAG,"Closing client #"+id);
         try {
             if (client != null) {
                 final SocketAddress socketAddress = client.getRemoteAddress();
@@ -155,7 +157,7 @@ public class ClientHandler {
      * Add a message to the outgoing queue
      * @param out buffer to send
      * @param address address to send to
-     * @return true == at least one recepient was found for this message
+     * @return true == at least one recipient was found for this message
      */
     public static boolean addToWriteQue(ByteBuffer out, int address) {
         boolean sent = false;
@@ -207,9 +209,9 @@ public class ClientHandler {
                     if (totalSize < 0)
                         size = "negative";
                     else if (totalSize < (1024*1024))
-                        size = Integer.toString(totalSize);
+                        size = totalSize+"b";
                     else
-                        size = Integer.toString(totalSize/(1024*1024))+"mb";
+                        size = totalSize/(1024*1024)+"mb";
                     String warning = "Packet size is reporting to be "+size+", which is not valid (closing)";
                     CommsLog.log(CommsLog.Entry.Category.PROBLEM,warning);
                     if (listener != null)
@@ -256,6 +258,11 @@ public class ClientHandler {
                     byte[] data = new byte[readBuffer.remaining()];
                     readBuffer.get(data);
                     parser.processPacketAndNotifyManet(data);
+                }
+                if ((clientDevice == null) && header.isDirectFromOrigin()) {
+                    clientDevice = SqAnDevice.findByUUID(header.getOriginUUID()); //assign the device based on the origin
+                    if (clientDevice != null)
+                        Log.d(TAG,"Client Handler #"+id+" resolved to device "+clientDevice.getLabel());
                 }
                 //Add one hop to the count of message routing then write the new header to the readBuffer
                 readBuffer.position(0);

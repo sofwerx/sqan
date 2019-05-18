@@ -490,7 +490,9 @@ public class WiFiAwareManetV2 extends AbstractManet {
      */
     public void onMacChanged (byte[] mac) {
         Config.getThisDevice().setAwareMac(new MacAddress(mac));
-        //TODO
+        SqAnService svc = SqAnService.getInstance();
+        if (svc != null)
+            svc.requestHeartbeat(true);
     }
 
     private class AwareManetConnectionCallback extends ConnectivityManager.NetworkCallback {

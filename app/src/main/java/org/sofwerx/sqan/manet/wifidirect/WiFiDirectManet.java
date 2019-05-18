@@ -167,6 +167,9 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (!isRunning.get())
             return;
         if (socketServer == null) {
+            setStatus(Status.CONNECTED);
+            if (Config.getThisDevice() != null)
+                Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
             socketServer = new Server(new SocketChannelConfig((String)null, SQAN_PORT), parser, this);
             socketServer.setIdleTimeout(SERVER_MAX_IDLE_TIME);
             if ((manager != null) && (channel != null)) {
@@ -192,6 +195,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (!isRunning.get())
             return;
         if (socketClient == null) {
+            setStatus(Status.CONNECTED);
             CommsLog.log(CommsLog.Entry.Category.STATUS, "Connecting as Client to " + serverIp + "...");
             if ((manager != null) && (channel != null)) {
                 nsd.stopDiscovery(manager, channel, null);
@@ -523,19 +527,23 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onDiscoveryStarted() {
         CommsLog.log(CommsLog.Entry.Category.STATUS,"Discovery Started");
-        if (status == Status.ADVERTISING)
-            setStatus(Status.ADVERTISING_AND_DISCOVERING);
-        else
-            setStatus(Status.DISCOVERING);
+        if (status != Status.CONNECTED) {
+            if (status == Status.ADVERTISING)
+                setStatus(Status.ADVERTISING_AND_DISCOVERING);
+            else
+                setStatus(Status.DISCOVERING);
+        }
     }
 
     @Override
     public void onAdvertisingStarted() {
         CommsLog.log(CommsLog.Entry.Category.STATUS,"Advertising Started");
-        if (status == Status.DISCOVERING)
-            setStatus(Status.ADVERTISING_AND_DISCOVERING);
-        else
-            setStatus(Status.ADVERTISING);
+        if (status != Status.CONNECTED) {
+            if (status == Status.DISCOVERING)
+                setStatus(Status.ADVERTISING_AND_DISCOVERING);
+            else
+                setStatus(Status.ADVERTISING);
+        }
     }
 
     @Override

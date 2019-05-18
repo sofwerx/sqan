@@ -77,7 +77,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
                     case 3:
                         wifiManet = new WiFiDirectManet(handler,sqAnService,ManetOps.this);
-                        btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
+                        //TODO btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
+                        btManet = null; //TODO
                         break;
 
                     case 4:
