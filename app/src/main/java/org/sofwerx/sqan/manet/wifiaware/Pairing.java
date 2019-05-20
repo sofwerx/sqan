@@ -5,6 +5,7 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
@@ -14,7 +15,8 @@ import java.util.ArrayList;
 public class Pairing {
     private final static String TAG = Config.TAG+".AwarePair";
     private final static long WEAK_CONNECTION_STALE_AFTER = 1000l * 30l;
-    public final static int CONNECTION_STRONG = 3; // full bandwidth support
+    public final static int CONNECTION_STRONG = 4; // full bandwidth support
+    public final static int CONNECTION_STRONG_PREPARING = 3; // full bandwidth connection is in the process of being built
     public final static int CONNECTION_WEAK = 2; // narrow bandwidth support only
     public final static int CONNECTION_STALE = 1; // a stale narrow bandwidth connection
     public final static int CONNECTION_NONE = 0; // no connection
@@ -27,27 +29,54 @@ public class Pairing {
     private static ArrayList<Pairing> pairings;
     private static Inet6Address ipv6 = null;
 
-    public static enum PeerHandleOrigin {PUB,SUB};
+    public boolean burst(AbstractPacket packet) {
+        if ((packet == null) || (connection == null))
+            return false;
+        return connection.burst(packet);
+    }
+
+    public enum PeerHandleOrigin {PUB,SUB};
+    public enum PairingStatus {INFO_NEEDED,SHOULD_BE_SERVER,SHOULD_BE_CLIENT, CONNECTING,CONNECTED}
 
     public boolean isPeerHandlePub() { return origin != PeerHandleOrigin.SUB; }
     public boolean isPeerHandleSub() { return origin != PeerHandleOrigin.PUB; }
     public void setPeerHandleOrigin(PeerHandleOrigin origin) { this.origin = origin; }
 
-    public int isConnected() {
-        boolean strongConnection;
-        if (connection == null)
-            strongConnection = false;
-        else
-            strongConnection = connection.isConnected();
-        if (strongConnection)
-            return CONNECTION_STRONG;
-        if (System.currentTimeMillis() > lastWeakConnection + WEAK_CONNECTION_STALE_AFTER) {
-            if (peerHandle == null)
-                return CONNECTION_NONE;
+    public PairingStatus getStatus() {
+        if (connection == null) {
+            SqAnDevice thisDevice = Config.getThisDevice();
+            if ((device != null) && (thisDevice != null) && device.isUuidKnown() && thisDevice.isUuidKnown()) {
+                if (thisDevice.getUUID() < device.getUUID()) //lower UUIDs should be server
+                    return PairingStatus.SHOULD_BE_SERVER;
+                else
+                    return PairingStatus.SHOULD_BE_CLIENT;
+            } else
+                return PairingStatus.INFO_NEEDED;
+        } else {
+            if (connection.isConnected())
+                return PairingStatus.CONNECTED;
             else
-                return CONNECTION_STALE;
+                return PairingStatus.CONNECTING;
         }
-        return CONNECTION_WEAK;
+    }
+
+    public int isConnectionActive() {
+        if (connection != null) {
+            if (connection.isConnected())
+                return CONNECTION_STRONG;
+            else
+                return CONNECTION_STRONG_PREPARING;
+        }
+        if (lastWeakConnection > 0l) {
+            if (System.currentTimeMillis() > lastWeakConnection + WEAK_CONNECTION_STALE_AFTER) {
+                if (peerHandle == null)
+                    return CONNECTION_NONE;
+                else
+                    return CONNECTION_STALE;
+            } else
+                return CONNECTION_WEAK;
+        } else
+            return CONNECTION_NONE;
     }
 
     public String getLabel() {
@@ -88,7 +117,6 @@ public class Pairing {
             out.append("; last weak connection ");
             out.append(StringUtil.toDuration(System.currentTimeMillis() - lastWeakConnection));
         }
-
 
         return out.toString();
     }
@@ -240,5 +268,36 @@ public class Pairing {
     public static void clear() {
         pairings = null;
         ipv6 = null;
+    }
+
+    public static void removeUnresponsiveConnections() {
+        if ((pairings != null) && !pairings.isEmpty()) {
+            synchronized (pairings) {
+                int i=0;
+                Pairing pairing;
+                while (i<pairings.size()) {
+                    pairing = pairings.get(i);
+                    if (pairing == null) {
+                        Log.d(TAG,"Removing null pairing #"+i);
+                        pairings.remove(i);
+                        continue;
+                    }
+                    if (pairing.connection != null) {
+                        synchronized (pairing.connection) {
+                            if (pairing.connection.isStale()) {
+                                Log.d(TAG, "Removing stale connection in pairing #" + i + ": " + pairing.toString());
+                                pairing.connection.close();
+                                pairing.connection = null;
+                            }
+                        }
+                    }
+                    /*if (pairing.isConnectionActive() == CONNECTION_STALE) {
+                        Log.d(TAG,"Removing stale pairing #"+i+": "+pairing.toString());
+                        pairings.remove(i);
+                    } else*/
+                        i++;
+                }
+            }
+        }
     }
 }

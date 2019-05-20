@@ -167,16 +167,16 @@ public class ClientHandler {
                 if (h.clientDevice != null)
                     send = AddressUtil.isApplicableAddress(h.clientDevice.getUUID(),address);
                 if (h.readState == ReadState.WRITING_CHALLENGE) {
-                    Log.e(TAG, "#" + h.id + "Server cannot queue packet to client; state=" + h.readState);
+                    Log.e(TAG, "#" + h.id + ": Server cannot queue packet to client; state=" + h.readState);
                     send = false;
                 }
                 if (send) {
                     sent = true;
-                    Log.d(TAG, "#" + h.id + out.limit()+"b added to writeQueue for client");
+                    Log.d(TAG, "#" + h.id + ": " + out.limit()+"b added to writeQueue for client");
                     h.writeQueue.add(out.duplicate());
                     //TODO call read and write here possibly as a way to speed up the data burst from the server
                 } else
-                    Log.d(TAG, "#" + h.id +"Outgoing packet does not apply to client #");
+                    Log.d(TAG, "#" + h.id +": Outgoing packet does not apply to client #");
             }
         }
         return sent;
@@ -342,7 +342,7 @@ public class ClientHandler {
         while (keepGoing && (cycleCount < SINGLE_READ_MAX_PACKETS)) {
             switch (readState) {
                 case INACTIVE:
-                    Log.d(TAG, "#" + id + "readyToRead().INACTIVE");
+                    Log.d(TAG, "#" + id + ": readyToRead().INACTIVE");
                     if (readBuffer != null)
                         readBuffer.clear();
                     //MUST be before readBody!

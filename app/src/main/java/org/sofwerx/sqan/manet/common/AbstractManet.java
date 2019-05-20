@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * implementation issues and lets SqAN deal with all MANETs in a uniform manner.
  */
 public abstract class AbstractManet {
-    protected final static int SQAN_PORT = 1716; //using the America's Army port to avoid likely conflicts
+    public final static int SQAN_PORT = 1716; //using the America's Army port to avoid likely conflicts
     protected Status status = Status.OFF;
     protected ManetListener listener;
     protected AtomicBoolean isRunning = new AtomicBoolean(false);
@@ -73,6 +73,8 @@ public abstract class AbstractManet {
         }
         return passed;
     }
+
+    public PacketParser getParser() { return parser; }
 
     public abstract int getMaximumPacketSize();
 

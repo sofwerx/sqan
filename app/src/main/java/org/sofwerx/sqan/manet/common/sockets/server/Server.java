@@ -59,6 +59,10 @@ public class Server {
         //Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.HUB);
     }
 
+    public int getActiveConnectionCount() {
+        return ClientHandler.getActiveConnectionCount();
+    }
+
     private int acceptClients(int acceptCount) throws IOException {
         SocketChannel client;
         while ((client = server.accept()) != null) {

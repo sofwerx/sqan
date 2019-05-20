@@ -47,6 +47,8 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
+import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
+import org.sofwerx.sqan.manet.wifiaware.server.ServerConnection;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
@@ -65,7 +67,7 @@ import static android.os.Build.VERSION_CODES.O;
  * found on Android 8.0 (API level 26) and higher
  *  (https://developer.android.com/guide/topics/connectivity/wifi-aware)
  */
-public class WiFiAwareManetV2 extends AbstractManet {
+public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListener {
     private final static String TAG = Config.TAG+".Aware";
     private static final String SERVICE_ID = "sqan";
     private static final int AWARE_MESSAGE_LIMIT = 255; //max size supported by Aware Messages
@@ -273,23 +275,30 @@ public class WiFiAwareManetV2 extends AbstractManet {
     @Override
     public void burst(AbstractPacket packet) throws ManetException {
         if (packet != null) {
-            //TODO try to send as socket
-
-            //Falling back to Aware Message
             ArrayList<Pairing> pairings = Pairing.getPairings();
             if ((pairings != null) && !pairings.isEmpty()) {
                 int sentCount = 0;
                 byte[] payload = null;
+                boolean socketSent;
+                SqAnDevice device;
+                boolean applicable;
                 for (Pairing pairing:pairings) {
-                    if ((pairing != null) && (pairing.getPeerHandle() != null)) {
-                        SqAnDevice device = pairing.getDevice();
-                        boolean applicable = ((device != null) && (device.getUUID() != packet.getOrigin()) && AddressUtil.isApplicableAddress(device.getUUID(),packet.getSqAnDestination()));
-                        if (!applicable)
-                            applicable = (device == null) && (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS);
+                    if (pairing == null)
+                        continue;
+                    socketSent = false;
+                    device = pairing.getDevice();
+                    applicable = ((device != null) && (device.getUUID() != packet.getOrigin()) && AddressUtil.isApplicableAddress(device.getUUID(),packet.getSqAnDestination()));
+                    if (!applicable)
+                        applicable = (device == null) && (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS);
+                    if (applicable) {
+                        if (pairing.isConnectionActive() == Pairing.CONNECTION_STRONG)
+                            socketSent = pairing.burst(packet);
 
-                        if (applicable) {
+                        //Falling back to Aware Message
+                        if (!socketSent && (pairing.getPeerHandle() != null)) {
+                            Log.d(TAG, "Falling back to burst as Aware Message");
                             if (packet.isHighPerformanceNeeded()) {
-                                Log.d(TAG,"Ignoring request to send "+packet.getClass().getName()+" as high performance packets cannot be sent over Aware Message");
+                                Log.d(TAG, "Ignoring request to send " + packet.getClass().getSimpleName() + " as high performance packets cannot be sent over Aware Message");
                                 continue;
                             }
                             if ((packet instanceof PingPacket) && (packet.getCurrentHopCount() > 0)) //ignore pings
@@ -297,7 +306,7 @@ public class WiFiAwareManetV2 extends AbstractManet {
                             if (payload == null)
                                 payload = packet.toByteArray();
                             if ((payload == null) || (payload.length > AWARE_MESSAGE_LIMIT)) {
-                                Log.d(TAG,packet.getClass().getName()+" larger than Aware Message "+AWARE_MESSAGE_LIMIT+"b limit as will not be sent");
+                                Log.d(TAG, packet.getClass().getSimpleName() + " larger than Aware Message " + AWARE_MESSAGE_LIMIT + "b limit as will not be sent");
                                 break;
                             }
                             burst(payload, pairing.getPeerHandle());
@@ -306,7 +315,7 @@ public class WiFiAwareManetV2 extends AbstractManet {
                     }
                 }
                 if (sentCount > 0)
-                    Log.d(TAG, "Socket Connections unavailable so "+packet.getClass().getName()+" sent"+((sentCount==1)?"":(" to "+sentCount+" devices"))+" as Aware Message");
+                    Log.d(TAG, "Socket Connections unavailable so "+packet.getClass().getSimpleName()+" sent"+((sentCount==1)?"":(" to "+sentCount+" devices"))+" as Aware Message");
                 else
                     Log.d(TAG,"Socket connections are not available and packet could not be sent as an Aware Message");
             }
@@ -391,6 +400,7 @@ public class WiFiAwareManetV2 extends AbstractManet {
     public void disconnect() throws ManetException {
         super.disconnect();
         Pairing.clear();
+        ServerConnection.closeAll();
         //TODO
 
         /*if ((connections != null) && !connections.isEmpty() && (connectivityManager != null)) {
@@ -439,8 +449,14 @@ public class WiFiAwareManetV2 extends AbstractManet {
     @Override
     public void executePeriodicTasks() {
         if (isRunning()) {
-            removeUnresponsiveConnections();
+            Pairing.removeUnresponsiveConnections();
             Pairing.dedup();
+            ArrayList<Pairing> pairings = Pairing.getPairings();
+            if ((pairings != null) && !pairings.isEmpty()) {
+                for (Pairing pairing:pairings) {
+                    checkStatus(pairing);
+                }
+            }
         } else {
             try {
                 Log.d(TAG,"Attempting to restart WiFi Aware manager");
@@ -449,26 +465,6 @@ public class WiFiAwareManetV2 extends AbstractManet {
                 Log.e(TAG, "Unable to initialize WiFi Aware: " + e.getMessage());
             }
         }
-    }
-
-    private void removeUnresponsiveConnections() {
-        /*if ((connections != null) && !connections.isEmpty()) {
-            synchronized (connections) {
-                int i=0;
-                final long timeToConsiderStale = System.currentTimeMillis() - TIME_TO_CONSIDER_STALE_DEVICE;
-                while (i<connections.size()) {
-                    if (connections.get(i) == null) {
-                        connections.remove(i);
-                        continue;
-                    }
-                    if (timeToConsiderStale > connections.get(i).getLastConnection()) {
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Removing stale WiFi Aware connection: "+((connections.get(i).getDevice()==null)?"device unknown":connections.get(i).getDevice().getLabel()));
-                        connections.remove(i);
-                    } else
-                        i++;
-                }
-            }
-        }*/
     }
 
     /**
@@ -495,86 +491,34 @@ public class WiFiAwareManetV2 extends AbstractManet {
             svc.requestHeartbeat(true);
     }
 
-    private class AwareManetConnectionCallback extends ConnectivityManager.NetworkCallback {
-        private final static long CALLBACK_TIMEOUT = 1000l * 10l;
-        private final long timeToStale;
+    @Override
+    public void onServerBacklistClient(InetAddress address) {
+        //TODO
+    }
 
-        public AwareManetConnectionCallback() {
-            super();
-            timeToStale = System.currentTimeMillis() + CALLBACK_TIMEOUT;
-        }
+    @Override
+    public void onServerError(String error) {
+        //TODO
+    }
 
-        /*public boolean isStale() {
-            return !success && (System.currentTimeMillis() > timeToStale);
-        }*/
+    @Override
+    public void onServerFatalError() {
+        //TODO
+    }
 
-        @Override
-        public void onAvailable(Network network) {
-            /*success = true;
-            Log.d(TAG,"NetworkCallback onAvailable() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
-            if (ipv6 == null) {
-                ipv6 = NetUtil.getAwareAddress(context, network);
-                if (ipv6 != null) {
-                    Log.d(TAG, "Aware IP address assigned as " + ipv6.getHostAddress());
-                    handleNetworkChange(network,connection,ipv6);
-                }
-            }*/
-        }
+    @Override
+    public void onServerClosed() {
+        //TODO
+    }
 
-        @Override
-        public void onLinkPropertiesChanged(Network network, LinkProperties linkProperties) {
-            /*Log.d(TAG,"NetworkCallback onLinkPropertiesChanged() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
-            ipv6 = NetUtil.getAwareAddress(linkProperties);
-            SqAnDevice thisDevice = Config.getThisDevice();
-            if (thisDevice == null)
-                return;
-            if (thisDevice.getAwareServerIp() == null)
-                Log.d(TAG, "Aware IP address assigned as " + ipv6.getHostAddress());
-            else if (!ipv6.equals(thisDevice.getAwareServerIp())) {
-                Log.d(TAG, "Aware IP address changed to " + ipv6.getHostAddress());
-                stopSocketConnections(false);
-            }
+    @Override
+    public void onServerClientDisconnected(InetAddress address) {
+        //TODO
+    }
 
-            if (ipv6 != null)
-                handleNetworkChange(network,connection,ipv6);
-            else
-                Log.d(TAG,"Could not do anything with the link property change as the ipv6 address was null");*/
-        }
-
-        @Override
-        public void onLost(Network network) {
-            /*success = false;
-            Log.d(TAG,"Aware onLost() for "+((connection.getDevice()==null)?"null device":connection.getDevice().getLabel()));
-            if (connection != null)  {
-                try {
-                    connectivityManager.unregisterNetworkCallback(this);
-                    connection.setCallback(null);
-                    Log.d(TAG,"unregistered NetworkCallback for "+connection.toString());
-                } catch (Exception e) {
-                    Log.w(TAG,"Unable to unregister this NetworkCallback: "+e.getMessage());
-                }
-            }
-            if (Config.getThisDevice() != null)
-                handleNetworkChange(null,connection,Config.getThisDevice().getAwareServerIp());*/
-        }
-
-        @Override
-        public void onUnavailable() {
-            //TODO
-            Log.d(TAG, "NetworkCallback onUnavailable()");
-        }
-
-        @Override
-        public void onCapabilitiesChanged(Network network, NetworkCapabilities networkCapabilities) {
-            //TODO
-            Log.d(TAG, "NetworkCallback onCapabilitiesChanged()");
-        }
-
-        @Override
-        public void onLosing(Network network, int maxMsToLive) {
-            //TODO
-            Log.d(TAG, "NetworkCallback onLosing()");
-        }
+    @Override
+    public void onNewClient(SqAnDevice sqAnDevice) {
+        //TODO
     }
 
     @RequiresApi(O)
@@ -690,8 +634,20 @@ public class WiFiAwareManetV2 extends AbstractManet {
             device.setLastConnect();
             device.addToDataTally(message.length);
         }
-        //TODO relayPacketIfNeeded(connection,message,packet.getSqAnDestination(),packet.getOrigin(),packet.getCurrentHopCount());
+        checkStatus(tx);
         super.onReceived(packet);
+    }
+
+    private void checkStatus(Pairing pairing) {
+        if (pairing == null)
+            return;
+        if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_CLIENT) {
+            Log.d(TAG,"Pairing "+pairing.toString()+" should be a client connection");
+            //TODO start a client
+        } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
+            Log.d(TAG,"Pairing "+pairing.toString()+" should be a server, building connection...");
+            pairing.setConnection(new ServerConnection(this));
+        }
     }
 
     /**
