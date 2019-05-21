@@ -1,11 +1,24 @@
 package org.sofwerx.sqan.manet.wifiaware;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.net.NetworkSpecifier;
+import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.PeerHandle;
+import android.net.wifi.aware.WifiAwareManager;
+import android.net.wifi.aware.WifiAwareSession;
+import android.os.Build;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.StringWriter;
@@ -25,9 +38,18 @@ public class Pairing {
     private PeerHandle alternatePeerHandle; //this is used to merge pairings for a PUB peerHandle and a SUB peerHandle but still link both handles to this pairing
     private PeerHandleOrigin origin = PeerHandleOrigin.PUB;
     private AbstractConnection connection;
+    private Network network;
+    private AwareManetV2ConnectionCallback networkCallback;
     private long lastWeakConnection = Long.MAX_VALUE;
     private static ArrayList<Pairing> pairings;
     private static Inet6Address ipv6 = null;
+    private static Context context;
+    private static ConnectivityManager connectivityManager;
+
+    public static void init(@NonNull Context context) {
+        Pairing.context = context;
+        connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+    }
 
     public boolean burst(AbstractPacket packet) {
         if ((packet == null) || (connection == null))
@@ -35,24 +57,69 @@ public class Pairing {
         return connection.burst(packet);
     }
 
+    public void requestNetwork(WifiAwareSession awareSession, DiscoverySession discoverySession, boolean server) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (device == null) {
+                Log.d(TAG,"Pairing cannot requestNetwork with a null device");
+                return;
+            }
+            String passcode = NetUtil.conformPasscodeToWiFiAwareRequirements(Config.getPasscode()); //TODO
+            NetworkSpecifier networkSpecifier = null;
+            if ((awareSession != null) && (device.getAwareMac() != null) && device.getAwareMac().isValid()) {
+                Log.d(TAG, "Building an aware network specifier based on OOB details as " + (server ? "Initiator" : "Responder"));
+                networkSpecifier = awareSession.createNetworkSpecifierOpen(server ? WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR : WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, device.getAwareMac().toByteArray());
+            } else if ((peerHandle != null) && (discoverySession != null)) {
+                Log.d(TAG, "Building an aware network specifier based on PeerHandle");
+                networkSpecifier = discoverySession.createNetworkSpecifierOpen(peerHandle);
+            }
+            if (networkSpecifier == null) {
+                Log.d(TAG, "Unable to build a network specifier so not establishing an Aware network connection at this time");
+                return;
+            }
+            NetworkRequest networkRequest = new NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
+                    .setNetworkSpecifier(networkSpecifier)
+                    .build();
+
+            Log.d(TAG, "Requesting a network connection...");
+            networkCallback = new AwareManetV2ConnectionCallback(context, this);
+            connectivityManager.requestNetwork(networkRequest, networkCallback);
+        }
+    }
+
+    public AwareManetV2ConnectionCallback getNetworkCallback() { return networkCallback; }
+
     public enum PeerHandleOrigin {PUB,SUB};
-    public enum PairingStatus {INFO_NEEDED,SHOULD_BE_SERVER,SHOULD_BE_CLIENT, CONNECTING,CONNECTED}
+    public enum PairingStatus {INFO_NEEDED,SHOULD_BE_SERVER, NEEDS_NETWORK, SHOULD_BE_CLIENT, CONNECTING,CONNECTED}
 
     public boolean isPeerHandlePub() { return origin != PeerHandleOrigin.SUB; }
     public boolean isPeerHandleSub() { return origin != PeerHandleOrigin.PUB; }
     public void setPeerHandleOrigin(PeerHandleOrigin origin) { this.origin = origin; }
 
+    public boolean shouldBeServer() {
+        SqAnDevice thisDevice = Config.getThisDevice();
+        if ((thisDevice != null) && thisDevice.isUuidKnown() && (device != null) && device.isUuidKnown())
+            return thisDevice.getUUID() < device.getUUID(); //lower UUIDs should be server
+        return false;
+    }
+
     public PairingStatus getStatus() {
         if (connection == null) {
             SqAnDevice thisDevice = Config.getThisDevice();
             if ((device != null) && (thisDevice != null) && device.isUuidKnown() && thisDevice.isUuidKnown()) {
-                if (thisDevice.getUUID() < device.getUUID()) //lower UUIDs should be server
+                if (shouldBeServer())
                     return PairingStatus.SHOULD_BE_SERVER;
-                else
-                    return PairingStatus.SHOULD_BE_CLIENT;
+                else {
+                    if (network == null)
+                        return PairingStatus.NEEDS_NETWORK;
+                    else
+                        return PairingStatus.SHOULD_BE_CLIENT;
+                }
             } else
                 return PairingStatus.INFO_NEEDED;
         } else {
+            if (network == null)
+                return PairingStatus.NEEDS_NETWORK;
             if (connection.isConnected())
                 return PairingStatus.CONNECTED;
             else
@@ -150,6 +217,7 @@ public class Pairing {
                     if ((a != b) && pairings.get(a).isSame(pairings.get(b))) {
                         Log.d(TAG,"Duplicate pairings found: "+pairings.get(a).toString()+" and "+pairings.get(b).toString());
                         pairings.get(a).update(pairings.get(b));
+                        pairings.get(b).removeNetworkCallback();
                         pairings.remove(b);
                     } else {
                         b++;
@@ -265,9 +333,18 @@ public class Pairing {
     public static Inet6Address getIpv6Address() { return ipv6; }
     public static ArrayList<Pairing> getPairings() { return pairings; }
 
-    public static void clear() {
+    public static void shutdown() {
+        if (pairings != null) {
+            synchronized (pairings) {
+                for (Pairing pairing : pairings) {
+                    pairing.removeNetworkCallback();
+                }
+            }
+        }
         pairings = null;
         ipv6 = null;
+        context = null;
+        connectivityManager = null;
     }
 
     public static void removeUnresponsiveConnections() {
@@ -293,11 +370,23 @@ public class Pairing {
                     }
                     /*if (pairing.isConnectionActive() == CONNECTION_STALE) {
                         Log.d(TAG,"Removing stale pairing #"+i+": "+pairing.toString());
+                        pairings.get(i).removeNetworkCallback();
                         pairings.remove(i);
                     } else*/
                         i++;
                 }
             }
+        }
+    }
+
+    public void removeNetworkCallback() {
+        if ((networkCallback != null) && (connectivityManager != null)) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+            } catch (Exception e) {
+                Log.d(TAG,"Unable to unregister network callback for "+getLabel()+": "+e.getMessage());
+            }
+            networkCallback = null;
         }
     }
 }

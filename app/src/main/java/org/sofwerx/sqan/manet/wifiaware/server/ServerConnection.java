@@ -5,10 +5,12 @@ import androidx.annotation.NonNull;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
 import org.sofwerx.sqan.manet.common.sockets.server.Server;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
 import org.sofwerx.sqan.manet.wifiaware.AbstractConnection;
+import org.sofwerx.sqan.manet.wifiaware.Pairing;
 
 import java.util.ArrayList;
 
@@ -16,11 +18,13 @@ public class ServerConnection extends AbstractConnection {
     private static Server server;
     private static ArrayList<ServerConnection> serverConnections = new ArrayList<>();
     private static ServerStatusListener listener;
+    private Pairing pairing;
 
-    public ServerConnection(@NonNull AbstractManet manet) {
+    public ServerConnection(@NonNull AbstractManet manet, Pairing pairing) {
         if (manet instanceof ServerStatusListener)
             listener = (ServerStatusListener)manet;
         serverConnections.add(this);
+        this.pairing = pairing;
         if (server == null) {
             server = new Server(new SocketChannelConfig((String) null, AbstractManet.SQAN_PORT),manet.getParser(),listener);
             server.start();
@@ -44,7 +48,14 @@ public class ServerConnection extends AbstractConnection {
 
     @Override
     public boolean burst(AbstractPacket packet) {
-        //FIXME stopped here - do something that makes the packet only be sent to this connection's device also check to see if there's some issue when bursting a packet to broadcast so its not sent multiple times
+        if ((server == null) || !server.isRunning() || (packet == null))
+            return false;
+        int dest = packet.getSqAnDestination();
+        if (dest == PacketHeader.BROADCAST_ADDRESS) { //limit this burst to only the device on the other end of this pairing
+            if ((pairing != null) && (pairing.getDevice() != null))
+                dest = pairing.getDevice().getUUID();
+        }
+        server.burst(packet,dest);
         return false;
     }
 

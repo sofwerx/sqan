@@ -6,11 +6,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
-import android.net.LinkProperties;
-import android.net.Network;
-import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
-import android.net.NetworkSpecifier;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.DiscoverySession;
 import android.net.wifi.aware.DiscoverySessionCallback;
@@ -38,23 +33,18 @@ import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
-import org.sofwerx.sqan.manet.common.TeammateConnectionPlanner;
 import org.sofwerx.sqan.manet.common.issues.WiFiInUseIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
-import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
-import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
 import org.sofwerx.sqan.manet.wifiaware.server.ServerConnection;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 
-import java.io.StringWriter;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,6 +78,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     public WiFiAwareManetV2(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
         if (Build.VERSION.SDK_INT >= O) {
+            Pairing.init(context);
             wifiAwareManager = null;
             identityChangedListener = new IdentityChangedListener() {
                 @Override
@@ -399,7 +390,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     @Override
     public void disconnect() throws ManetException {
         super.disconnect();
-        Pairing.clear();
+        Pairing.shutdown();
         ServerConnection.closeAll();
         //TODO
 
@@ -639,14 +630,38 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     }
 
     private void checkStatus(Pairing pairing) {
-        if (pairing == null)
-            return;
-        if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_CLIENT) {
-            Log.d(TAG,"Pairing "+pairing.toString()+" should be a client connection");
-            //TODO start a client
-        } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
-            Log.d(TAG,"Pairing "+pairing.toString()+" should be a server, building connection...");
-            pairing.setConnection(new ServerConnection(this));
+        if (Build.VERSION.SDK_INT >= O) {
+            if (pairing == null)
+                return;
+            if ((pairing.getStatus() == Pairing.PairingStatus.NEEDS_NETWORK) && (pairing.getNetworkCallback() == null)) {
+                Log.d(TAG, "Pairing " + pairing.toString() + " needs a network connection");
+                DiscoverySession discoverySession = null;
+                if (pairing.isPeerHandlePub())
+                    discoverySession = pubDiscoverySession;
+                else if (pairing.isPeerHandleSub())
+                    discoverySession = subDiscoverySession;
+                if (discoverySession == null) {
+                    Log.w(TAG, "Unable to request network as pairing has no discovery session");
+                    return;
+                }
+                pairing.requestNetwork(awareSession, discoverySession, pairing.shouldBeServer());
+            } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_CLIENT) {
+                Log.d(TAG, "Pairing " + pairing.toString() + " should be a client connection");
+                //TODO start a client
+            } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
+                Log.d(TAG, "Pairing " + pairing.toString() + " should be a server, building connection...");
+                pairing.setConnection(new ServerConnection(this, pairing));
+                DiscoverySession discoverySession = null;
+                if (pairing.isPeerHandlePub())
+                    discoverySession = pubDiscoverySession;
+                else if (pairing.isPeerHandleSub())
+                    discoverySession = subDiscoverySession;
+                if (discoverySession == null) {
+                    Log.w(TAG, "Unable to request network as pairing has no discovery session");
+                    return;
+                }
+                pairing.requestNetwork(awareSession, discoverySession,true);
+            }
         }
     }
 
