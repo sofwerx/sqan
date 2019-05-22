@@ -12,6 +12,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.util.NetUtil;
 
 import java.net.Inet6Address;
+import java.net.NetworkInterface;
 
 public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkCallback {
     private final static String TAG = Config.TAG+".AwareCon";
@@ -36,15 +37,24 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
     public void onAvailable(Network network) {
         if (pairing == null)
             return;
-        success = true;
+        //success = true;
         Log.d(TAG,"NetworkCallback onAvailable() for "+((pairing.getDevice()==null)?"null device":pairing.getDevice().getLabel()));
         if (Pairing.getIpv6Address() == null) {
             Inet6Address ipv6 = NetUtil.getAwareAddress(context, network);
-            Pairing.setIpv6Address(ipv6);
-            if (ipv6 != null) {
+            if (Pairing.getIpv6Address() == null)
                 Log.d(TAG, "Aware IP address assigned as " + ipv6.getHostAddress());
-                //TODO handleNetworkChange(network,connection,ipv6);
+            else if (!ipv6.equals(Pairing.getIpv6Address())) {
+                Log.d(TAG, "Aware IP address changed to " + ipv6.getHostAddress());
             }
+            if (ipv6 != null) {
+                Pairing.setIpv6Address(ipv6);
+                if (pairing.shouldBeServer()) {
+                    SqAnDevice thisDevice = Config.getThisDevice();
+                    if (thisDevice != null)
+                        thisDevice.setAwareServerIp(ipv6);
+                }
+            }
+            pairing.handleNetworkChange(network);
         }
     }
 
@@ -54,20 +64,21 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
             return;
         Log.d(TAG,"NetworkCallback onLinkPropertiesChanged() for "+((pairing.getDevice()==null)?"null device":pairing.getDevice().getLabel()));
         Inet6Address ipv6 = NetUtil.getAwareAddress(linkProperties);
-        SqAnDevice thisDevice = Config.getThisDevice();
-        if (thisDevice == null)
-            return;
-        if (thisDevice.getAwareServerIp() == null)
+        if (Pairing.getIpv6Address() == null)
             Log.d(TAG, "Aware IP address assigned as " + ipv6.getHostAddress());
-        else if (!ipv6.equals(thisDevice.getAwareServerIp())) {
+        else if (!ipv6.equals(Pairing.getIpv6Address())) {
             Log.d(TAG, "Aware IP address changed to " + ipv6.getHostAddress());
-            //TODO stopSocketConnections(false);
+        }
+        if (ipv6 != null)
+            Pairing.setIpv6Address(ipv6);
+
+        if (pairing.shouldBeServer()) {
+            SqAnDevice thisDevice = Config.getThisDevice();
+            if (thisDevice != null)
+                thisDevice.setAwareServerIp(ipv6);
         }
 
-        if (ipv6 != null) {
-            //TODO handleNetworkChange(network,connection,ipv6);
-        } else
-            Log.d(TAG,"Could not do anything with the link property change as the ipv6 address was null");
+        pairing.handleNetworkChange(network);
     }
 
     @Override
@@ -83,7 +94,7 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
             Log.w(TAG,"Unable to unregister this NetworkCallback: "+e.getMessage());
         }
         if (Config.getThisDevice() != null) {
-            //TODO handleNetworkChange(null, connection, Config.getThisDevice().getAwareServerIp());
+            pairing.handleNetworkChange(null);
         }
     }
 

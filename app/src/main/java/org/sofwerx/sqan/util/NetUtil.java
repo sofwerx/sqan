@@ -19,6 +19,7 @@ import java.io.StringWriter;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -283,11 +284,23 @@ public class NetUtil {
         return getAwareAddress(linkProperties);
     }
 
+    public static NetworkInterface getAwareNetworkInterface(LinkProperties linkProperties) {
+        if (linkProperties != null) {
+            try {
+                return NetworkInterface.getByName(linkProperties.getInterfaceName());
+            } catch (SocketException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
     public static Inet6Address getAwareAddress(LinkProperties linkProperties) {
         Inet6Address ipv6 = null;
-
         try {
-            NetworkInterface awareNi = NetworkInterface.getByName(linkProperties.getInterfaceName());
+            NetworkInterface awareNi = getAwareNetworkInterface(linkProperties);
+            if (awareNi == null)
+                return null;
             Enumeration inetAddresses = awareNi.getInetAddresses();
             while (inetAddresses.hasMoreElements()) {
                 InetAddress addr = (InetAddress) inetAddresses.nextElement();

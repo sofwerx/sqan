@@ -16,13 +16,15 @@ import java.util.ArrayList;
 
 public class ServerConnection extends AbstractConnection {
     private static Server server;
-    private static ArrayList<ServerConnection> serverConnections = new ArrayList<>();
+    private static ArrayList<ServerConnection> serverConnections;
     private static ServerStatusListener listener;
     private Pairing pairing;
 
     public ServerConnection(@NonNull AbstractManet manet, Pairing pairing) {
         if (manet instanceof ServerStatusListener)
             listener = (ServerStatusListener)manet;
+        if (serverConnections == null)
+            serverConnections = new ArrayList<>();
         serverConnections.add(this);
         this.pairing = pairing;
         if (server == null) {

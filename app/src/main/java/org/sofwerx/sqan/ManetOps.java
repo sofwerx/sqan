@@ -293,68 +293,81 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     @Override
-    public void onRx(AbstractPacket packet) {
+    public void onRx(final AbstractPacket packet) {
         if (packet != null) {
-            if (Config.isAllowIpcComms() && !packet.isAdminPacket()) {
-                byte[] data = null;
-                String channel = null;
-                if (packet instanceof ChannelBytesPacket) {
-                    channel = ((ChannelBytesPacket)packet).getChannel();
-                    data = ((ChannelBytesPacket)packet).getData();
-                } else if (packet instanceof RawBytesPacket)
-                    data = ((RawBytesPacket)packet).getData();
-                if (data != null) {
-                    IpcBroadcastTransceiver.broadcast(sqAnService, channel, packet.getOrigin(), data);
-                    Log.d(Config.TAG, "Broadcasting " + StringUtil.toDataSize((long) data.length) + " over IPC");
-                }
-            }
-            if (packet instanceof DisconnectingPacket) {
-                SqAnDevice outgoing = SqAnDevice.findByUUID(((DisconnectingPacket)packet).getUuidOfDeviceLeaving());
-                if (outgoing != null) {
-                    if (outgoing.getCallsign() == null)
-                        Log.d(Config.TAG,Integer.toString(outgoing.getUUID())+" reporting leaving mesh");
-                    else
-                        Log.d(Config.TAG,outgoing.getCallsign()+" reporting leaving mesh");
-                    outgoing.setStatus(SqAnDevice.Status.OFFLINE);
-                    onDevicesChanged(outgoing);
-                } else
-                    Log.d(Config.TAG,"Disconnect packet received, but unable to find corresponding device");
-            } else if (packet instanceof HeartbeatPacket){
-                ipcBroadcastIfNeeded();
-            } else if (packet instanceof VpnPacket) {
-                sqAnService.onRxVpnPacket((VpnPacket)packet);
-            }
+            if (handler != null)
+                handler.post(() -> {
+                    if (Config.isAllowIpcComms() && !packet.isAdminPacket()) {
+                        byte[] data = null;
+                        String channel = null;
+                        if (packet instanceof ChannelBytesPacket) {
+                            channel = ((ChannelBytesPacket) packet).getChannel();
+                            data = ((ChannelBytesPacket) packet).getData();
+                        } else if (packet instanceof RawBytesPacket)
+                            data = ((RawBytesPacket) packet).getData();
+                        if (data != null) {
+                            IpcBroadcastTransceiver.broadcast(sqAnService, channel, packet.getOrigin(), data);
+                            Log.d(Config.TAG, "Broadcasting " + StringUtil.toDataSize((long) data.length) + " over IPC");
+                        }
+                    }
+                    if (packet instanceof DisconnectingPacket) {
+                        SqAnDevice outgoing = SqAnDevice.findByUUID(((DisconnectingPacket) packet).getUuidOfDeviceLeaving());
+                        if (outgoing != null) {
+                            if (outgoing.getCallsign() == null)
+                                Log.d(Config.TAG, Integer.toString(outgoing.getUUID()) + " reporting leaving mesh");
+                            else
+                                Log.d(Config.TAG, outgoing.getCallsign() + " reporting leaving mesh");
+                            outgoing.setStatus(SqAnDevice.Status.OFFLINE);
+                            onDevicesChanged(outgoing);
+                        } else
+                            Log.d(Config.TAG, "Disconnect packet received, but unable to find corresponding device");
+                    } else if (packet instanceof HeartbeatPacket) {
+                        ipcBroadcastIfNeeded();
+                    } else if (packet instanceof VpnPacket) {
+                        sqAnService.onRxVpnPacket((VpnPacket) packet);
+                    }
+                });
         }
     }
 
     @Override
-    public void onTx(AbstractPacket packet) {
+    public void onTx(final AbstractPacket packet) {
         if (packet == null)
             return;
-        if (sqAnService.listener != null)
-            sqAnService.listener.onDataTransmitted();
-        sqAnService.onPositiveComms();
+        if (handler != null)
+            handler.post(() -> {
+                if (sqAnService.listener != null)
+                    sqAnService.listener.onDataTransmitted();
+                sqAnService.onPositiveComms();
+            });
     }
 
     @Override
-    public void onTx(byte[] payload) {
-        if (sqAnService.listener != null)
-            sqAnService.listener.onDataTransmitted();
-        sqAnService.onPositiveComms();
+    public void onTx(final byte[] payload) {
+        if (handler != null)
+            handler.post(() -> {
+                if (sqAnService.listener != null)
+                    sqAnService.listener.onDataTransmitted();
+                sqAnService.onPositiveComms();
+            });
     }
 
     private void ipcBroadcastIfNeeded() {
         if ((System.currentTimeMillis() > nextEligibleSaIpcBroadcast) && Config.isBroadcastSa()) {
-            IpcSaBroadcastTransmitter.broadcast(sqAnService);
+            if (handler != null)
+                handler.post(() -> IpcSaBroadcastTransmitter.broadcast(sqAnService));
             nextEligibleSaIpcBroadcast = System.currentTimeMillis() + MIN_SA_IPC_BROADCAST_DELAY;
         }
     }
 
     @Override
-    public void onTxFailed(AbstractPacket packet) {
+    public void onTxFailed(final AbstractPacket packet) {
         if (packet == null)
             return;
-        //TODO decide if packet should be dropped or resent; maybe check network health as well
+        if (handler != null)
+            handler.post(() -> {
+                //TODO decide if packet should be dropped or resent; maybe check network health as well
+            });
     }
 
     /**
@@ -370,13 +383,14 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public static long getTransmittedByteTally() { return transmittedByteTally; }
 
     @Override
-    public void onDevicesChanged(SqAnDevice device) {
-        evalutateMeshStatus();
-        if (sqAnService.listener != null)
-            sqAnService.listener.onNodesChanged(device);
-        //if ((device != null) && device.isActive())
-        //    sqAnService.requestHeartbeat(false);
-        sqAnService.notifyStatusChange(null);
+    public void onDevicesChanged(final SqAnDevice device) {
+        if (handler != null)
+            handler.post(() -> {
+                evaluateMeshStatus();
+                if (sqAnService.listener != null)
+                    sqAnService.listener.onNodesChanged(device);
+                sqAnService.notifyStatusChange(null);
+            });
     }
 
     @Override
@@ -387,7 +401,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     @Override
     public void onAuthenticatedOnNet() {
-        sqAnService.requestHeartbeat(true);
+        if (handler != null)
+            handler.post(() -> sqAnService.requestHeartbeat(true));
     }
 
     public Status getStatus() {
@@ -497,7 +512,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         }
     }
 
-    private void evalutateMeshStatus() {
+    private void evaluateMeshStatus() {
         SqAnDevice.FullMeshCapability currentStatus = SqAnDevice.getFullMeshStatus();
         if (currentStatus != meshStatus) {
             switch (meshStatus) {
@@ -522,13 +537,16 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Conduct any periodic housekeeping tasks
      */
     public void executePeriodicTasks() {
-        ipcBroadcastIfNeeded();
-        evalutateMeshStatus();
-        if (btManet != null)
-            btManet.executePeriodicTasks();
-        if (wifiManet != null)
-            wifiManet.executePeriodicTasks();
-        SqAnDevice.updateDeviceRoutePreferences();
+        if (handler != null)
+            handler.post(() -> {
+                ipcBroadcastIfNeeded();
+                evaluateMeshStatus();
+                if (btManet != null)
+                    btManet.executePeriodicTasks();
+                if (wifiManet != null)
+                    wifiManet.executePeriodicTasks();
+                SqAnDevice.updateDeviceRoutePreferences();
+            });
     }
 
     /**

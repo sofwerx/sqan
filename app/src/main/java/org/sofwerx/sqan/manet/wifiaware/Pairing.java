@@ -11,18 +11,25 @@ import android.net.wifi.aware.PeerHandle;
 import android.net.wifi.aware.WifiAwareManager;
 import android.net.wifi.aware.WifiAwareSession;
 import android.os.Build;
+import android.os.Handler;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.sockets.client.Client;
+import org.sofwerx.sqan.manet.wifiaware.client.ClientConnection;
+import org.sofwerx.sqan.manet.wifiaware.server.ServerConnection;
 import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.util.StringUtil;
 
+import java.io.IOException;
 import java.io.StringWriter;
 import java.net.Inet6Address;
+import java.net.Socket;
 import java.util.ArrayList;
 
 public class Pairing {
@@ -44,10 +51,12 @@ public class Pairing {
     private static ArrayList<Pairing> pairings;
     private static Inet6Address ipv6 = null;
     private static Context context;
+    private static AbstractManet manet;
     private static ConnectivityManager connectivityManager;
 
-    public static void init(@NonNull Context context) {
+    public static void init(@NonNull Context context, AbstractManet manet) {
         Pairing.context = context;
+        Pairing.manet = manet;
         connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
@@ -65,12 +74,12 @@ public class Pairing {
             }
             String passcode = NetUtil.conformPasscodeToWiFiAwareRequirements(Config.getPasscode()); //TODO
             NetworkSpecifier networkSpecifier = null;
-            if ((awareSession != null) && (device.getAwareMac() != null) && device.getAwareMac().isValid()) {
-                Log.d(TAG, "Building an aware network specifier based on OOB details as " + (server ? "Initiator" : "Responder"));
-                networkSpecifier = awareSession.createNetworkSpecifierOpen(server ? WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR : WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, device.getAwareMac().toByteArray());
-            } else if ((peerHandle != null) && (discoverySession != null)) {
+            if ((peerHandle != null) && (discoverySession != null)) {
                 Log.d(TAG, "Building an aware network specifier based on PeerHandle");
                 networkSpecifier = discoverySession.createNetworkSpecifierOpen(peerHandle);
+            } else if ((awareSession != null) && (device.getAwareMac() != null) && device.getAwareMac().isValid()) {
+                Log.d(TAG, "Building an aware network specifier based on OOB details as " + (server ? "Initiator" : "Responder"));
+                networkSpecifier = awareSession.createNetworkSpecifierOpen(server ? WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_INITIATOR : WifiAwareManager.WIFI_AWARE_DATA_PATH_ROLE_RESPONDER, device.getAwareMac().toByteArray());
             }
             if (networkSpecifier == null) {
                 Log.d(TAG, "Unable to build a network specifier so not establishing an Aware network connection at this time");
@@ -81,16 +90,80 @@ public class Pairing {
                     .setNetworkSpecifier(networkSpecifier)
                     .build();
 
-            Log.d(TAG, "Requesting a network connection...");
+            Log.d(TAG, "Requesting a network connection for "+getLabel()+"...");
             networkCallback = new AwareManetV2ConnectionCallback(context, this);
-            connectivityManager.requestNetwork(networkRequest, networkCallback);
+            connectivityManager.requestNetwork(networkRequest, networkCallback, manet.getHandler());
         }
     }
 
     public AwareManetV2ConnectionCallback getNetworkCallback() { return networkCallback; }
 
+    public void checkNetwork() {
+        handleNetworkChange(network);
+    }
+
+    public void handleNetworkChange(final Network network) {
+        Log.d(TAG,getLabel()+": handleNetworkChange()");
+        if ((network == null) && (Pairing.this.network != null)) {
+            Log.d(TAG,getLabel()+" lost network");
+            //TODO
+        }
+        Pairing.this.network = network;
+        if (network == null)
+            return;
+        Inet6Address serverAddress = device.getAwareServerIp();
+        if (shouldBeServer()) {
+            //TODO ignoring for now but may need to update the server if needed
+            return;
+        }
+        if ((connection == null) && (serverAddress != null)) {
+            try {
+
+                if (serverAddress.isReachable(5000))
+                    Log.d(TAG,"is Reachable");
+                else
+                    Log.d(TAG,"is not Reachable");
+                Socket cs = network.getSocketFactory().createSocket(serverAddress, AbstractManet.SQAN_PORT);
+                connection = new ClientConnection(manet,cs);
+            } catch (IOException e) {
+                Log.e(TAG,"Unable to start client: "+e.getMessage());
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static SqAnDevice.NodeRole getRole() {
+        if ((pairings == null) || pairings.isEmpty())
+            return SqAnDevice.NodeRole.OFF;
+        boolean isServer = false;
+        boolean isClient = false;
+
+        synchronized (pairings) {
+            AbstractConnection conn;
+            for (Pairing pairing:pairings) {
+                if (pairing != null) {
+                    conn = pairing.connection;
+                    if (conn != null) {
+                        if (conn instanceof ServerConnection)
+                            isServer = true;
+                        else
+                            isClient = true;
+                    }
+                }
+            }
+        }
+
+        if (isServer) {
+            if (isClient)
+                return SqAnDevice.NodeRole.BOTH;
+            return SqAnDevice.NodeRole.HUB;
+        } else if (isClient)
+            return SqAnDevice.NodeRole.SPOKE;
+        return SqAnDevice.NodeRole.OFF;
+    }
+
     public enum PeerHandleOrigin {PUB,SUB};
-    public enum PairingStatus {INFO_NEEDED,SHOULD_BE_SERVER, NEEDS_NETWORK, SHOULD_BE_CLIENT, CONNECTING,CONNECTED}
+    public enum PairingStatus {INFO_NEEDED, SHOULD_BE_IGNORED,SHOULD_BE_SERVER, NEEDS_NETWORK, SHOULD_BE_CLIENT, CONNECTING,CONNECTED}
 
     public boolean isPeerHandlePub() { return origin != PeerHandleOrigin.SUB; }
     public boolean isPeerHandleSub() { return origin != PeerHandleOrigin.PUB; }
@@ -107,13 +180,19 @@ public class Pairing {
         if (connection == null) {
             SqAnDevice thisDevice = Config.getThisDevice();
             if ((device != null) && (thisDevice != null) && device.isUuidKnown() && thisDevice.isUuidKnown()) {
-                if (shouldBeServer())
-                    return PairingStatus.SHOULD_BE_SERVER;
-                else {
-                    if (network == null)
-                        return PairingStatus.NEEDS_NETWORK;
+                if (shouldBeServer()) {
+                    if ((peerHandle == null) || (origin == PeerHandleOrigin.PUB))
+                        return PairingStatus.SHOULD_BE_SERVER;
                     else
-                        return PairingStatus.SHOULD_BE_CLIENT;
+                        return PairingStatus.SHOULD_BE_IGNORED;
+                } else {
+                    if ((peerHandle == null) || (origin == PeerHandleOrigin.SUB)) {
+                        if (network == null)
+                            return PairingStatus.NEEDS_NETWORK;
+                        else
+                            return PairingStatus.SHOULD_BE_CLIENT;
+                    } else
+                        return PairingStatus.SHOULD_BE_IGNORED;
                 }
             } else
                 return PairingStatus.INFO_NEEDED;
@@ -147,8 +226,29 @@ public class Pairing {
     }
 
     public String getLabel() {
+        String pubLabel;
+        String serverLabel;
+        if (peerHandle == null)
+            pubLabel = "";
+        else {
+            if (origin == PeerHandleOrigin.PUB)
+                pubLabel = " [pub]";
+            else
+                pubLabel = " [sub]";
+        }
+        if (connection == null) {
+            if (shouldBeServer())
+                serverLabel = " (should be server)";
+            else
+                serverLabel = "";
+        } else {
+            if (connection instanceof ServerConnection)
+                serverLabel = " (server)";
+            else
+                serverLabel = " (client)";
+        }
         if (device != null)
-            return device.getLabel();
+            return device.getLabel()+pubLabel+serverLabel;
         if (peerHandle != null)
             return Integer.toString(peerHandle.hashCode());
         return "unidentified";
@@ -184,6 +284,8 @@ public class Pairing {
             out.append("; last weak connection ");
             out.append(StringUtil.toDuration(System.currentTimeMillis() - lastWeakConnection));
         }
+        out.append(", ");
+        out.append(getStatus().name());
 
         return out.toString();
     }
@@ -216,9 +318,20 @@ public class Pairing {
                 while ((a < pairings.size()-1) && (b<pairings.size())) {
                     if ((a != b) && pairings.get(a).isSame(pairings.get(b))) {
                         Log.d(TAG,"Duplicate pairings found: "+pairings.get(a).toString()+" and "+pairings.get(b).toString());
-                        pairings.get(a).update(pairings.get(b));
-                        pairings.get(b).removeNetworkCallback();
-                        pairings.remove(b);
+                        boolean overwriteA;
+                        if (pairings.get(a).shouldBeServer() && pairings.get(b).shouldBeServer())
+                            overwriteA = (pairings.get(a).origin == PeerHandleOrigin.PUB);
+                        else
+                            overwriteA = (pairings.get(a).origin == PeerHandleOrigin.SUB);
+                        if (overwriteA) {
+                            pairings.get(a).update(pairings.get(b));
+                            Log.d(TAG,"removing "+pairings.get(b).toString());
+                            pairings.remove(b);
+                        } else {
+                            pairings.get(b).update(pairings.get(a));
+                            Log.d(TAG,"removing "+pairings.get(a).toString());
+                            pairings.remove(a);
+                        }
                     } else {
                         b++;
                         if (b >= pairings.size()) {
@@ -269,23 +382,31 @@ public class Pairing {
     public void update(Pairing other) {
         if (other == null)
             return;
+        Log.d(TAG,"Updating "+getLabel()+" with values from "+other.getLabel());
         if (device == null)
             device = other.device;
         if (peerHandle == null) {
             peerHandle = other.peerHandle;
-            if (other.origin == PeerHandleOrigin.PUB) //favor PUB over SUB
-                origin = PeerHandleOrigin.PUB;
-        } else
+            origin = other.origin;
+            alternatePeerHandle = null;
+        } else if (other.peerHandle != null) {
             alternatePeerHandle = other.peerHandle;
+        }
+        if (other.networkCallback != null) {
+            if (networkCallback != null)
+                removeNetworkCallback();
+            networkCallback = other.networkCallback;
+        }
         if (connection == null)
             connection = other.connection;
         else {
             if (other.connection != null) {
                 if (connection.getLastComms() > other.connection.getLastComms()) {
-                    Log.d(TAG,"both Pairings in update had a socket connection so closing "+other.connection.getClass().getName()+" and keeping open "+connection.getClass().getName());
+                    Log.d(TAG,"Both Pairings in update had a socket connection so closing "+other.getLabel()+" - "+other.connection.getClass().getSimpleName()+" and keeping open "+getLabel()+" - "+connection.getClass().getSimpleName());
                     other.connection.close();
+                    other.connection = null;
                 } else {
-                    Log.d(TAG,"both Pairings in update had a socket connection so closing "+connection.getClass().getName()+" and using "+other.connection.getClass().getName()+" instead");
+                    Log.d(TAG,"Both Pairings in update had a socket connection so closing "+getLabel()+" - "+connection.getClass().getSimpleName()+" and using "+other.getLabel()+" - "+other.connection.getClass().getSimpleName()+" instead");
                     connection.close();
                     connection = other.connection;
                 }
@@ -293,6 +414,9 @@ public class Pairing {
         }
         if (other.lastWeakConnection > lastWeakConnection)
             lastWeakConnection = other.lastWeakConnection;
+        Log.d(TAG,"Pairing updated: "+toString());
+        if (other.device != null)
+            checkNetwork();
     }
 
     /**
@@ -321,7 +445,10 @@ public class Pairing {
     }
 
     public SqAnDevice getDevice() { return device; }
-    public void setDevice(SqAnDevice device) { this.device = device; }
+    public void setDevice(SqAnDevice device) {
+        this.device = device;
+        handleNetworkChange(network);
+    }
     public PeerHandle getPeerHandle() { return peerHandle; }
     public void setPeerHandle(PeerHandle peerHandle) { this.peerHandle = peerHandle; }
     public AbstractConnection getConnection() { return connection; }
@@ -345,6 +472,7 @@ public class Pairing {
         ipv6 = null;
         context = null;
         connectivityManager = null;
+        manet = null;
     }
 
     public static void removeUnresponsiveConnections() {

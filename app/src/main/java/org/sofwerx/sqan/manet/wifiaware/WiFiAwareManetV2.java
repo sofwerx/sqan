@@ -40,6 +40,7 @@ import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.PingPacket;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
+import org.sofwerx.sqan.manet.wifiaware.client.ClientConnection;
 import org.sofwerx.sqan.manet.wifiaware.server.ServerConnection;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.CommsLog;
@@ -78,7 +79,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     public WiFiAwareManetV2(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
         if (Build.VERSION.SDK_INT >= O) {
-            Pairing.init(context);
+            Pairing.init(context,this);
             wifiAwareManager = null;
             identityChangedListener = new IdentityChangedListener() {
                 @Override
@@ -442,6 +443,9 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
         if (isRunning()) {
             Pairing.removeUnresponsiveConnections();
             Pairing.dedup();
+            SqAnDevice thisDevice = Config.getThisDevice();
+            if (thisDevice != null)
+                thisDevice.setRoleWiFi(Pairing.getRole());
             ArrayList<Pairing> pairings = Pairing.getPairings();
             if ((pairings != null) && !pairings.isEmpty()) {
                 for (Pairing pairing:pairings) {
@@ -525,8 +529,12 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
 
         @Override
         public void onMessageReceived(final PeerHandle peerHandle, final byte[] message) {
-            if (handler != null)
-                handler.post(() -> {
+            //if (handler != null)
+            //    handler.post(() -> {
+                    if (peerHandle != null)
+                        Log.d(TAG,"Aware Message received from Aware ID "+peerHandle.hashCode());
+                    else
+                        Log.d(TAG,"Aware Message received from unknown Aware ID");
                     boolean burst = false;
                     Pairing pairing = Pairing.find(peerHandle);
                     if (pairing == null) {
@@ -539,7 +547,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                     }
                     if (burst)
                         burst(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM),peerHandle);
-                });
+            //    });
         }
 
         @Override
@@ -579,54 +587,63 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
 
         @Override
         public void onSessionTerminated() {
-            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "awareSession onSessionTerminated()");
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Aware Session onSessionTerminated()");
             //TODO
         }
 
         @Override
         public void onSessionConfigUpdated() {
-            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "awareSession onSessionConfigUpdated()");
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Aware Session onSessionConfigUpdated()");
         }
 
         @Override
         public void onMessageSendFailed(int messageId) {
-            Log.w(TAG, "Aware Message " + messageId + " failed");
+            Log.d(TAG, "Aware Message " + messageId + " failed");
         }
     };
 
-    private void handleMessage(Pairing tx, byte[] message) {
-        AbstractPacket packet = AbstractPacket.newFromBytes(message);
-        if (packet == null) {
-            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFi Aware message from "+((tx==null)?"unknown device":tx.getLabel())+" could not be parsed");
-            return;
-        }
-        SqAnDevice device = tx.getDevice();
-        if ((device == null) && packet.isDirectFromOrigin())
-            device = SqAnDevice.findByUUID(packet.getOrigin());
-        if (device == null) {
-            if (packet instanceof HeartbeatPacket) {
-                if (packet.isDirectFromOrigin()) {
-                    device = ((HeartbeatPacket)packet).getDevice();
-                    if (device != null) {
-                        SqAnDevice.add(device);
-                        tx.setDevice(device);
-                    }
+    private void handleMessage(final Pairing tx, final byte[] message) {
+        if (handler != null)
+            handler.post(() -> {
+                AbstractPacket packet = AbstractPacket.newFromBytes(message);
+                if (packet == null) {
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFi Aware message from " + ((tx == null) ? "unknown device" : tx.getLabel()) + " could not be parsed");
+                    return;
                 }
-            }
-            if (device == null)
-                CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from an unknown device");
-            else
-                CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from previously unknown device, but HeartbeatPacket has device info for "+device.getLabel());
-        } else
-            tx.setDevice(device);
-        if (device != null) {
-            Log.d(TAG,"Aware Message received from "+device.getLabel()+" ("+((tx.getPeerHandle()==null)?"unk peer handle":tx.getPeerHandle().hashCode())+")");
-            device.setHopsAway(packet.getCurrentHopCount(), false,true, device.isDirectWiFiHighPerformance()); //don't consider WiFi Aware messages as the same thing as direct WiFI connection
-            device.setLastConnect();
-            device.addToDataTally(message.length);
-        }
-        checkStatus(tx);
-        super.onReceived(packet);
+                SqAnDevice device = tx.getDevice();
+                boolean deviceAdded = false;
+                if ((device == null) && packet.isDirectFromOrigin()) {
+                    device = SqAnDevice.findByUUID(packet.getOrigin());
+                    deviceAdded = true;
+                }
+                if (device == null) {
+                    if (packet instanceof HeartbeatPacket) {
+                        if (packet.isDirectFromOrigin()) {
+                            device = ((HeartbeatPacket) packet).getDevice();
+                            if (device != null) {
+                                SqAnDevice.add(device);
+                                tx.setDevice(device);
+                                Pairing.dedup();
+                            }
+                        }
+                    }
+                    if (device == null)
+                        CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from an unknown device");
+                    else
+                        CommsLog.log(CommsLog.Entry.Category.COMMS, "WiFi Aware received a message from previously unknown device, but HeartbeatPacket has device info for " + device.getLabel());
+                } else if (deviceAdded) {
+                    tx.setDevice(device);
+                    Pairing.dedup();
+                }
+                if (device != null) {
+                    Log.d(TAG, "Aware Message received from " + device.getLabel() + " (" + ((tx.getPeerHandle() == null) ? "unk peer handle" : "Aware ID " + tx.getPeerHandle().hashCode()) + ")");
+                    device.setHopsAway(packet.getCurrentHopCount(), false, true, device.isDirectWiFiHighPerformance()); //don't consider WiFi Aware messages as the same thing as direct WiFI connection
+                    device.setLastConnect();
+                    device.addToDataTally(message.length);
+                }
+                checkStatus(tx);
+                WiFiAwareManetV2.super.onReceived(packet);
+            });
     }
 
     private void checkStatus(Pairing pairing) {
@@ -646,11 +663,14 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                 }
                 pairing.requestNetwork(awareSession, discoverySession, pairing.shouldBeServer());
             } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_CLIENT) {
-                Log.d(TAG, "Pairing " + pairing.toString() + " should be a client connection");
-                //TODO start a client
+                Log.d(TAG, "Pairing " + pairing.toString() + " - waiting on network connection...");
+                pairing.checkNetwork();
             } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
-                Log.d(TAG, "Pairing " + pairing.toString() + " should be a server, building connection...");
+                Log.d(TAG, "Pairing " + pairing.getLabel() + " - starting server...");
                 pairing.setConnection(new ServerConnection(this, pairing));
+                SqAnDevice thisDevice = Config.getThisDevice();
+                if (thisDevice != null)
+                    thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
                 DiscoverySession discoverySession = null;
                 if (pairing.isPeerHandlePub())
                     discoverySession = pubDiscoverySession;

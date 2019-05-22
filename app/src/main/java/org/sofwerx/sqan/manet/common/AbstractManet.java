@@ -61,6 +61,8 @@ public abstract class AbstractManet {
      */
     public abstract ManetType getType();
 
+    public Handler getHandler() { return handler; }
+
     /**
      * Checks for any issues blocking or impeding MANET
      * @return true == some issue exists effecting the MANET

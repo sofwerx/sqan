@@ -412,7 +412,13 @@ public class SqAnDevice {
      * Sets the IPV6 address of this device IF this device is an aware server
      * @param awareServerIp IPV6 address of this device if aware server (or null if not)
      */
-    public void setAwareServerIp(Inet6Address awareServerIp) { this.awareServerIp = awareServerIp; }
+    public void setAwareServerIp(Inet6Address awareServerIp) {
+        if (awareServerIp == null)
+            Log.d(Config.TAG,getLabel()+" Aware Server IP cleared");
+        else
+            Log.d(Config.TAG,getLabel()+" Aware Server IP set to: "+awareServerIp.getHostAddress());
+        this.awareServerIp = awareServerIp;
+    }
 
     public void setAwareServerIp(byte[] bytes) {
         if ((bytes == null) || (bytes.length != NO_IPV6_ADDRESS.length)) {
@@ -426,12 +432,14 @@ public class SqAnDevice {
                     break;
                 }
             }
-            if (isNoValue)
+            if (isNoValue) {
                 awareServerIp = null;
-            else {
+            } else {
                 try {
-                    awareServerIp = (Inet6Address) Inet6Address.getByAddress(bytes);
+                    //awareServerIp = (Inet6Address)Inet6Address.getByAddress("aware_data",bytes,0);
+                    awareServerIp = (Inet6Address)Inet6Address.getByAddress(bytes);
                 } catch (UnknownHostException e) {
+                    Log.d(Config.TAG,"Unable to assign aware server IP: "+e.getMessage());
                     awareServerIp = null;
                 }
             }
