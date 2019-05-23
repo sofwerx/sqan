@@ -227,6 +227,7 @@ public class Client extends Thread {
     }
 
     private void terminateLink(boolean sendHangup) {
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Terminating link as Client");
         Log.d(TAG,"terminating socket link");
         if (sendHangup)
             sendHangup();

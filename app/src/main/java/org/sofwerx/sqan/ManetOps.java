@@ -38,9 +38,10 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     private AbstractManet wifiManet;
     private BtManetV2 btManet;
     private static long transmittedByteTally = 0l;
+    private static long nextLoggerTransmittedBytes = 0l;
+    private final static long BYTES_TO_TX_BETWEEN_LOGGING = 1024l * 1024l;
     private HandlerThread manetThread; //the MANET itself runs on this thread where possible
     private Handler handler;
-    //private ManetOps manetOps;
     private boolean shouldBeActive = true;
     private long nextEligibleSaIpcBroadcast = Long.MIN_VALUE;
 
@@ -374,7 +375,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
      * Used to keep a running total of transmitted data
      * @param bytes
      */
-    public static void addBytesToTransmittedTally(int bytes) { transmittedByteTally += bytes; }
+    public static void addBytesToTransmittedTally(int bytes) {
+        transmittedByteTally += bytes;
+        if (transmittedByteTally > nextLoggerTransmittedBytes) {
+            nextLoggerTransmittedBytes = transmittedByteTally + BYTES_TO_TX_BETWEEN_LOGGING;
+            CommsLog.log(CommsLog.Entry.Category.CONNECTION,StringUtil.toDataSize(transmittedByteTally)+" transmitted");
+        }
+    }
 
     /**
      * Gets the total tally of bytes transmitted

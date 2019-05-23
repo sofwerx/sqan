@@ -39,6 +39,13 @@ public class ClientHandler {
     private SqAnDevice clientDevice = null;
     private static final Object writeThreadLock = new Object();
 
+    public static void clear() {
+        BLACKLIST_MAP.clear();
+        HANDLER_MAP.clear();
+        START_TIME_MAP.clear();
+        ID.set(0);
+    }
+
     private enum ReadState {
         INACTIVE, READING_PACKET, READING_PREAMBLE, READING_RESPONSE, WRITING_CHALLENGE
     }
@@ -398,19 +405,18 @@ public class ClientHandler {
                 if (writeBuffer == null) {
                     writeBuffer = writeQueue.poll();
                     if (writeBuffer == null) {
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + "ClientHandler writeBuffer null");
-                        Log.d(TAG, "#" + id + "ClientHandler writeBuffer null");
+                        //CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + " ClientHandler writeBuffer null");
+                        Log.d(TAG, "#" + id + " ClientHandler writeBuffer null");
                         break;
                     } else {
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + "ClientHandler writeQueue size " + writeQueue.size());
-                        Log.d(TAG, "#" + id + "ClientHandler writeQueue size " + writeQueue.size());
+                        //CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + " ClientHandler writeQueue size " + writeQueue.size());
+                        Log.d(TAG, "#" + id + " ClientHandler writeQueue size " + writeQueue.size());
                     }
                 }
                 try {
                     writeBuffer.rewind();
-                    Log.d(TAG, "#" + id + "ClientHandler WRITING buffer of size " + writeBuffer.limit() + "b, pos " + writeBuffer.position());
-                    while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {
-                    }
+                    //Log.d(TAG, "#" + id + "ClientHandler WRITING buffer of size " + writeBuffer.limit() + "b, pos " + writeBuffer.position());
+                    while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {}
 
                     if (writeBuffer.hasRemaining()) {
                         break; // nothing more to do

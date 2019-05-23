@@ -241,9 +241,9 @@ public class Server {
         if (packet != null) {
             byte[] bytes = packet.toByteArray();
             if (address == PacketHeader.BROADCAST_ADDRESS)
-                CommsLog.log(CommsLog.Entry.Category.COMMS,"Server broadcasting "+bytes.length+"b packet");
+                Log.d(TAG,"Server broadcasting "+bytes.length+"b packet");
             else
-                CommsLog.log(CommsLog.Entry.Category.COMMS,"Server bursting "+bytes.length+"b packet to "+address);
+                Log.d(TAG,"Server bursting "+bytes.length+"b packet to "+address);
             ByteBuffer out = ByteBuffer.allocate(4 + bytes.length);
             out.putInt(bytes.length);
             out.put(bytes);
@@ -309,6 +309,7 @@ public class Server {
             if (serverThread != null)
                 serverThread.quit();
         }
+        ClientHandler.clear();
         if (listener != null)
             listener.onServerClosed();
     }
