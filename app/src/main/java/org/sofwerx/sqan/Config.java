@@ -123,6 +123,11 @@ public class Config {
 
     public static boolean isLoggingEnabled() { return writeLog; }
 
+    public static String getCallsign(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString(PREFS_CALLSIGN,null);
+    }
+
     public static void recheckPreferences(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);

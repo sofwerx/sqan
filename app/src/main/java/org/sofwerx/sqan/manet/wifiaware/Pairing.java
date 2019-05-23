@@ -29,6 +29,7 @@ import org.sofwerx.sqan.util.StringUtil;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.net.Inet6Address;
+import java.net.NetworkInterface;
 import java.net.Socket;
 import java.util.ArrayList;
 
@@ -46,6 +47,7 @@ public class Pairing {
     private PeerHandleOrigin origin = PeerHandleOrigin.PUB;
     private AbstractConnection connection;
     private Network network;
+    private NetworkInterface networkInterface;
     private AwareManetV2ConnectionCallback networkCallback;
     private long lastWeakConnection = Long.MAX_VALUE;
     private static ArrayList<Pairing> pairings;
@@ -91,7 +93,7 @@ public class Pairing {
                     .build();
 
             Log.d(TAG, "Requesting a network connection for "+getLabel()+"...");
-            networkCallback = new AwareManetV2ConnectionCallback(context, this);
+            networkCallback = new AwareManetV2ConnectionCallback(context, manet, this);
             connectivityManager.requestNetwork(networkRequest, networkCallback, manet.getHandler());
         }
     }
@@ -99,30 +101,34 @@ public class Pairing {
     public AwareManetV2ConnectionCallback getNetworkCallback() { return networkCallback; }
 
     public void checkNetwork() {
+        Log.d(TAG,"checkNetwork()");
         handleNetworkChange(network);
+    }
+
+    private void startServer() {
+        if ((connection == null) && (network != null) && (networkInterface != null) && (manet != null)) {
+            Log.d(TAG,"Creating new Server Connection...");
+            connection = new ServerConnection(manet, this);
+        }
     }
 
     public void handleNetworkChange(final Network network) {
         Log.d(TAG,getLabel()+": handleNetworkChange()");
-        if ((network == null) && (Pairing.this.network != null)) {
+        if ((network == null) && (this.network != null)) {
             Log.d(TAG,getLabel()+" lost network");
             //TODO
         }
-        Pairing.this.network = network;
+        this.network = network;
         if (network == null)
             return;
         Inet6Address serverAddress = device.getAwareServerIp();
         if (shouldBeServer()) {
-            //TODO ignoring for now but may need to update the server if needed
+            startServer();
             return;
         }
-        if ((connection == null) && (serverAddress != null)) {
+        if ((connection == null) && (serverAddress != null) && (networkInterface != null)) {
             try {
-
-                if (serverAddress.isReachable(5000))
-                    Log.d(TAG,"is Reachable");
-                else
-                    Log.d(TAG,"is not Reachable");
+                serverAddress = (Inet6Address)Inet6Address.getByAddress(null,serverAddress.getAddress(),networkInterface);
                 Socket cs = network.getSocketFactory().createSocket(serverAddress, AbstractManet.SQAN_PORT);
                 connection = new ClientConnection(manet,cs);
             } catch (IOException e) {
@@ -161,6 +167,9 @@ public class Pairing {
             return SqAnDevice.NodeRole.SPOKE;
         return SqAnDevice.NodeRole.OFF;
     }
+
+    public void setNetworkInterface(NetworkInterface networkInterface) { this.networkInterface = networkInterface; }
+    public NetworkInterface getNetworkInterface() { return networkInterface; }
 
     public enum PeerHandleOrigin {PUB,SUB};
     public enum PairingStatus {INFO_NEEDED, SHOULD_BE_IGNORED,SHOULD_BE_SERVER, NEEDS_NETWORK, SHOULD_BE_CLIENT, CONNECTING,CONNECTED}

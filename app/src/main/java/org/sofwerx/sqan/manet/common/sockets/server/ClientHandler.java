@@ -37,13 +37,13 @@ public class ClientHandler {
     public static final Map<Integer, Long> START_TIME_MAP = new HashMap<>();
     private static ServerStatusListener listener;
     private SqAnDevice clientDevice = null;
+    private static final Object writeThreadLock = new Object();
 
     private enum ReadState {
         INACTIVE, READING_PACKET, READING_PREAMBLE, READING_RESPONSE, WRITING_CHALLENGE
     }
 
     public static int getActiveConnectionCount() {
-        //Set<Map.Entry<Integer, Long>> entries = START_TIME_MAP.entrySet();
         Set<Map.Entry<Integer, ClientHandler>> entries = HANDLER_MAP.entrySet();
         if (entries == null)
             return 0;
@@ -174,6 +174,10 @@ public class ClientHandler {
                     sent = true;
                     Log.d(TAG, "#" + h.id + ": " + out.limit()+"b added to writeQueue for client");
                     h.writeQueue.add(out.duplicate());
+
+                    //TODO
+                    h.readyToWrite();
+                    //TODO
                     //TODO call read and write here possibly as a way to speed up the data burst from the server
                 } else
                     Log.d(TAG, "#" + h.id +": Outgoing packet does not apply to client #");
@@ -194,7 +198,7 @@ public class ClientHandler {
                         CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                         if (listener != null)
                             listener.onServerError(warning);
-                        closeClient();
+                        //TODO closeClient(); ignoring client problems
                     } else
                         Log.d(TAG, "#" + id + ": Nothing else to read for this client");
                     return false;
@@ -212,11 +216,11 @@ public class ClientHandler {
                         size = totalSize+"b";
                     else
                         size = totalSize/(1024*1024)+"mb";
-                    String warning = "Packet size is reporting to be "+size+", which is not valid (closing)";
+                    String warning = "Packet size is reporting to be "+size+", which is not valid";
                     CommsLog.log(CommsLog.Entry.Category.PROBLEM,warning);
                     if (listener != null)
                         listener.onServerError(warning);
-                    closeClient();
+                    //TODO closeClient(); //ignoring client problems
                     return false;
                 }
                 readBuffer = ByteBuffer.allocate(totalSize);
@@ -231,7 +235,7 @@ public class ClientHandler {
                     CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                     if (listener != null)
                         listener.onServerError(warning);
-                    closeClient();
+                    //TODO closeClient(); //ignoring client problems
                     return false;
                 }
                 return true;
@@ -243,11 +247,11 @@ public class ClientHandler {
                 readBuffer.get(headerBytes);
                 PacketHeader header = PacketHeader.newFromBytes(headerBytes);
                 if (header == null) {
-                    String warning = "#" + id + ": PacketHeader is null (closing)";
+                    String warning = "#" + id + ": PacketHeader is null";
                     CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
                     if (listener != null)
                         listener.onServerError(warning);
-                    closeClient();
+                    //TODO closeClient(); //ignoring failed headers
                     return false;
                 }
                 Log.d(TAG, "#" + id + ": HEADER packet type: "+header.getType());
@@ -287,7 +291,7 @@ public class ClientHandler {
             Log.w(TAG, warning);
             if (listener != null)
                 listener.onServerError(warning);
-            closeClient();
+            //TODO closeClient(); //ignoring failed packet
             return false;
         }
     }
@@ -326,12 +330,15 @@ public class ClientHandler {
             throw new BlacklistException();
         } catch (BlacklistException ex) {
             throw ex;*/
+        //} catch (Throwable ex) {
         } catch (Throwable ex) {
-            String warning = "#" + id + ": Error reading packet from client (closing)";
-            Log.e(TAG, warning, ex);
+            final String warning = "#" + id + ": Error reading packet from client";
+            //Log.e(TAG, warning, ex);
+            Log.e(TAG,warning);
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM,warning);
             if (listener != null)
                 listener.onServerError(warning);
-            closeClient();
+            //TODO closeClient(); ignoring client problems
             return false;
         }
     }
@@ -361,6 +368,7 @@ public class ClientHandler {
                     break;
                 default:
                     closeClient();
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Unknown read state, closing...");
                     keepGoing = false;
                     break;
             }
@@ -369,48 +377,58 @@ public class ClientHandler {
     }
 
     public void readyToWrite() {
-        if (readState == ReadState.WRITING_CHALLENGE) {
-            try {
-                writeChallenge();
-            } catch (Throwable e) {
-                String warning = "#" + id+ ": Error writing challenge from client #" + id+ " (closing)";
-                Log.e(TAG, warning, e);
-                if (listener != null)
-                    listener.onServerError(warning);
-                closeClient();
+        synchronized (writeThreadLock) {
+            if (readState == ReadState.WRITING_CHALLENGE) {
+                try {
+                    writeChallenge();
+                } catch (Throwable e) {
+                    String warning = "#" + id + ": Error writing challenge from client #" + id + " (closing)";
+                    Log.e(TAG, warning, e);
+                    if (listener != null)
+                        listener.onServerError(warning);
+                    closeClient();
+                }
+                return;
             }
-            return;
-        }
-        if (readState == ReadState.READING_RESPONSE) {
-            return; // no writes until we pass the challenge
-        }
-        Log.d(TAG, "#" + id + "ClientHandler ready to write");
-        while (true) { // write as many packets as possible
-            if (writeBuffer == null) {
-                writeBuffer = writeQueue.poll();
+            if (readState == ReadState.READING_RESPONSE) {
+                return; // no writes until we pass the challenge
+            }
+            Log.d(TAG, "#" + id + "ClientHandler ready to write");
+            while (true) { // write as many packets as possible
                 if (writeBuffer == null) {
-                    Log.d(TAG, "#" + id + "ClientHandler writeBuffer null");
+                    writeBuffer = writeQueue.poll();
+                    if (writeBuffer == null) {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + "ClientHandler writeBuffer null");
+                        Log.d(TAG, "#" + id + "ClientHandler writeBuffer null");
+                        break;
+                    } else {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + "ClientHandler writeQueue size " + writeQueue.size());
+                        Log.d(TAG, "#" + id + "ClientHandler writeQueue size " + writeQueue.size());
+                    }
+                }
+                try {
+                    writeBuffer.rewind();
+                    Log.d(TAG, "#" + id + "ClientHandler WRITING buffer of size " + writeBuffer.limit() + "b, pos " + writeBuffer.position());
+                    while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {
+                    }
+
+                    if (writeBuffer.hasRemaining()) {
+                        break; // nothing more to do
+                    }
+                    writeBuffer = null;
+                    // and loop around to grab the next buffer
+                    //} catch (Throwable t) {
+                } catch (Exception e) {
+                    String warning = "#" + id + ": Error writing packet from client #" + id + ": " + e.getMessage();
+                    //TODO Log.e(TAG, warning, t);
+                    Log.e(TAG, warning);
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM, warning);
+                    writeBuffer = null; //TODO was closing the client but going to try to keep it open and work through the error
+                    if (listener != null)
+                        listener.onServerError(warning);
+                    //TODO closeClient();
                     break;
-                } else
-                    Log.d(TAG, "#" + id + "ClientHandler writeQueue size "+writeQueue.size());
-            }
-            try {
-                writeBuffer.rewind();
-                Log.d(TAG, "#" + id + "ClientHandler WRITING buffer of size "+writeBuffer.limit()+"b, pos "+writeBuffer.position());
-                while (writeBuffer.hasRemaining() && (client.write(writeBuffer) > 0)) {
                 }
-                if (writeBuffer.hasRemaining()) {
-                    break; // nothing more to do
-                }
-                writeBuffer = null;
-                // and loop around to grab the next buffer
-            } catch (Throwable t) {
-                String warning = "#" + id + ": Error writing packet from client #"+ id + " (closing)";
-                Log.e(TAG, warning, t);
-                if (listener != null)
-                    listener.onServerError(warning);
-                closeClient();
-                break;
             }
         }
     }

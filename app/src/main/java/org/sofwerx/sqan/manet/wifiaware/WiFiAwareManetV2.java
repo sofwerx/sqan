@@ -648,6 +648,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
 
     private void checkStatus(Pairing pairing) {
         if (Build.VERSION.SDK_INT >= O) {
+            SqAnDevice thisDevice = Config.getThisDevice();
             if (pairing == null)
                 return;
             if ((pairing.getStatus() == Pairing.PairingStatus.NEEDS_NETWORK) && (pairing.getNetworkCallback() == null)) {
@@ -666,21 +667,19 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                 Log.d(TAG, "Pairing " + pairing.toString() + " - waiting on network connection...");
                 pairing.checkNetwork();
             } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
-                Log.d(TAG, "Pairing " + pairing.getLabel() + " - starting server...");
-                pairing.setConnection(new ServerConnection(this, pairing));
-                SqAnDevice thisDevice = Config.getThisDevice();
-                if (thisDevice != null)
-                    thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
-                DiscoverySession discoverySession = null;
-                if (pairing.isPeerHandlePub())
-                    discoverySession = pubDiscoverySession;
-                else if (pairing.isPeerHandleSub())
-                    discoverySession = subDiscoverySession;
-                if (discoverySession == null) {
-                    Log.w(TAG, "Unable to request network as pairing has no discovery session");
-                    return;
+                if (thisDevice != null) {
+                    Log.d(TAG, "Pairing " + pairing.getLabel() + " - starting server...");
+                    DiscoverySession discoverySession = null;
+                    if (pairing.isPeerHandlePub())
+                        discoverySession = pubDiscoverySession;
+                    else if (pairing.isPeerHandleSub())
+                        discoverySession = subDiscoverySession;
+                    if (discoverySession == null) {
+                        Log.w(TAG, "Unable to request network as pairing has no discovery session");
+                        return;
+                    }
+                    pairing.requestNetwork(awareSession, discoverySession, true);
                 }
-                pairing.requestNetwork(awareSession, discoverySession,true);
             }
         }
     }

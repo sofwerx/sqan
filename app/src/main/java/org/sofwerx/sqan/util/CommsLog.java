@@ -40,7 +40,15 @@ public class CommsLog {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                     File logDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),"SqAN");
                     logDir.mkdirs();
-                    File file1 = new File(logDir,StringUtil.getFilesafeTime(System.currentTimeMillis())+".txt");
+                    StringWriter filename = new StringWriter();
+                    filename.append(StringUtil.getFilesafeTime(System.currentTimeMillis()));
+                    String cs = Config.getCallsign(context);
+                    if (cs != null) {
+                        filename.append(' ');
+                        filename.append(cs);
+                    }
+                    filename.append(".txt");
+                    File file1 = new File(logDir,filename.toString());
                     file1.createNewFile();
                     fos = new FileOutputStream(file1);
                     oswriter = new OutputStreamWriter(fos);

@@ -8,7 +8,9 @@ import android.net.NetworkCapabilities;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.wifiaware.server.ServerConnection;
 import org.sofwerx.sqan.util.NetUtil;
 
 import java.net.Inet6Address;
@@ -21,10 +23,12 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
     private boolean success = false;
     private Pairing pairing;
     private final Context context;
+    private final AbstractManet manet;
 
-    public AwareManetV2ConnectionCallback(Context context, Pairing pairing) {
+    public AwareManetV2ConnectionCallback(Context context, AbstractManet manet, Pairing pairing) {
         super();
         this.context = context;
+        this.manet = manet;
         timeToStale = System.currentTimeMillis() + CALLBACK_TIMEOUT;
         this.pairing = pairing;
     }
@@ -50,8 +54,10 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
                 Pairing.setIpv6Address(ipv6);
                 if (pairing.shouldBeServer()) {
                     SqAnDevice thisDevice = Config.getThisDevice();
-                    if (thisDevice != null)
+                    if (thisDevice != null) {
                         thisDevice.setAwareServerIp(ipv6);
+                        thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
+                    }
                 }
             }
             pairing.handleNetworkChange(network);
@@ -72,10 +78,14 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
         if (ipv6 != null)
             Pairing.setIpv6Address(ipv6);
 
+        pairing.setNetworkInterface(NetUtil.getAwareNetworkInterface(linkProperties));
+
         if (pairing.shouldBeServer()) {
             SqAnDevice thisDevice = Config.getThisDevice();
-            if (thisDevice != null)
+            if (thisDevice != null) {
                 thisDevice.setAwareServerIp(ipv6);
+                thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
+            }
         }
 
         pairing.handleNetworkChange(network);

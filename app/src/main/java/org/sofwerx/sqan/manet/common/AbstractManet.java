@@ -178,8 +178,10 @@ public abstract class AbstractManet {
     }
 
     public void onReceived(AbstractPacket packet) {
-        if (packet == null)
-            Log.d(Config.TAG,"Empty packet received over "+getClass());
+        if (packet == null) {
+            Log.d(Config.TAG, "Empty packet received over " + getClass().getSimpleName());
+            return;
+        }
         if ((packet.getOrigin() == Config.getThisDevice().getUUID()) && !(packet instanceof PingPacket)) {
             Log.d(Config.TAG,"Circular reporting detected - dropping packet");
             return;
