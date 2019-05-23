@@ -45,6 +45,7 @@ WORKDIR ${appdir}
 
 COPY . .
 RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' ${appdir}/build.gradle
+RUN chmod og+x ./gradlew
 RUN ./gradlew build
 
 CMD sleep 3600
