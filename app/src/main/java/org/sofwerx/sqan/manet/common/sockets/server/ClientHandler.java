@@ -106,6 +106,7 @@ public class ClientHandler {
 
         HANDLER_MAP.put(id, this);
         START_TIME_MAP.put(id, System.currentTimeMillis());
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"ClientHandler #"+id+" created");
     }
 
     public void closeClient() {
@@ -305,6 +306,7 @@ public class ClientHandler {
 
     private boolean readResponse() throws BlacklistException {
         try {
+            Log.d(TAG,"Reading challenge response from client");
             while (readBuffer.hasRemaining() && (client.read(readBuffer) > 0)) {}
             if (readBuffer.hasRemaining()) {
                 return false; // nothing more to read
@@ -450,7 +452,7 @@ public class ClientHandler {
     }
 
     private void writeChallenge() throws IOException {
-        Log.d(TAG, "#" + id + "Client handler writing challenge");
+        Log.d(TAG, "#" + id + " Client handler writing challenge");
         if (challengeBuffer == null) {
             byte[] challenge = Challenge.generateChallenge();
             challengeBuffer = ByteBuffer.allocate(challenge.length);

@@ -49,7 +49,7 @@ import java.util.Random;
  */
 public class SqAnService extends Service implements LocationService.LocationUpdateListener {
     public static final int REQUEST_ENABLE_VPN = 421;
-    private final static long CLEANUP_DELAY = 1000l * 5l;
+    private final static long CLEANUP_DELAY = 1000l * 1l; //time to wait before completing shutdown
     private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
     private final static long INTERVAL_BETWEEN_HEALTH_CHECK = 1000l * 60l;

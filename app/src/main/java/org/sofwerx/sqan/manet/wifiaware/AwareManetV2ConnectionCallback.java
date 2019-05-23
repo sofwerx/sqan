@@ -55,7 +55,7 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
                 if (pairing.shouldBeServer()) {
                     SqAnDevice thisDevice = Config.getThisDevice();
                     if (thisDevice != null) {
-                        thisDevice.setAwareServerIp(ipv6);
+                        Config.getThisDevice().setAwareServerIp(Pairing.getIpv6Address());
                         thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
                     }
                 }
@@ -83,7 +83,7 @@ public class AwareManetV2ConnectionCallback extends ConnectivityManager.NetworkC
         if (pairing.shouldBeServer()) {
             SqAnDevice thisDevice = Config.getThisDevice();
             if (thisDevice != null) {
-                thisDevice.setAwareServerIp(ipv6);
+                Config.getThisDevice().setAwareServerIp(Pairing.getIpv6Address());
                 thisDevice.setRoleWiFi(SqAnDevice.NodeRole.HUB);
             }
         }

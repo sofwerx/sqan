@@ -89,12 +89,6 @@ public class Client extends Thread {
                         Log.e(TAG, "Client.DownlinkThread.run error: " + e.getMessage());
                         restartClient();
                     }
-                    /*if (health != LinkHealth.ERROR) {
-                        health = LinkHealth.ERROR;
-                        MdxService.log.log(MissionLogging.Category.COMMS,((config == null)?DEFAULT_LINK_NAME:config.getIp())+" downlink error");
-                        if (linkHealthListener != null)
-                            linkHealthListener.onLinkHealthChange(health);
-                    }*/
                 }
             }
         }

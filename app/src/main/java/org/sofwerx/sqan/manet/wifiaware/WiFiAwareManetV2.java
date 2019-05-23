@@ -667,7 +667,8 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                 Log.d(TAG, "Pairing " + pairing.toString() + " - waiting on network connection...");
                 pairing.checkNetwork();
             } else if (pairing.getStatus() == Pairing.PairingStatus.SHOULD_BE_SERVER) {
-                if (thisDevice != null) {
+                pairing.checkNetwork();
+                /*if (thisDevice != null) {
                     Log.d(TAG, "Pairing " + pairing.getLabel() + " - starting server...");
                     DiscoverySession discoverySession = null;
                     if (pairing.isPeerHandlePub())
@@ -679,7 +680,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                         return;
                     }
                     pairing.requestNetwork(awareSession, discoverySession, true);
-                }
+                }*/
             }
         }
     }

@@ -14,9 +14,6 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
-import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
-import org.sofwerx.sqan.manet.common.sockets.client.Client;
-import org.sofwerx.sqan.manet.common.sockets.client.SocketTransceiver;
 import org.sofwerx.sqan.manet.wifiaware.AbstractConnection;
 import org.sofwerx.sqan.util.CommsLog;
 
@@ -29,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClientConnection extends AbstractConnection {
     private String TAG = Config.TAG+".Client";
-    private SocketTransceiver datalink = null;
+    private AwareSocketTransceiver datalink = null;
     private DownlinkThread downlinkThread;
     private HandlerThread clientThread;
     private Handler handler;
@@ -68,11 +65,12 @@ public class ClientConnection extends AbstractConnection {
             try {
                 inputStream = socket.getInputStream();
                 outputStream = socket.getOutputStream();
-                Log.d(TAG, "Socket channels open");
+                datalink = new AwareSocketTransceiver(parser);
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "Client #"+id+" socket open");
                 downlinkThread = new DownlinkThread();
                 downlinkThread.start();
             } catch (IOException e) {
-                Log.e(TAG, "Unable to create socket streams; shutting down...");
+                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Client #"+id+" unable to create socket streams; shutting down...");
                 close();
             }
         });
@@ -88,18 +86,12 @@ public class ClientConnection extends AbstractConnection {
     @Override
     public void close() {
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
-        if ((clientThread != null) && clientThread.isAlive()) {
-            Log.d(TAG, "ClientThread.close() called");
-            if (handler != null) {
-                handler.post(() -> {
-                    terminateLink(true);
-                });
-                handler = null;
-            }
-            clientThread.quitSafely();
-            clientThread = null;
-        } else
-            Log.d(TAG, "Duplicate call to ClientThread"+id+".close() ignored");
+        Log.d(TAG, "ClientThread.close() called");
+        if (handler != null) {
+            handler.post(() -> {
+                terminateLink(true);
+            });
+        }
     }
 
     @Override
@@ -114,17 +106,15 @@ public class ClientConnection extends AbstractConnection {
         if ((handler != null) && (packet != null)) {
             handler.post(() -> {
                 Log.d(TAG,"burst("+packet.getClass().getSimpleName()+") called");
-                /*if ((uplink != null) && uplink.isConnected()) {
+                if (outputStream != null) {
                     if (datalink != null) {
                         try {
-                            datalink.queue(packet, uplink,listener);
+                            datalink.queue(packet, outputStream, listener);
                         } catch (Exception e) {
                             Log.e(TAG, e.getMessage());
                         }
                     } else {
-                        if ((uplink == null) || (datalink == null) || !uplink.isConnected()) {
-                            //TODO rebuild the connection
-                        }
+                        //TODO rebuild the connection
                         Log.d(TAG, "Not sending burst; datalink is null");
                     }
                 } else {
@@ -134,7 +124,7 @@ public class ClientConnection extends AbstractConnection {
                         //TODO rebuild the connection
                     } else
                         Log.d(TAG, "Tried to send a burst, but the link is still initializing");
-                }*/
+                }
             });
         }
         return true;
@@ -145,65 +135,82 @@ public class ClientConnection extends AbstractConnection {
 
         public void stopLink() {
             keepRunning = false;
+            this.interrupt();
         }
 
         @Override
         public void run() {
             while (keepRunning) {
                 try {
-                    //if ((datalink != null) && (uplink != null) && (downlink != null))
-                    //    datalink.read(uplink, downlink);
+                    if ((datalink != null) && (inputStream != null) && (outputStream != null))
+                        datalink.read(inputStream, outputStream);
+                    try {
+                        sleep(100);
+                    } catch (InterruptedException ignore) {
+                    }
                 } catch (Exception e) {
                     if (keepRunning) {
                         Log.e(TAG, "DownlinkThread.run error: " + e.getMessage());
                         //TODO restartClient();
                     }
-                    /*if (health != LinkHealth.ERROR) {
-                        health = LinkHealth.ERROR;
-                        MdxService.log.log(MissionLogging.Category.COMMS,((config == null)?DEFAULT_LINK_NAME:config.getIp())+" downlink error");
-                        if (linkHealthListener != null)
-                            linkHealthListener.onLinkHealthChange(health);
-                    }*/
                 }
             }
         }
     }
 
     private void sendHangup() {
-        /*if (datalink != null) {
-            try {
-                DisconnectingPacket packet = new DisconnectingPacket(Config.getThisDevice().getUUID());
-                datalink.queue(packet, uplink, listener);
-            } catch (Exception ignore) {
-            }
-        }*/
+        if (handler != null) {
+            handler.post(() -> {
+                if (datalink != null) {
+                    try {
+                        DisconnectingPacket packet = new DisconnectingPacket(Config.getThisDevice().getUUID());
+                        datalink.queue(packet, outputStream, listener);
+                    } catch (Exception ignore) {
+                    }
+                }
+            });
+        }
     }
 
-    private void terminateLink(boolean sendHangup) {
-        Log.d(TAG,"terminating socket link");
-        if (sendHangup)
-            sendHangup();
+    private void stop() {
+        Log.d(TAG, "Stopping Client #"+id);
         if (downlinkThread != null) {
             downlinkThread.stopLink();
             downlinkThread = null;
         }
         try {
-            if (inputStream!=null)
+            if (inputStream != null)
                 inputStream.close();
             inputStream = null;
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            if (outputStream!=null)
+            if (outputStream != null)
                 outputStream.close();
             outputStream = null;
         } catch (IOException e) {
             e.printStackTrace();
         }
         if (datalink != null) {
-            datalink.closeAll();
             datalink = null;
         }
+        if (clientThread != null) {
+            if (clientThread.isAlive())
+                clientThread.quitSafely();
+            clientThread = null;
+        }
+    }
+
+    private void terminateLink(final boolean sendHangup) {
+        if (sendHangup)
+            sendHangup();
+        if (handler != null) {
+            handler.post(() -> {
+                stop();
+            });
+            handler = null;
+        } else
+            stop();
     }
 }

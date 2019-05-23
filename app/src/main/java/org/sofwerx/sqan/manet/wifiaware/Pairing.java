@@ -101,13 +101,12 @@ public class Pairing {
     public AwareManetV2ConnectionCallback getNetworkCallback() { return networkCallback; }
 
     public void checkNetwork() {
-        Log.d(TAG,"checkNetwork()");
         handleNetworkChange(network);
     }
 
     private void startServer() {
         if ((connection == null) && (network != null) && (networkInterface != null) && (manet != null)) {
-            Log.d(TAG,"Creating new Server Connection...");
+            Log.d(TAG,getLabel()+" creating new Server Connection...");
             connection = new ServerConnection(manet, this);
         }
     }
@@ -190,9 +189,11 @@ public class Pairing {
             SqAnDevice thisDevice = Config.getThisDevice();
             if ((device != null) && (thisDevice != null) && device.isUuidKnown() && thisDevice.isUuidKnown()) {
                 if (shouldBeServer()) {
-                    if ((peerHandle == null) || (origin == PeerHandleOrigin.PUB))
+                    if ((peerHandle == null) || (origin == PeerHandleOrigin.PUB)) {
+                        if (network == null)
+                            return PairingStatus.NEEDS_NETWORK;
                         return PairingStatus.SHOULD_BE_SERVER;
-                    else
+                    } else
                         return PairingStatus.SHOULD_BE_IGNORED;
                 } else {
                     if ((peerHandle == null) || (origin == PeerHandleOrigin.SUB)) {

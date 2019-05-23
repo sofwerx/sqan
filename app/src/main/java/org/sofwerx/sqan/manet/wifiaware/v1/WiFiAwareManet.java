@@ -62,6 +62,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * MANET built over the Wi-Fi Aware™ (Neighbor Awareness Networking) capabilities
  * found on Android 8.0 (API level 26) and higher
  *  (https://developer.android.com/guide/topics/connectivity/wifi-aware)
+ *  This approach wasn't working as the IPV6 address was not being accepted. Further
+ *  work indicates at the IPV6 address just needs to be associated with the NetworkInterface.
+ *  However, this V1 approach was still abandoned as it was becoming unwieldy to
+ *  accurately know the status of the connection. Use the WiDiAwareManetV2 instead.
  */
 @Deprecated
 public class WiFiAwareManet extends AbstractManet implements ServerStatusListener {
@@ -709,9 +713,6 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         Log.d(TAG,"Passphrase \""+passcode+"\" adjusted to \""+output+"\" to conform with WiFi Aware requirements");
         return out.toString();
     }
-
-    //FIXME use the identity change listener to get the Aware MAC and know when it changes
-    //FIXME https://android.googlesource.com/platform/frameworks/base/+/master/wifi/java/android/net/wifi/aware/IdentityChangedListener.java
 
     /*******************/
 

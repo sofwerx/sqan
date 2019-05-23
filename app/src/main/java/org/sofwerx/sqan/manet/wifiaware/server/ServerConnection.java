@@ -14,10 +14,12 @@ import org.sofwerx.sqan.manet.common.sockets.server.Server;
 import org.sofwerx.sqan.manet.common.sockets.server.ServerStatusListener;
 import org.sofwerx.sqan.manet.wifiaware.AbstractConnection;
 import org.sofwerx.sqan.manet.wifiaware.Pairing;
+import org.sofwerx.sqan.util.CommsLog;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ServerConnection extends AbstractConnection {
     private final static String TAG = Config.TAG+".ServerCon";
@@ -25,6 +27,7 @@ public class ServerConnection extends AbstractConnection {
     private static ArrayList<ServerConnection> serverConnections;
     private static ServerStatusListener listener;
     private Pairing pairing;
+    private AtomicBoolean keepGoing = new AtomicBoolean(true);
 
     private static ServerSocket serverSocket; //TODO
 
@@ -49,8 +52,15 @@ public class ServerConnection extends AbstractConnection {
             new Thread(() -> {
                 try {
                     serverSocket = new ServerSocket(AbstractManet.SQAN_PORT,5, Pairing.getIpv6Address());
-                    Log.d(TAG,"Local port: "+serverSocket.getLocalPort());
-                    serverSocket.accept();
+                    if (serverSocket.isBound()) {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "SocketServer bound and ready to accept connections on port " + serverSocket.getLocalPort());
+                    } else
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "SocketServer unable to bind to port " + AbstractManet.SQAN_PORT);
+                    while (keepGoing.get()) {
+                        serverSocket.accept();
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "SocketServer received a new connection");
+                    }
+                    //FIXME you need to build out the whole server here
                 } catch (IOException e) {
                     Log.e(TAG,"Unable to start ServerSocket: "+e.getMessage());
                 }
@@ -68,6 +78,7 @@ public class ServerConnection extends AbstractConnection {
 
     @Override
     public void close() {
+        keepGoing.set(false);
         serverConnections.remove(this);
         if (serverConnections.isEmpty() && (server != null))
             server.close(false);

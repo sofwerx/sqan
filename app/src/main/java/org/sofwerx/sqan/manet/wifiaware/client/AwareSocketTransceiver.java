@@ -9,6 +9,7 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.common.sockets.SocketChannelConfig;
+import org.sofwerx.sqan.util.NetUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,123 +25,111 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.ShortBufferException;
 
 public class AwareSocketTransceiver {
+    private final static String TAG = Config.TAG+".AwareTxRx";
     private final static int MAX_PACKET_SIZE = 256000;
-    private ByteBuffer inputBuffer;
+    //private ByteBuffer inputBuffer;
     private ClientState state;
     private static final int MAX_QUEUE_SLOTS = 10;
-    //private SocketChannel socket;
     private final PacketParser parser;
     private enum ClientState {
         READING_BODY, READING_CHALLENGE
     }
 
-    protected AwareSocketTransceiver(SocketChannelConfig config, PacketParser parser) {
+    protected AwareSocketTransceiver(PacketParser parser) {
         this.state = ClientState.READING_CHALLENGE;
         this.parser = parser;
-        this.inputBuffer = ByteBuffer.allocate(Challenge.CHALLENGE_LENGTH);
     }
 
     private void immediateOutput(byte[] data, final OutputStream output) throws IOException {
-        output.write(data);
+        immediateOutput(data,false,output);
     }
 
-    public void closeAll() {
-        /*try {
+    private void immediateOutput(byte[] data, boolean includeSize, final OutputStream output) throws IOException {
+        if (data == null)
+            return;
+        if (includeSize)
+            output.write(data.length);
+        output.write(data);
+        ManetOps.addBytesToTransmittedTally(data.length);
+    }
+
+    /*public void closeAll() {
+        try {
             if (socket != null)
                 socket.close();
         } catch (IOException ignore) {
-        }*/
-    }
+        }
+    }*/
 
     public boolean isReadyToWrite() {
         return state != ClientState.READING_CHALLENGE;
     }
 
     public int queue(AbstractPacket packet, OutputStream outputStream, ManetListener listener) throws IOException {
-        if (isReadyToWrite()) {
-            byte[] data = parser.toBytes(packet);
-            if (data != null) {
-                Log.d(Config.TAG,"queuing "+data.length+"b message");
-                ByteBuffer out = ByteBuffer.allocate(4 + data.length);
-                out.putInt(data.length);
-                out.put(data);
-                out.flip();
-                ManetOps.addBytesToTransmittedTally(data.length);
-                immediateOutput(out.array(), outputStream);
+        if (packet != null) {
+            if (isReadyToWrite()) {
+                immediateOutput(packet.toByteArray(), true, outputStream);
                 if (listener != null)
                     listener.onTx(packet);
-            }
-        } else
-            Log.d(Config.TAG,"Packet sent for queuing but socket connection is not ready to write");
+            } else
+                Log.d(Config.TAG, "Packet sent for queuing but socket connection is not ready to write");
+        }
 
         return MAX_QUEUE_SLOTS;
     }
 
     public void read(InputStream inputStream, OutputStream outputStream) throws IOException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, ShortBufferException {
-        /*boolean keepGoing = true;
-        boolean firstTime = true;
+        boolean keepGoing = true;
+        //boolean firstTime = true;
         while (keepGoing) {
             if (state == ClientState.READING_CHALLENGE) {
-                keepGoing = readChallenge(firstTime, inputStream, outputStream);
+                keepGoing = readChallenge(inputStream, outputStream);
                 Log.d(Config.TAG,"SocketTransceiver.readChallenge complete, keepGoing "+keepGoing);
             } else
                 keepGoing = parseMessage(inputStream);
-            firstTime = false;
-        }*/
+            //firstTime = false;
+        }
     }
 
     private boolean parseMessage(InputStream inputStream) throws IOException {
-        /*if ((channel == null) || !channel.isOpen()) //channel is now closed
+        if (inputStream == null)
             return false;
-        ByteBuffer preambleBuffer = ByteBuffer.allocate(4);
-        while (preambleBuffer.hasRemaining() && (channel.read(preambleBuffer) > 0)) {}
-
-        if (preambleBuffer.position() == 0)
-            return false; //nothing to read
-        preambleBuffer.rewind();
-        int size = preambleBuffer.getInt();
+        byte[] preamble = new byte[4];
+        int readBytes = inputStream.read(preamble);
+        if (readBytes < 4)
+            return false;
+        int size = NetUtil.byteArrayToInt(preamble);
         if (size < 0)
-            throw new IOException("SocketTransceiver unable to processPacketAndNotifyManet a message with a negative size");
+            throw new IOException("Unable to processPacketAndNotifyManet a message with a negative size");
         else if (size > MAX_PACKET_SIZE)
-            throw new IOException("SocketTransceiver unable to processPacketAndNotifyManet a "+size+"b message, this must be an error");
+            throw new IOException("Unable to processPacketAndNotifyManet a "+size+"b message, this must be an error");
         else
-            Log.d(Config.TAG,"SocketTransceiver received "+size+"b message");
-        ByteBuffer data = ByteBuffer.allocate(size);
-        while (data.hasRemaining() && (channel.read(data) > 0)) {}
-        byte[] payload = data.array();
-        parser.processPacketAndNotifyManet(payload);*/
+            Log.d(Config.TAG,"Received "+size+"b message");
+        byte[] payload = new byte[size];
+        inputStream.read(payload);
+        parser.processPacketAndNotifyManet(payload);
         return false;
     }
 
-    private boolean readChallenge(boolean firstTime, ReadableByteChannel channel, WritableByteChannel output) throws IOException, NoSuchAlgorithmException {
-        Log.d(Config.TAG,"SocketTransceiver reading challenge");
+    private boolean readChallenge(InputStream inputStream, OutputStream outputStream) throws IOException, NoSuchAlgorithmException {
+        Log.d(TAG,"Reading challenge");
         boolean success = false;
+        byte[] challengeBytes = new byte[Challenge.CHALLENGE_LENGTH];
         try {
-            while ((inputBuffer != null ) && inputBuffer.hasRemaining() && (channel.read(inputBuffer) > 0)) {
-                firstTime = false;
-            }
-        } catch (NullPointerException e) {
+            inputStream.read(challengeBytes);
+        } catch (Exception e) {
+            Log.e(TAG,"Unable to read challenge: "+e.getMessage());
         }
-        if (inputBuffer.hasRemaining())
-            return false;
 
-        inputBuffer.flip();
-
-        /*if (config != null) {
-            try {
-                byte[] responseArray = Challenge.getResponse(null,null);
-                ByteBuffer response = ByteBuffer.allocate(responseArray.length);
-                response.put(responseArray);
-                response.flip();
-                Log.d(Config.TAG,"Writing challenge response");
-                immediateOutput(response, output);
-                state = ClientState.READING_BODY;
-                if (parser != null)
-                    parser.getManet().onAuthenticatedOnNet();
-            } catch (UnsupportedEncodingException ignore) {
-            }
+        try {
+            byte[] response = Challenge.getResponse(null,null);
+            Log.d(Config.TAG,"Writing challenge response");
+            immediateOutput(response, outputStream);
+            state = ClientState.READING_BODY;
+            if (parser != null)
+                parser.getManet().onAuthenticatedOnNet();
+        } catch (UnsupportedEncodingException ignore) {
         }
-        inputBuffer.position(0);*/
         return success;
     }
 }
