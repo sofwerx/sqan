@@ -1,4 +1,5 @@
 # Squad Area Network (SqAN)
+[![Build Status](https://travis-ci.org/sofwerx/sqan.svg?branch=master)](https://travis-ci.org/sofwerx/sqan)
 
 SqAN is an experimental effort to provide a Mobile Ad-hoc NETwork (MANET) in support of small, dismounted maneuver units, based solely on open source available techniques and pre-existing mobile device hardware.
 
