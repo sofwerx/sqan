@@ -1,0 +1,10 @@
+version: '2.1'
+
+services:
+
+  sqan:
+    image: sofwerx/sqan
+    build: .
+    container_name: sqan
+    hostname: sqan
+

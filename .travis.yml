@@ -1,0 +1,30 @@
+sudo: required
+services:
+- docker
+language: bash
+script:
+- make
+- ls -la
+- cp app-full-debug.apk sqan-debug_${TRAVIS_TAG}.apk
+- cp test-full-debug.apk sqantest-debug_${TRAVIS_TAG}.apk
+- cp app-full-release-unsigned.apk sqan-release-unsigned_${TRAVIS_TAG}.apk
+after_success:
+- docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+- docker push sofwerx/sqan:${TRAVIS_TAG}
+branches:
+  only:
+  - master
+  - travis-only
+  - "/^v\\d.*$/"
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key: "${GITHUB_TOKEN}"
+  file:
+  - sqan-debug_${TRAVIS_TAG}.apk
+  - sqantest-debug_${TRAVIS_TAG}.apk
+  - sqan-release-unsigned_${TRAVIS_TAG}.apk
+  on:
+    tags: true
+    repo: "${TRAVIS_REPO_SLUG}"
+
