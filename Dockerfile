@@ -22,10 +22,11 @@ RUN mkdir -p ${ANDROID_HOME}/licenses \
  && echo "\n8933bad161af4178b1185d1a37fbf41ea5269c55" >> $ANDROID_HOME/licenses/android-sdk-license \
  && echo "\nd56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license \
  && echo "\ne6b7c2ab7fa2298c15165e9583d0acf0b04a2232" >> $ANDROID_HOME/licenses/android-sdk-license \
+ && echo "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_HOME/licenses/android-sdk-license \
  && echo "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license \
  && echo "\nd975f751698a77b662f1254ddbeed3901e976f5a" > $ANDROID_HOME/licenses/intel-android-extra-license
 
-RUN yes | sdkmanager --licenses
+RUN yes | sdkmanager --licenses > /dev/null 2>&1
 RUN yes | sdkmanager "platforms;android-28"
 RUN mkdir -p ${ANDROID_HOME}/.android \
  && touch ~/.android/repositories.cfg ${ANDROID_HOME}/.android/repositories.cfg
