@@ -2,6 +2,9 @@ sudo: required
 services:
 - docker
 language: bash
+env:
+  global:
+    - TRAVIS_TAG="${TRAVIS_TAG}"
 script:
 - make
 - ls -la

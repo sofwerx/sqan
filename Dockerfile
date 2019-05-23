@@ -3,6 +3,7 @@ FROM openjdk:8-jdk-stretch
 ENV sdk_version=sdk-tools-linux-4333796.zip
 ENV ANDROID_HOME=/android
 ENV appdir=/sqan
+ENV testdir=/sqan/testing
 
 RUN apt-get update
 RUN apt-get install -y wget git unzip
@@ -44,7 +45,12 @@ RUN mkdir -p ${appdir}
 WORKDIR ${appdir}
 
 COPY . .
-RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' ${appdir}/build.gradle
+RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' build.gradle
+RUN chmod og+x ./gradlew
+RUN ./gradlew build
+
+WORKDIR ${testdir}
+RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' build.gradle
 RUN chmod og+x ./gradlew
 RUN ./gradlew build
 
