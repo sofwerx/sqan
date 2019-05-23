@@ -30,8 +30,8 @@ RUN yes | sdkmanager --licenses > /dev/null 2>&1
 RUN yes | sdkmanager "platforms;android-28"
 RUN mkdir -p ${ANDROID_HOME}/.android \
  && touch ~/.android/repositories.cfg ${ANDROID_HOME}/.android/repositories.cfg
-RUN yes | sdkmanager "build-tools;28.0.3"
-RUN yes | sdkmanager "extras;android;m2repository"
+RUN yes | sdkmanager "build-tools;28.0.3" > /dev/null 2>&1
+RUN yes | sdkmanager "extras;android;m2repository" > /dev/null 2>&1
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y locales
 RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
