@@ -269,7 +269,7 @@ public class ClientHandler {
                 }
                 //Log.d(TAG, "#" + id + ": HEADER packet type: "+header.getType());
 
-                if ((parser != null) && AddressUtil.isApplicableAddress(header.getDestination(), Config.getThisDevice().getUUID())) {
+                if ((parser != null) && AddressUtil.isApplicableAddress(Config.getThisDevice().getUUID(),header.getDestination())) {
                     //this packet also applies to the server
                     readBuffer.position(0);
                     byte[] data = new byte[readBuffer.remaining()];

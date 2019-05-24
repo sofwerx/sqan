@@ -40,6 +40,7 @@ Performance so far:
  - latency tends to be around 300ms, but a large portion of the connections so far appear to be utilizing access via a shared connection to the same WiFi router
  - high bandwidth traffic (like video) lags and becomes increasingly buffered over time
  - at or above 3 devices, the Nearby Connections mesh fragments or otherwise becomes unstable
+_** Nearby Connections is not a recommended MANET approach **_
 
 ### WiFi Aware approach
 
@@ -48,6 +49,7 @@ WiFi Aware connections begin by simultaneously advertising and discovering. Mesh
 Performance so far:
  - like Nearby Connections, high bandwidth traffic lags and becomes increasingly buffered over time
  - Connectivity with more than 2 devices not yet tested
+_** WiFi Aware is not a recommended MANET approach at this time **_
 
 ### WiFi Direct approach
 
@@ -59,32 +61,38 @@ Performance so far:
  - Mesh tends to perform fairly well with high bandwidth traffic like video to include supporting one hop between producer and consumer or in supporting more than one producer
  - Stability problems appear to be mostly addressed
  - All connected devices must be within the same WiFi Direct network (i.e. there is one hub and many spokes). Spokes communicate with each other relatively seemlessly but are still dependant on connection to the same hub (which may be reassigned over time)
-#### WiFi Direct is the highest performing mesh so far for high bandwitdh applications
+_** WiFi Direct is the highest performing mesh so far for high bandwidth applications**_
+
 
 ### Augmenting WiFi Aware and Direct
 
 Since only Nearby Connections organically uses both WiFi and Bluetooth, a seperate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled.
 
+
 ### Bluetooth
 
-Bluetooth mesh is available as a seperate, stand-alone options as well and SqAN will blend data acrtoss meshes based on connectivity. Of the currently available mesh approaches, the Bluetooth mesh is the most mature at this time. The Bluetooth mesh is a constom built modified flood-based system, but is not the BLE based "Mesh Profile Specification" or "Mesh Model Specification" as these two are: 1) not yet supported natively within Android and 2) not optimized for the type of traffic anticipated within a dismounted manuever unit environment.
+Bluetooth mesh is available as a separate, stand-alone options as well and SqAN will blend data acrtoss meshes based on connectivity. Of the currently available mesh approaches, the Bluetooth mesh is the most mature at this time. The Bluetooth mesh is a constom built modified flood-based system, but is not the BLE based "Mesh Profile Specification" or "Mesh Model Specification" as these two are: 1) not yet supported natively within Android and 2) not optimized for the type of traffic anticipated within a dismounted manuever unit environment.
 
 Performance so far:
  - After initial pairing process, Bluetooth based mesh appears to form relatively quickly, self heal consistently and maintain connectivity at distances in excess of 50m in open terrain
- - Some lower end and older devices occassionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
-#### Bluetooth mesh is the highesst perfoming mesh so far for lower bandwidth, lower energy usage, multi-hop applications
+ - Some lower end and older devices occasionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
+_** Bluetooth mesh is the highest performing mesh so far for lower bandwidth, lower energy usage, multi-hop applications **_
+
 
 ### WiFiManager
 
 An approach using WiFi Manager was explored as well. WiFiManager could be used to create a access point but that required reflection to access private APIs starting at Android 7. This capability was discontinued entirely at Android 8, so this approach was dropped as long-term unstable.
 
+
 ### Logging
 
 SqAN generates a moderately detailed log of connectivity and routing decisions in the device's Documents/SqAN folder. Portions of this log are viewable from within the About page of SqAN and the most verbose logging is available in logcat. For the purposes of load testing and routing debugging, the text log files in the SqAN folder should be sufficient for most cases.
 
+
 ### The Testing App
 
 The SqAN Test app found in the Testing folder serves two purposes: 1) to provide a structred way to implement various load tests and 2) to provide an easy demo of SqAN actually doing something. The SqAN Test app contains a geographic based network map of how the devices are connecting as well as a rudimentary messaging capability to communicate by text messages between the apps. The SqAN Test app also serves as an example of how to use the SqAN channel IPC to provide app-to-app communication.
+
 
 ## Sending data via IPC
 

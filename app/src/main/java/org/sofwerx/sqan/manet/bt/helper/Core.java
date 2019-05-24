@@ -158,7 +158,7 @@ public class Core {
      * @param clientsOnly true == only send this to sockets where I am the hub
      * @param isForwardedPacket true == this packet is being forwarded from another device
      */
-    public static void send(final byte[] data, final int destination, final int origin, boolean clientsOnly, boolean isForwardedPacket) {
+    public static void send(final byte[] data, int destination, final int origin, boolean clientsOnly, boolean isForwardedPacket) {
         if (origin <= 0)
             Log.d(TAG,"send() with an origin value of "+origin+" (this should not be)");
         synchronized (allSockets) {
@@ -167,6 +167,7 @@ public class Core {
                 int i=0;
                 boolean useThisManet = true;
                 AbstractPacket reconstructedPacket = null;
+
                 while (i<allSockets.size()) {
                     BTSocket socket = allSockets.get(i);
                     if (socket.isApplicableToThisDevice(destination)) {
