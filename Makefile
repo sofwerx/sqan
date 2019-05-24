@@ -5,5 +5,5 @@ all:
 		echo $line
 		docker cp sqan:$$line . ; \
 	done
-        ls -l
+	ls -l
 	docker-compose down || true
