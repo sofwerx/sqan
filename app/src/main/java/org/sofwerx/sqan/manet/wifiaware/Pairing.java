@@ -188,6 +188,7 @@ public class Pairing {
         if (connection == null) {
             SqAnDevice thisDevice = Config.getThisDevice();
             if ((device != null) && (thisDevice != null) && device.isUuidKnown() && thisDevice.isUuidKnown()) {
+                device.setDirectWiFiHiPerf(false);
                 if (shouldBeServer()) {
                     if ((peerHandle == null) || (origin == PeerHandleOrigin.PUB)) {
                         if (network == null)
@@ -209,10 +210,13 @@ public class Pairing {
         } else {
             if (network == null)
                 return PairingStatus.NEEDS_NETWORK;
-            if (connection.isConnected())
+            if (connection.isConnected()) {
+                device.setDirectWiFiHiPerf(true);
                 return PairingStatus.CONNECTED;
-            else
+            } else {
+                device.setDirectWiFiHiPerf(false);
                 return PairingStatus.CONNECTING;
+            }
         }
     }
 

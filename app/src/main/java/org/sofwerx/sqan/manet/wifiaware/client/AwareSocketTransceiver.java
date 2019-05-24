@@ -48,7 +48,7 @@ public class AwareSocketTransceiver {
         if (data == null)
             return;
         if (includeSize)
-            output.write(data.length);
+            output.write(NetUtil.intToByteArray(data.length));
         output.write(data);
         ManetOps.addBytesToTransmittedTally(data.length);
     }

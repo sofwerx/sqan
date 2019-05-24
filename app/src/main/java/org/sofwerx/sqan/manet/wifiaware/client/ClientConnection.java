@@ -144,17 +144,31 @@ public class ClientConnection extends AbstractConnection {
                 try {
                     if ((datalink != null) && (inputStream != null) && (outputStream != null))
                         datalink.read(inputStream, outputStream);
-                    try {
-                        sleep(100);
-                    } catch (InterruptedException ignore) {
-                    }
+                    //try {
+                    //    sleep(100);
+                    //} catch (InterruptedException ignore) {
+                    //}
                 } catch (Exception e) {
                     if (keepRunning) {
                         Log.e(TAG, "DownlinkThread.run error: " + e.getMessage());
-                        //TODO restartClient();
+                        restartClient();
+                        keepRunning = false;
                     }
                 }
             }
+        }
+    }
+
+    private void restartClient() {
+        clearStreams();
+        if (handler != null) {
+            handler.postDelayed(() -> {
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "Restarting Client");
+                init();
+            }, RESTART_DELAY);
+        } else {
+            CommsLog.log(CommsLog.Entry.Category.PROBLEM, "Restarting Client (with null handler - something is significantly broken...)");
+            init();
         }
     }
 
@@ -172,8 +186,8 @@ public class ClientConnection extends AbstractConnection {
         }
     }
 
-    private void stop() {
-        Log.d(TAG, "Stopping Client #"+id);
+    private void clearStreams() {
+        Log.d(TAG, "Clearing streams for Client #"+id);
         if (downlinkThread != null) {
             downlinkThread.stopLink();
             downlinkThread = null;
@@ -195,6 +209,11 @@ public class ClientConnection extends AbstractConnection {
         if (datalink != null) {
             datalink = null;
         }
+    }
+
+    private void stop() {
+        clearStreams();
+        Log.d(TAG, "Stopping Client #"+id);
         if (clientThread != null) {
             if (clientThread.isAlive())
                 clientThread.quitSafely();

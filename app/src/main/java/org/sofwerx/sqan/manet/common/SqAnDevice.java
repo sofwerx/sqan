@@ -454,7 +454,7 @@ public class SqAnDevice {
 
     public void clearAwareServerIp() { awareServerIp = null; }
 
-    public static enum NodeRole { HUB, SPOKE, OFF, BOTH }
+    public enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
     /**
      * Look for and merge any likely duplicate nodes
@@ -1292,6 +1292,7 @@ public class SqAnDevice {
         return networkId;
     }
     public void setNetworkId(String networkId) { this.networkId = networkId; }
+    public void setDirectWiFiHiPerf(boolean isWifiInHighPerformanceMode) { this.directWiFiHiPerf = isWifiInHighPerformanceMode; }
     public void setConnected(int hopsAway, boolean directBt, boolean directWiFi) { setConnected(hopsAway, directBt, directWiFi,directWiFiHiPerf); }
     public void setConnected(int hopsAway, boolean directBt, boolean directWiFi, boolean directWiFiHiPerf) {
         setStatus(Status.CONNECTED);

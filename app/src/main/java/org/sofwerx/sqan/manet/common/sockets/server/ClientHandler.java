@@ -9,6 +9,7 @@ import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.manet.common.sockets.Challenge;
 import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.StringUtil;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -215,25 +216,29 @@ public class ClientHandler {
                 sizeBuffer.rewind();
 
                 int totalSize = sizeBuffer.getInt();
-                Log.d(TAG, "#" + id + ": Total size in readBody(true) is "+totalSize);
+                //Log.d(TAG, "#" + id + ": Total size in readBody(true) is "+totalSize);
                 if ((totalSize < 4) || (totalSize > MAX_ALLOWABLE_PACKET_BYTES)) {
                     String size;
                     if (totalSize < 0)
                         size = "negative";
-                    else if (totalSize < (1024*1024))
-                        size = totalSize+"b";
                     else
-                        size = totalSize/(1024*1024)+"mb";
+                        size = StringUtil.toDataSize(totalSize);
                     String warning = "Packet size is reporting to be "+size+", which is not valid";
                     CommsLog.log(CommsLog.Entry.Category.PROBLEM,warning);
                     if (listener != null)
                         listener.onServerError(warning);
-                    //TODO closeClient(); //ignoring client problems
+                    //TODO instead of closing, scan the buffer for the next header marker (and add a header marker like is in the Bluetooth Manet)
+                    closeClient();
                     return false;
                 }
                 readBuffer = ByteBuffer.allocate(totalSize);
             } else
-                Log.d(TAG, "#" + id + "readyBody(false)");
+                Log.d(TAG, "#" + id + " readyBody(false)");
+
+            if (readBuffer == null) {
+                Log.d(TAG,"readBuffer was unexpectedly null");
+                return false;
+            }
 
             int pos = readBuffer.position();
             while (readBuffer.hasRemaining() && (client.read(readBuffer) > 0)) {}
@@ -262,7 +267,7 @@ public class ClientHandler {
                     //TODO closeClient(); //ignoring failed headers
                     return false;
                 }
-                Log.d(TAG, "#" + id + ": HEADER packet type: "+header.getType());
+                //Log.d(TAG, "#" + id + ": HEADER packet type: "+header.getType());
 
                 if ((parser != null) && AddressUtil.isApplicableAddress(header.getDestination(), Config.getThisDevice().getUUID())) {
                     //this packet also applies to the server
@@ -366,7 +371,7 @@ public class ClientHandler {
                     keepGoing = readBody(true);
                     break;
                 case READING_PACKET:
-                    Log.d(TAG, "#" + id + "readyToRead().READING_PACKET");
+                    Log.d(TAG, "#" + id + ": readyToRead().READING_PACKET");
                     keepGoing = readBody(false);
                     break;
                 case READING_RESPONSE:
@@ -402,17 +407,15 @@ public class ClientHandler {
             if (readState == ReadState.READING_RESPONSE) {
                 return; // no writes until we pass the challenge
             }
-            Log.d(TAG, "#" + id + "ClientHandler ready to write");
+            //Log.d(TAG, "#" + id + ": ClientHandler ready to write");
             while (true) { // write as many packets as possible
                 if (writeBuffer == null) {
                     writeBuffer = writeQueue.poll();
                     if (writeBuffer == null) {
-                        //CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + " ClientHandler writeBuffer null");
-                        Log.d(TAG, "#" + id + " ClientHandler writeBuffer null");
+                        //Log.d(TAG, "#" + id + ": ClientHandler writeBuffer null");
                         break;
                     } else {
-                        //CommsLog.log(CommsLog.Entry.Category.CONNECTION, "#" + id + " ClientHandler writeQueue size " + writeQueue.size());
-                        Log.d(TAG, "#" + id + " ClientHandler writeQueue size " + writeQueue.size());
+                        //Log.d(TAG, "#" + id + ": ClientHandler writeQueue size " + writeQueue.size());
                     }
                 }
                 try {
@@ -452,7 +455,7 @@ public class ClientHandler {
     }
 
     private void writeChallenge() throws IOException {
-        Log.d(TAG, "#" + id + " Client handler writing challenge");
+        Log.d(TAG, "#" + id + ": Client handler writing challenge");
         if (challengeBuffer == null) {
             byte[] challenge = Challenge.generateChallenge();
             challengeBuffer = ByteBuffer.allocate(challenge.length);

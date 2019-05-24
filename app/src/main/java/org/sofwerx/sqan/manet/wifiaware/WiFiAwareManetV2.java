@@ -265,54 +265,55 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     }*/
 
     @Override
-    public void burst(AbstractPacket packet) throws ManetException {
+    public void burst(final AbstractPacket packet) throws ManetException {
         if (packet != null) {
-            ArrayList<Pairing> pairings = Pairing.getPairings();
-            if ((pairings != null) && !pairings.isEmpty()) {
-                int sentCount = 0;
-                byte[] payload = null;
-                boolean socketSent;
-                SqAnDevice device;
-                boolean applicable;
-                for (Pairing pairing:pairings) {
-                    if (pairing == null)
-                        continue;
-                    socketSent = false;
-                    device = pairing.getDevice();
-                    applicable = ((device != null) && (device.getUUID() != packet.getOrigin()) && AddressUtil.isApplicableAddress(device.getUUID(),packet.getSqAnDestination()));
-                    if (!applicable)
-                        applicable = (device == null) && (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS);
-                    if (applicable) {
-                        if (pairing.isConnectionActive() == Pairing.CONNECTION_STRONG)
-                            socketSent = pairing.burst(packet);
+            if (handler != null)
+                handler.post(() -> {
+                    ArrayList<Pairing> pairings = Pairing.getPairings();
+                    if ((pairings != null) && !pairings.isEmpty()) {
+                        int sentCount = 0;
+                        byte[] payload = null;
+                        boolean socketSent;
+                        SqAnDevice device;
+                        boolean applicable;
+                        for (Pairing pairing : pairings) {
+                            if (pairing == null)
+                                continue;
+                            socketSent = false;
+                            device = pairing.getDevice();
+                            applicable = ((device != null) && (device.getUUID() != packet.getOrigin()) && AddressUtil.isApplicableAddress(device.getUUID(), packet.getSqAnDestination()));
+                            if (!applicable)
+                                applicable = (device == null) && (packet.getSqAnDestination() == PacketHeader.BROADCAST_ADDRESS);
+                            if (applicable) {
+                                if (pairing.isConnectionActive() == Pairing.CONNECTION_STRONG)
+                                    socketSent = pairing.burst(packet);
 
-                        //Falling back to Aware Message
-                        if (!socketSent && (pairing.getPeerHandle() != null)) {
-                            Log.d(TAG, "Falling back to burst as Aware Message");
-                            if (packet.isHighPerformanceNeeded()) {
-                                Log.d(TAG, "Ignoring request to send " + packet.getClass().getSimpleName() + " as high performance packets cannot be sent over Aware Message");
-                                continue;
+                                //Falling back to Aware Message
+                                if (!socketSent && (pairing.getPeerHandle() != null)) {
+                                    Log.d(TAG, "Falling back to burst as Aware Message");
+                                    if (packet.isHighPerformanceNeeded()) {
+                                        Log.d(TAG, "Ignoring request to send " + packet.getClass().getSimpleName() + " as high performance packets cannot be sent over Aware Message");
+                                        continue;
+                                    }
+                                    if ((packet instanceof PingPacket) && (packet.getCurrentHopCount() > 0)) //ignore pings
+                                        continue;
+                                    if (payload == null)
+                                        payload = packet.toByteArray();
+                                    if ((payload == null) || (payload.length > AWARE_MESSAGE_LIMIT)) {
+                                        Log.d(TAG, packet.getClass().getSimpleName() + " larger than Aware Message " + AWARE_MESSAGE_LIMIT + "b limit as will not be sent");
+                                        break;
+                                    }
+                                    burst(payload, pairing.getPeerHandle());
+                                    sentCount++;
+                                }
                             }
-                            if ((packet instanceof PingPacket) && (packet.getCurrentHopCount() > 0)) //ignore pings
-                                continue;
-                            if (payload == null)
-                                payload = packet.toByteArray();
-                            if ((payload == null) || (payload.length > AWARE_MESSAGE_LIMIT)) {
-                                Log.d(TAG, packet.getClass().getSimpleName() + " larger than Aware Message " + AWARE_MESSAGE_LIMIT + "b limit as will not be sent");
-                                break;
-                            }
-                            burst(payload, pairing.getPeerHandle());
-                            sentCount++;
                         }
+                        if (sentCount > 0)
+                            Log.d(TAG, "Socket Connections unavailable so " + packet.getClass().getSimpleName() + " sent" + ((sentCount == 1) ? "" : (" to " + sentCount + " devices")) + " as Aware Message");
+                        else
+                            Log.d(TAG, "Socket connections are not available and packet could not be sent as an Aware Message");
                     }
-                }
-                if (sentCount > 0)
-                    Log.d(TAG, "Socket Connections unavailable so "+packet.getClass().getSimpleName()+" sent"+((sentCount==1)?"":(" to "+sentCount+" devices"))+" as Aware Message");
-                else
-                    Log.d(TAG,"Socket connections are not available and packet could not be sent as an Aware Message");
-            }
-            //if (listener != null)
-            //    listener.onTx(null);
+                });
         } else
             Log.d(TAG,"Cannot send null packet");
     }

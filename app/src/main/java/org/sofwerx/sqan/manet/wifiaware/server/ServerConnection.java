@@ -29,8 +29,6 @@ public class ServerConnection extends AbstractConnection {
     private Pairing pairing;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
 
-    private static ServerSocket serverSocket; //TODO
-
     public ServerConnection(@NonNull AbstractManet manet, Pairing pairing) {
         Log.d(TAG,"ServerConnection instantiated");
         if (manet instanceof ServerStatusListener)
@@ -40,31 +38,9 @@ public class ServerConnection extends AbstractConnection {
         serverConnections.add(this);
         this.pairing = pairing;
 
-        //TODO
-        //if (server == null) {
-        //    server = new Server(new SocketChannelConfig((String) null, AbstractManet.SQAN_PORT),manet.getParser(),listener);
-        //    server.start();
-        //}
-
-        //TODO
-        if (serverSocket == null) {
-            Log.d(TAG,"Building server socket...");
-            new Thread(() -> {
-                try {
-                    serverSocket = new ServerSocket(AbstractManet.SQAN_PORT,5, Pairing.getIpv6Address());
-                    if (serverSocket.isBound()) {
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "SocketServer bound and ready to accept connections on port " + serverSocket.getLocalPort());
-                    } else
-                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "SocketServer unable to bind to port " + AbstractManet.SQAN_PORT);
-                    while (keepGoing.get()) {
-                        serverSocket.accept();
-                        CommsLog.log(CommsLog.Entry.Category.CONNECTION, "SocketServer received a new connection");
-                    }
-                    //FIXME you need to build out the whole server here
-                } catch (IOException e) {
-                    Log.e(TAG,"Unable to start ServerSocket: "+e.getMessage());
-                }
-            }).start();
+        if (server == null) {
+            server = new Server(new SocketChannelConfig((String) null, AbstractManet.SQAN_PORT),manet.getParser(),listener);
+            server.start();
         }
     }
 
@@ -88,13 +64,15 @@ public class ServerConnection extends AbstractConnection {
     public boolean burst(AbstractPacket packet) {
         if ((server == null) || !server.isRunning() || (packet == null))
             return false;
+        if (server.getActiveConnectionCount() == 0)
+            return false;
         int dest = packet.getSqAnDestination();
         if (dest == PacketHeader.BROADCAST_ADDRESS) { //limit this burst to only the device on the other end of this pairing
             if ((pairing != null) && (pairing.getDevice() != null))
                 dest = pairing.getDevice().getUUID();
         }
         server.burst(packet,dest);
-        return false;
+        return true;
     }
 
     public static void closeAll() {

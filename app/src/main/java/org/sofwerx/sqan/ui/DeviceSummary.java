@@ -29,7 +29,8 @@ public class DeviceSummary extends ConstraintLayout {
     private ImageView iconLink;
     private ImageView iconLoc;
     private ImageView iconType;
-    private View markerBackhaul, markerWiFiAware;
+    private View markerBackhaul;
+    private TextView markerWiFiAware;
     private ImageView iconPing,iconForward;
     private TextView textDistance,textDistanceAccuracy;
     private boolean unavailable = false;
@@ -224,7 +225,14 @@ public class DeviceSummary extends ConstraintLayout {
             ipv4.setTextColor(getContext().getResources().getColor(R.color.white));
             description.setTextColor(getContext().getResources().getColor(significant ? R.color.yellow : R.color.white_hint_green));
             markerBackhaul.setVisibility(device.isBackhaulConnection()?View.VISIBLE:View.INVISIBLE);
-            markerWiFiAware.setVisibility(((device.getAwareMac()!=null)&&device.getAwareMac().isValid())?View.VISIBLE:View.INVISIBLE);
+            if ((device.getAwareMac()!=null)&&device.getAwareMac().isValid()) {
+                if (device.isDirectWiFiHighPerformance())
+                    markerWiFiAware.setTextColor(getResources().getColor(R.color.green));
+                else
+                    markerWiFiAware.setTextColor(getResources().getColor(R.color.yellow));
+                markerWiFiAware.setVisibility(View.VISIBLE);
+            } else
+                markerWiFiAware.setVisibility(View.INVISIBLE);
             if (iconType != null)
                 iconType.setColorFilter(getResources().getColor(R.color.white_hint_green));
             if (iconLoc != null) {
