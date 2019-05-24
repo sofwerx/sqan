@@ -3,6 +3,8 @@
 
 SqAN is an experimental effort to provide a Mobile Ad-hoc NETwork (MANET) in support of small, dismounted maneuver units, based solely on open source available techniques and pre-existing mobile device hardware.
 
+#### [Compiled APK (Android app installer)](https://github.com/sofwerx/sqan/releases/)
+
 ![WARNING! ](art/caution_geek.png "WARNING! ")
 
 _**SqAN is experimental and under active development!**_
@@ -36,28 +38,32 @@ Nearby Connections is currently utilized in the cluster configuration. A few mod
 Performance so far:
  - connections typically are taking around 1 min to stabalize
  - latency tends to be around 300ms, but a large portion of the connections so far appear to be utilizing access via a shared connection to the same WiFi router
- - no significant load testing has been conducted at this point
+ - high bandwidth traffic (like video) lags and becomes increasingly buffered over time
  - at or above 3 devices, the Nearby Connections mesh fragments or otherwise becomes unstable
 
 ### WiFi Aware approach
 
-WiFi Aware connections begin by the device subscribing and waiting a fixed amount (currently 1 min) for any device advertizing SqAN. If the device does not find an advertizer during that time, the device assumes the hub role, stops discovery, and begins advertising.
+WiFi Aware connections begin by simultaneously advertising and discovering. Mesh typically forms within one minute with typical formation around 10 seconds.
 
 Performance so far:
- - this capability is still under development and is temporaily blocked by some hardware issues
+ - like Nearby Connections, high bandwidth traffic lags and becomes increasingly buffered over time
+ - Connectivity with more than 2 devices not yet tested
 
 ### WiFi Direct approach
 
-WiFi Direct architecture is still under development but build on all devices performing Network Service Discovery and then one device self-selecting to be the Server with other devices then coming online as Clients.
+WiFi Direct architecture is built on all devices performing Network Service Discovery and then one device self-selecting to be the Server with other devices then coming online as Clients.
 
 Performance so far:
- - although occssional stability issues exist on start-up, possibly related to debugging starting and stopping, NSD occurs rather rapidly (typically under 15 sec)
+ - NSD occurs rather rapidly (typically under 15 sec)
  - Server/Client connections typically occur rapidly with the mesh forming often in under 3 seconds
- - Messages originating from the server or broadcast by the server have a bit (1-3 seconds) extra latency as the server queues outgoing messages but does not immediately burst them. This will need evaluation to see if the latency hit is worth the battery saving
+ - Mesh tends to perform fairly well with high bandwidth traffic like video to include supporting one hop between producer and consumer or in supporting more than one producer
+ - Stability problems appear to be mostly addressed
+ - All connected devices must be within the same WiFi Direct network (i.e. there is one hub and many spokes). Spokes communicate with each other relatively seemlessly but are still dependant on connection to the same hub (which may be reassigned over time)
+#### WiFi Direct is the highest performing mesh so far for high bandwitdh applications
 
 ### Augmenting WiFi Aware and Direct
 
-Since only Nearby Connections organically uses both WiFi and Bluetooth, a seperate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters.
+Since only Nearby Connections organically uses both WiFi and Bluetooth, a seperate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled.
 
 ### Bluetooth
 
@@ -66,6 +72,7 @@ Bluetooth mesh is available as a seperate, stand-alone options as well and SqAN 
 Performance so far:
  - After initial pairing process, Bluetooth based mesh appears to form relatively quickly, self heal consistently and maintain connectivity at distances in excess of 50m in open terrain
  - Some lower end and older devices occassionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
+#### Bluetooth mesh is the highesst perfoming mesh so far for lower bandwidth, lower energy usage, multi-hop applications
 
 ### WiFiManager
 
@@ -77,7 +84,7 @@ SqAN generates a moderately detailed log of connectivity and routing decisions i
 
 ### The Testing App
 
-The SqAN Test app found in the Testing folder servers two purposes: 1) to eventually provide a strucutred way to implement various load tests and 2) to provide an easy demo of SqAN actually doing something. The SqAN Test app contains a geographic based network map of how the devices are connecting as well as a rudimentary messaging capability to communicate by text messages between the apps. The SqAN Test app also serves as an example of how to use the SqAN channel IPC to provide app-to-app communication.
+The SqAN Test app found in the Testing folder serves two purposes: 1) to provide a structred way to implement various load tests and 2) to provide an easy demo of SqAN actually doing something. The SqAN Test app contains a geographic based network map of how the devices are connecting as well as a rudimentary messaging capability to communicate by text messages between the apps. The SqAN Test app also serves as an example of how to use the SqAN channel IPC to provide app-to-app communication.
 
 ## Sending data via IPC
 
@@ -93,7 +100,9 @@ The SOFWERX Swe-Library project (which provides for the ability to send SOS-T co
  
 ## Sending data via TCP/IP
  
-SqAN includes a VPN capability. This capability has been only marginally tested, but allows SqAN to route any TCP/IP traffic to another SqAN node. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN (although there is they are not currently displayed to the user), so the IPV4 of any connected SqAN device can be found remotely.
+SqAN includes a VPN capability. This capability has been marginally tested with both text and high bandwidth traffic (like video) and appears stable and performant. The VPN feature allows SqAN to route any TCP/IP traffic to another SqAN node as long as that traffic is within the forwarded IP block 169.254.x.x and also includes multicast capability for IP addresses in the 224.x.x.x, 225.x.x.x, 226.x.x.x and 239.x.x.x blocks. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN, so the IPV4 of any connected SqAN device can be found remotely.
+
+SqAN also provides a web server and hosts a page at the SqAN device's 169.254.x.x IP address for testing connections. If you application requires accessing web traffic, it is recommended that you disable the "Host a VPN page" setting.
 
 ## Connecting an outside (non-Android) Bluetooth Device
 
@@ -122,5 +131,9 @@ To connect, an outside bluetooth device must be able to pair and generate and re
 At this point SqAN relies solely on Bluetooth Security Level 3 to handle all pairing and Encryption in the Bluetooth Security Manager. This is implemented on the Android side through BluetoothSockets being formed from createRfcommSocketToServiceRecord calls rather than createInsecureRfcommSocketToServiceRecord calls. SqAN may someday fall back to these insecure RFC calls but that is not currently planned with the given encryption scheme.
  
 SqAN has a provisional stub for authentication and encryption handled and is based on an architecture that is fairly resiliant to flooding so later security measures can be implemented without protocol changes. That being said, the current approach which does not rely on export restricted code within SqAN relies heavily on the user not taking the affirative action to pair with a device they do not trust.
+
+### A note on Aware MANET security:
+
+The current Aware MANET should be considered insecure. Although capabilities are stubbed-out to facilitate securing that MANET approach, they have not been implemented and the MANET should be considered to be unencrypted.
  
 ### *WiFi Aware™, WiFi Direct®, and Bluetooth® are trademarked, but their trade marking characters have been ommitted from the majority of this readme as both symbols render distractingly oversized in some viewers.
