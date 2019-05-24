@@ -1,34 +1,32 @@
 sudo: required
 services:
-  - docker
+- docker
 language: bash
 env:
-  global:
-    - TAG=$TRAVIS_BRANCH
+- TAG=$TRAVIS_BRANCH
 script:
-  - echo "TAG: ${TAG} TRAVIS_TAG: ${TRAVIS_TAG} TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
-  - make
-  - ls -la
-  - cp app-full-debug.apk sqan-debug_${TAG}.apk
-  - cp testing/app-full-debug.apk sqantest-debug_${TAG}.apk
-  - cp app-full-release-unsigned.apk sqan-release-unsigned_${TAG}.apk
+- make
+- ls -la
+- cp app-full-debug.apk sqan-debug_${TAG}.apk
+- cp testing/app-full-debug.apk sqantest-debug_${TAG}.apk
+- cp app-full-release-unsigned.apk sqan-release-unsigned_${TAG}.apk
 after_success:
-  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-  - docker push sofwerx/sqan:${TAG}
+- docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+- docker push sofwerx/sqan:${TAG}
 branches:
-  only:
-    - master
-    - travis-only
-    - "/^v\\d.*$/"
+only:
+- master
+- travis-only
+- "/^v\\d.*$/"
 deploy:
-  provider: releases
-  skip_cleanup: true
-  api_key: "${GITHUB_TOKEN}"
-  file:
-    - sqan-debug_${TAG}.apk
-    - sqantest-debug_${TAG}.apk
-    - sqan-release-unsigned_${TAG}.apk
-  on:
-    tags: true
-    repo: "${TRAVIS_REPO_SLUG}"
+provider: releases
+skip_cleanup: true
+api_key: "${GITHUB_TOKEN}"
+file:
+- sqan-debug_${TAG}.apk
+- sqantest-debug_${TAG}.apk
+- sqan-release-unsigned_${TAG}.apk
+on:
+tags: true
+repo: "${TRAVIS_REPO_SLUG}"
 
