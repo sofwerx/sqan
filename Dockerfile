@@ -15,7 +15,7 @@ RUN wget -q https://dl.google.com/android/repository/${sdk_version} \
  && unzip -q ${sdk_version} \
  && rm ${sdk_version}
 
-#ENV ANDROID_NDK_HOME=/android/android-ndk-${ANDROID_NDK_VERSION}
+#ENV ANDROID_NDK_HOME=${ANDROID_HOME}/android-ndk-${ANDROID_NDK_VERSION}
 ENV PATH=${ANDROID_HOME}/tools:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${ANDROID_NDK_HOME}:$PATH
 
 RUN mkdir -p ${ANDROID_HOME}/licenses \
@@ -49,9 +49,9 @@ RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n 
 RUN chmod og+x ./gradlew
 RUN ./gradlew build
 
-WORKDIR ${testdir}
-RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' build.gradle
-RUN chmod og+x ./gradlew
-RUN ./gradlew build
+#WORKDIR ${testdir}
+RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' ${testdir}/build.gradle
+RUN chmod og+x ${testdir}/gradlew
+RUN ${testdir}/gradlew build
 
 CMD sleep 3600
