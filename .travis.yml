@@ -6,7 +6,6 @@ env:
   global:
     - TAG=$TRAVIS_BRANCH
 script:
-  - if [ -z "$TAG" ] ; then TAG=untagged ; fi
   - echo "TAG: ${TAG} TRAVIS_TAG: ${TRAVIS_TAG} TRAVIS_BRANCH: ${TRAVIS_BRANCH}"
   - make
   - ls -la
