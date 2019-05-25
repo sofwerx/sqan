@@ -2,7 +2,6 @@ package org.sofwerx.sqan.manet.common;
 
 import android.bluetooth.BluetoothAdapter;
 import android.util.Log;
-import android.util.TimeUtils;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
@@ -58,6 +57,7 @@ public class SqAnDevice {
     private boolean directBt = false;
     private boolean directWiFi = false;
     private boolean directWiFiHiPerf = false; //is high performance WiFi connected
+    private boolean directSDR = false;
     private long lastHopUpdate = Long.MIN_VALUE;
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
@@ -250,6 +250,11 @@ public class SqAnDevice {
         }
     }
 
+    public void setDirectSDR(boolean directSDR) {
+        this.directSDR = directSDR;
+        hopsAway = 0;
+    }
+
     /**
      * Is this device connected with a high performance version of WiFi (as opposed to something like using WiFi
      * Aware messages
@@ -332,7 +337,18 @@ public class SqAnDevice {
     public boolean isBtPreferred() {
         switch (preferredTransport) {
             case BLUETOOTH:
-            case BOTH:
+            case ALL:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    public boolean isSdrPreferred() {
+        switch (preferredTransport) {
+            case SDR:
+            case ALL:
                 return true;
 
             default:
@@ -343,7 +359,7 @@ public class SqAnDevice {
     public boolean isWiFiPreferred() {
         switch (preferredTransport) {
             case WIFI:
-            case BOTH:
+            case ALL:
                 return true;
 
             default:
@@ -542,6 +558,8 @@ public class SqAnDevice {
                     else
                         device.removePreferBt();
                 }
+                if (device.directSDR)
+                    device.addPreferSDR();
             } else
                 device.preferredTransport = TransportPreference.AGNOSTIC;
         }
@@ -553,8 +571,8 @@ public class SqAnDevice {
     public void addPreferWiFi() {
         switch (preferredTransport) {
             case BLUETOOTH:
-            case BOTH:
-                preferredTransport = TransportPreference.BOTH;
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
                 break;
 
             default:
@@ -568,8 +586,8 @@ public class SqAnDevice {
     public void addPreferBt() {
         switch (preferredTransport) {
             case WIFI:
-            case BOTH:
-                preferredTransport = TransportPreference.BOTH;
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
                 break;
 
             default:
@@ -578,11 +596,27 @@ public class SqAnDevice {
     }
 
     /**
+     * Updates this device's routing preference to include WiFi
+     */
+    public void addPreferSDR() {
+        switch (preferredTransport) {
+            case WIFI:
+            case BLUETOOTH:
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.SDR;
+        }
+    }
+
+    /**
      * Updates this device's routing preference to exclude WiFI
      */
     public void removePreferWiFi() {
         switch (preferredTransport) {
-            case BOTH:
+            case ALL:
             case BLUETOOTH:
                 preferredTransport = TransportPreference.BLUETOOTH;
                 break;
@@ -597,7 +631,7 @@ public class SqAnDevice {
      */
     public void removePreferBt() {
         switch (preferredTransport) {
-            case BOTH:
+            case ALL:
             case WIFI:
                 preferredTransport = TransportPreference.WIFI;
                 break;
