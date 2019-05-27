@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
@@ -31,6 +32,7 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
  */
 public class SdrManet extends AbstractManet implements AcceptListener, DeviceConnectionListener, ReadListener {
     private static final int MAX_PACKET_SIZE = 64000; //TODO arbitrary
+    private final static long INTERVAL_BEFORE_STALE = 1000l * 60l;
     private static final long TIME_BETWEEN_TEAMMATE_CHECKS = 1000l * 15l;
     private static final long OLD_DEVICE_CHECK_INTERVAL = 1000l * 60l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
@@ -39,6 +41,8 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
     private long nextTeammateCheck = Long.MIN_VALUE;
     private long nextOldDeviceCheck = Long.MIN_VALUE;
     private static SdrManet instance;
+    private long staleTime = Long.MIN_VALUE;
+    //TODO private SqANDRService sqANDRService;
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
@@ -64,15 +68,15 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
 
     @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
-        //TODO
+        //ignore
     }
 
     @Override
-    public String getName() { return "Bluetooth Only"; }
+    public String getName() { return "Software Defined Radio"; }
 
     @Override
     public void init() throws ManetException {
-        Log.d(TAG,"BtManetV2 init()");
+        Log.d(TAG,"SDR Manet init()");
         isRunning.set(true);
         setStatus(Status.ADVERTISING_AND_DISCOVERING);
         connectToTeammates();
@@ -92,12 +96,14 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
             return;
         }
         if (bytes.length > getMaximumPacketSize()) {
-            Log.d(TAG, "Packet larger than " + getName() + " max; segmenting and sending");
-            //TODO segment and burst
+            Log.e(TAG, "Packet larger than " + getName() + " max; dropping packet");
         } else {
             handler.post(() -> {
                 Log.d(TAG, "burst() - " + bytes.length + "b");
                 //TODO burst over SqANDR
+                ManetOps.addBytesToTransmittedTally(bytes.length);
+                if (listener != null)
+                    listener.onTx(bytes);
             });
         }
     }
@@ -114,8 +120,6 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
         }
         Log.d(TAG,"Bursting "+packet.getClass().getSimpleName());
         burst(packet.toByteArray(), packet.getSqAnDestination(), packet.getOrigin());
-        if (listener != null)
-            listener.onTx(packet);
     }
 
     @Override
@@ -209,6 +213,7 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
             //TODO
             return;
         }
+        setCurrent();
         onReceived(packet);
     }
 
@@ -220,5 +225,24 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
     @Override
     public void onPacketDropped() {
         CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error parsing data, packet dropped");
+    }
+
+    @Override
+    public boolean isRunning() {
+        if (false /*TODO sqandr not running*/)
+            return false;
+        return super.isRunning();
+    }
+
+    private void setCurrent() {
+        staleTime = System.currentTimeMillis() + INTERVAL_BEFORE_STALE;
+    }
+
+    /**
+     * Is this manet stale (i.e. no traffic has been received recently)?
+     * @return true == no traffic has been received recently
+     */
+    public boolean isStale() {
+        return (System.currentTimeMillis() > staleTime);
     }
 }

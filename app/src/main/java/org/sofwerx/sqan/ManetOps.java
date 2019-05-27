@@ -697,19 +697,26 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     public boolean isBtManetAvailable() {
-        if (!isBtManetSelected() || !shouldBeActive)
+        if (!isBtManetSelected() || !shouldBeActive || (btManet == null))
             return false;
         return btManet.isRunning();
     }
 
     public boolean isSdrManetAvailable() {
-        if (!isSdrManetSelected() || !shouldBeActive)
+        if (!isSdrManetSelected() || !shouldBeActive || (sdrManet == null))
             return false;
         return sdrManet.isRunning();
     }
 
+
+    public boolean isSdrManetActive() {
+        if (sdrManet == null)
+            return false;
+        return !sdrManet.isStale();
+    }
+
     public boolean isWiFiManetAvailable() {
-        if ((wifiManet == null) || !shouldBeActive)
+        if ((wifiManet == null) || !shouldBeActive || (wifiManet == null))
             return false;
         return wifiManet.isRunning();
     }

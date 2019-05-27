@@ -49,7 +49,7 @@
                 app:layout_constraintTop_toBottomOf="@+id/frameLayout">
 
 
-                <Switch
+                <!--<Switch
                     android:id="@+id/mainSwitchActive"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -58,7 +58,7 @@
                     android:textOff="Off"
                     android:textOn="Active"
                     app:layout_constraintBottom_toTopOf="@+id/textView"
-                    app:layout_constraintStart_toStartOf="parent" />
+                    app:layout_constraintStart_toStartOf="parent" />-->
 
 
                 <TextView
@@ -132,7 +132,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="status messages"
-                    app:layout_constraintStart_toStartOf="@+id/mainIconTxStatus"
+                    app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/mainIconTxStatus" />
 
                 <TextView
@@ -157,7 +157,31 @@
                     android:text="BT Role (Congested)"
                     android:textColor="@color/white_hint_green"
                     app:layout_constraintStart_toEndOf="@+id/mainRoleWiFi"
-                    app:layout_constraintEnd_toStartOf="@+id/mainBackhaul"
+                    app:layout_constraintEnd_toStartOf="@+id/mainRoleSDR"
+                    app:layout_constraintTop_toBottomOf="@+id/mainTextTemp" />
+
+                <TextView
+                    android:id="@+id/mainRoleSDR"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="center_vertical"
+                    android:drawableStart="@drawable/ic_sdr_green"
+                    android:text="SDR"
+                    android:textColor="@color/white_hint_green"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/mainTextTemp" />
+
+                <TextView
+                    android:id="@+id/mainRoleSDRstale"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="center_vertical"
+                    android:drawableStart="@drawable/ic_sdr_grey"
+                    android:text="SDR"
+                    android:textColor="@color/light_grey"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/mainTextTemp" />
 
                 <TextView
@@ -170,7 +194,7 @@
                     android:text="Backhaul"
                     android:textColor="@color/white_hint_green"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/mainTextTemp" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/mainLocation"
@@ -180,9 +204,9 @@
                     android:gravity="center_vertical"
                     android:text="error"
                     android:textColor="@color/white_hint_green"
-                    app:layout_constraintBottom_toBottomOf="@+id/mainTextSysStatus"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toEndOf="@+id/mainSysStatusInfo" />
+                    app:layout_constraintStart_toEndOf="@+id/mainSysStatusInfo"
+                    app:layout_constraintTop_toBottomOf="@+id/mainBackhaul" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
