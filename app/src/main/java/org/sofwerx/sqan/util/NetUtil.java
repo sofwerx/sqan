@@ -265,6 +265,50 @@ public class NetUtil {
         return (byte)(dscpByte & MASK_DSCP);
     }
 
+    public enum PacketType {TCP,UDP,OTHER};
+
+    public static PacketType getPacketType(byte[] packet) {
+        if ((packet == null) || (packet.length < 10))
+            return PacketType.OTHER;
+        switch(packet[9]) {
+            case 17:
+                return PacketType.UDP;
+
+            case 6:
+                return PacketType.TCP;
+
+            default:
+                return PacketType.OTHER;
+        }
+    }
+
+    private final static byte MASK_IPV4_IHL = 0b00001111;
+
+    private static int getHeaderLength(byte[] packet) {
+        if ((packet == null) || (packet.length < 1))
+            return -1;
+        byte ihl = (byte)(packet[0] & MASK_IPV4_IHL);
+
+        return ihl * 4;
+    }
+
+    public static int getPort(byte[] packet) {
+        int port = -1;
+        if (packet != null) {
+            int offset = getHeaderLength(packet);
+            if ((offset > 0) && (offset < packet.length)) {
+                byte[] intbytes = new byte[4];
+                intbytes[0] = (byte)0;
+                intbytes[1] = (byte)0;
+                //FIXME this isn't right
+                intbytes[2] = packet[offset];
+                intbytes[3] = packet[offset+1];
+                port = byteArrayToInt(intbytes);
+            }
+        }
+        return port;
+    }
+
     public static Inet6Address getAwareAddress(Context context, Network network) {
         if (context == null)
             return null;

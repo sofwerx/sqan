@@ -78,7 +78,7 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
     public void init() throws ManetException {
         Log.d(TAG,"SDR Manet init()");
         isRunning.set(true);
-        setStatus(Status.ADVERTISING_AND_DISCOVERING);
+        setStatus(Status.OFF);
         connectToTeammates();
         //TODO
     }
