@@ -38,6 +38,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
     private CoordinatorLayout coordinatorLayout;
     private BluetoothAdapter bluetoothAdapter;
     private View viewSearching;
+    private View viewConnDetails;
     private Timer discoveryProblemCheckTimer = null;
     private int teammateCountBeforeDiscovery = 0;
 
@@ -49,6 +50,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
         teammatesList = findViewById(R.id.storedTeammatesList);
         fabFix = findViewById(R.id.storedTeammatesRepair);
         viewSearching = findViewById(R.id.storedTeammatesFindOthers);
+        viewConnDetails = findViewById(R.id.storedTeammatesConnDetails);
         fabFix.setOnClickListener(v -> repair());
         final BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
@@ -57,6 +59,7 @@ public class StoredTeammatesActivity extends AppCompatActivity implements Stored
         intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         intentFilter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
         registerReceiver(receiver,intentFilter);
+        viewConnDetails.setOnClickListener(v -> startActivity(new Intent(StoredTeammatesActivity.this,ConnectionDetailsActivity.class)));
     }
 
     @Override

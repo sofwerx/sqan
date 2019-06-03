@@ -4,6 +4,7 @@ import android.location.Location;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.StringUtil;
 
 import java.nio.ByteBuffer;
 
@@ -204,5 +205,26 @@ public class SpaceTime {
         if ((other == null) || Float.isNaN(accuracy) || Float.isNaN(other.accuracy) || (accuracy < 0f) || (other.accuracy < 0f))
             return Float.NaN;
         return (accuracy + other.accuracy) + 0.67f;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        if (isValid()) {
+            sb.append(String.format("%.5f", latitude));
+            sb.append(",");
+            sb.append(String.format("%.5f", longitude));
+            if (!Double.isNaN(altitude)) {
+                sb.append(",");
+                sb.append((int)(altitude));
+                sb.append("ft MSL");
+            }
+            if (!Double.isNaN(accuracy))
+                sb.append(", ±"+(int)accuracy+"ft");
+            sb.append(" ");
+            sb.append(StringUtil.toDuration(System.currentTimeMillis() - time)+" ago");
+        } else
+            sb.append("no location");
+        return sb.toString();
     }
 }

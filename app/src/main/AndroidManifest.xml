@@ -47,6 +47,10 @@
             android:launchMode="singleTask"
             android:label="Saved Teammates"
             android:resizeableActivity="true" />
+        <activity android:name=".ui.ConnectionDetailsActivity"
+            android:launchMode="singleTask"
+            android:label="Connected Devices"
+            android:resizeableActivity="true" />
         <activity
             android:name=".ui.SettingsActivity"
             android:label="@string/settings"

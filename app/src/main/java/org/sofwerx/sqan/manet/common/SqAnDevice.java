@@ -72,6 +72,90 @@ public class SqAnDevice {
     //private boolean awareServer = false;
     //private Inet6Address ipv6 = null;
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Callsign: ");
+        if (callsign == null)
+            sb.append("NONE");
+        else
+            sb.append(callsign);
+        if (status != null) {
+            sb.append(", ");
+            sb.append(status.name());
+        }
+        sb.append(", BT MAC: ");
+        if ((bluetoothMac == null) || !bluetoothMac.isValid())
+            sb.append("unknown");
+        else
+            sb.append(bluetoothMac.toString());
+        if ((networkId != null) && (networkId.length() > 0)) {
+            sb.append(", transient WiFI ID ");
+            sb.append(networkId);
+        }
+        if (transientAwareId != UNASSIGNED_UUID) {
+            sb.append(", AWARE ID ");
+            sb.append(Integer.toString(transientAwareId));
+        }
+        if (lastConnect > 0l)
+            sb.append(", last comms "+StringUtil.toDuration(System.currentTimeMillis() - lastConnect)+" ago");
+        if (backhaulConnection)
+            sb.append(", is backhaul connection");
+        if ((roleWiFi != null) && (roleWiFi != NodeRole.OFF)) {
+            sb.append(", WiFi role ");
+            sb.append(roleWiFi.name());
+        }
+        if ((roleBT != null) && (roleBT != NodeRole.OFF)) {
+            sb.append(", BT role ");
+            sb.append(roleBT.name());
+        }
+        if (hopsAway == 0)
+            sb.append(", directly connected");
+        else
+            sb.append(", "+hopsAway+" hop"+((hopsAway==1)?"":"s")+" away");
+        sb.append(", preferred transport: ");
+        sb.append(preferredTransport.name());
+        if (directWiFiHiPerf)
+            sb.append(", requires high performance WiFi");
+        sb.append(", ");
+        sb.append(StringUtil.toDataSize(rxDataTally)+" received");
+        if (connectionStart > 0l) {
+            sb.append(" since connecting ");
+            sb.append(StringUtil.toDuration(System.currentTimeMillis() - connectionStart));
+            sb.append(" ago");
+        }
+        if (lastLocation != null) {
+            sb.append(", location (");
+            sb.append(lastLocation.toString());
+            sb.append(")");
+        }
+        if ((relays != null) && !relays.isEmpty()) {
+            sb.append(", connected to [");
+            boolean first = true;
+            for (RelayConnection relay:relays) {
+                if (first)
+                    first = false;
+                else
+                    sb.append(", ");
+                sb.append(relay.toString());
+            }
+            sb.append("]");
+        }
+        if (packetsDropped > 0)
+            sb.append(packetsDropped+" packet"+((packetsDropped==1)?"":"s")+" dropped");
+        if ((awareMac != null) && awareMac.isValid())
+            sb.append(", AWARE MAC "+awareMac.toString());
+        if (awareServerIp != null)
+            sb.append(", AWARE IP "+awareServerIp.getHostAddress());
+        if ((issues != null) && (issues.size() > 0)) {
+            sb.append(", ");
+            sb.append(issues.get(issues.size()-1).toString());
+        }
+
+        return sb.toString();
+    }
+
     /**
      * SqAnDevice
      * @param uuid == the persistent UUID associated with SqAN on this physical device
