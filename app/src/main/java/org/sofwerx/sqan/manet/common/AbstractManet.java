@@ -19,6 +19,7 @@ import org.sofwerx.sqan.manet.common.sockets.PacketParser;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
+import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManetV2;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
@@ -100,6 +101,9 @@ public abstract class AbstractManet {
 
             case BT_ONLY:
                 return new BtManetV2(handler, context, listener);
+
+            case SDR:
+                return new SdrManet(handler, context, listener);
 
             default:
                 return null;

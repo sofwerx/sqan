@@ -41,11 +41,17 @@ public class Discovery {
         bluetoothAdapter = bluetoothManager.getAdapter();
     }
 
+    public static Set<BluetoothDevice> getPairedDevices(Activity activity) {
+        final BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
+        final BluetoothAdapter btAdapter = bluetoothManager.getAdapter();
+        return btAdapter.getBondedDevices();
+    }
+
     /**
      * Try to advertise
      */
     public void startAdvertising() {
-        Log.d(Config.TAG,"starting Advertising");
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth Advertising started");
         //try to build teammates based on already paired devices
         Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() > 0) {
@@ -62,7 +68,7 @@ public class Discovery {
                 if ((currentName == null) || !currentName.equalsIgnoreCase(correctUuid)) {
                     originalBtName = currentName;
                     bluetoothAdapter.setName(correctUuid);
-                    Log.d(Config.TAG, "Changing device Bluetooth name from " + originalBtName + " to " + correctUuid);
+                    CommsLog.log(CommsLog.Entry.Category.STATUS,"Changing device Bluetooth name from " + originalBtName + " to " + correctUuid);
                 }
             }
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -76,9 +82,10 @@ public class Discovery {
 
     public void stopAdvertising() {
         if (originalBtName != null) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth Advertising stopped");
             Log.d(Config.TAG,"stopping Advertising");
             if (bluetoothAdapter.isEnabled()) {
-                Log.d(Config.TAG,"Restoring device bluetooth name to "+originalBtName);
+                CommsLog.log(CommsLog.Entry.Category.STATUS,"Restoring device bluetooth name to "+originalBtName);
                 bluetoothAdapter.setName(originalBtName);
             }
         }
@@ -94,9 +101,9 @@ public class Discovery {
                 filter.addAction(BluetoothDevice.ACTION_UUID);
                 activity.registerReceiver(receiver, filter);
                 if (bluetoothAdapter.startDiscovery())
-                    Log.d(Config.TAG, "starting Discovery");
+                    CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth discovery started");
                 else
-                    Log.d(Config.TAG, "starting Discovery failed");
+                    CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Bluetooth discovery failed");
             }
         }
 
@@ -106,8 +113,9 @@ public class Discovery {
             for (BluetoothDevice device : pairedDevices) {
                 handleFoundDevice(device);
             }
-        } else
-            Log.d(Config.TAG,"startDiscovery() - No previously paired devices available");
+        } else {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth discovery did not find any previously paired devices");
+        }
     }
 
     private static boolean hasPairedMac(MacAddress mac, Set<BluetoothDevice> pairedDevices) {
@@ -138,7 +146,7 @@ public class Discovery {
     }
 
     public void stopDiscovery() {
-        Log.d(Config.TAG,"stopping Discovery");
+        CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth discovery stopped");
         if (activity != null)
             activity.unregisterReceiver(receiver);
     }
@@ -162,7 +170,7 @@ public class Discovery {
         //if (!isSqAn)
         //    isSqAn = (deviceName != null) && deviceName.startsWith(SQAN_PREFIX);
         if (isSqAn) {
-            Log.d(Config.TAG,"SqAN Bluetooth device found");
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"SqAN Bluetooth device found: "+((deviceName==null)?"":deviceName)+" ("+device.getAddress()+")");
             int uuid = SqAnDevice.UNASSIGNED_UUID;
             if ((teammate == null) && (deviceName != null)) {
                 try {
@@ -175,7 +183,7 @@ public class Discovery {
             String deviceHardwareAddress = device.getAddress(); // MAC address
             boolean changed = false;
             if (teammate == null) {
-                Log.d(Config.TAG,"New SqAN teammate found");
+                CommsLog.log(CommsLog.Entry.Category.STATUS,"New SqAN teammate found");
                 teammate = Config.saveTeammate(uuid,null,null,MacAddress.build(deviceHardwareAddress));
                 if (teammate != null)
                     teammate.setBtName(device.getName());
@@ -256,7 +264,7 @@ public class Discovery {
             Log.e(Config.TAG,"Discovery cannot request pairing with a null MAC");
             return;
         }
-        Log.d(Config.TAG,"Requesting a pairing with "+mac);
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Requesting a pairing with "+mac);
         pairDevice(bluetoothAdapter.getRemoteDevice(mac));
     }
 }

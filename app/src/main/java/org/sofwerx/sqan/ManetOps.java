@@ -23,6 +23,7 @@ import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.manet.nearbycon.NearbyConnectionsManet;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManetV2;
 import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
@@ -37,6 +38,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     private final SqAnService sqAnService;
     private AbstractManet wifiManet;
     private BtManetV2 btManet;
+    private SdrManet sdrManet;
     private static long transmittedByteTally = 0l;
     private static long nextLoggerTransmittedBytes = 0l;
     private final static long BYTES_TO_TX_BETWEEN_LOGGING = 1024l * 1024l;
@@ -68,23 +70,33 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     case 1:
                         wifiManet = new NearbyConnectionsManet(handler,sqAnService,ManetOps.this);
                         btManet = null;
+                        sdrManet = null;
                         break;
 
                     case 2:
                         wifiManet = new WiFiAwareManetV2(handler,sqAnService,ManetOps.this);
                         //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
                         btManet = null; //TODO
+                        sdrManet = null;
                         break;
 
                     case 3:
                         wifiManet = new WiFiDirectManet(handler,sqAnService,ManetOps.this);
                         //TODO btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
                         btManet = null; //TODO
+                        sdrManet = null;
                         break;
 
                     case 4:
                         wifiManet = null;
                         btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
+                        sdrManet = null;
+                        break;
+
+                    case 5:
+                        wifiManet = null;
+                        btManet = null;
+                        sdrManet = new SdrManet(handler,sqAnService,ManetOps.this);
                         break;
 
                     default:
@@ -156,6 +168,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         }
                     } catch (ManetException ignore) {
                     }
+                    try {
+                        if (sdrManet != null) {
+                            Log.d(Config.TAG, "Sending hangup notification to SDR MANET");
+                            sdrManet.burst(new DisconnectingPacket(Config.getThisDevice().getUUID()));
+                        }
+                    } catch (ManetException ignore) {
+                    }
                     if (handler != null)
                         handler.postDelayed(() -> {
                             Log.d(Config.TAG,"Preparing to disconnect MANETs...");
@@ -173,6 +192,15 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                     btManet.disconnect();
                                     btManet = null;
                                     Log.d(Config.TAG, "Disconnected from Bluetooth MANET normally");
+                                }
+                            } catch (ManetException e) {
+                                Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                            }
+                            try {
+                                if (sdrManet != null) {
+                                    sdrManet.disconnect();
+                                    sdrManet = null;
+                                    Log.d(Config.TAG, "Disconnected from SDR MANET normally");
                                 }
                             } catch (ManetException e) {
                                 Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
@@ -197,6 +225,15 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         } catch (ManetException e) {
                             Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
                         }
+                        try {
+                            if (sdrManet != null) {
+                                sdrManet.disconnect();
+                                sdrManet = null;
+                                Log.d(Config.TAG, "Disconnected from SDR MANET without handler");
+                            }
+                        } catch (ManetException e) {
+                            Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                        }
                     }
                 });
             } else {
@@ -214,6 +251,15 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         btManet.disconnect();
                         Log.d(Config.TAG, "Disconnected from Bluetooth MANET with handler already closed");
                         btManet = null;
+                    }
+                } catch (ManetException e) {
+                    Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+                }
+                try {
+                    if (sdrManet != null) {
+                        sdrManet.disconnect();
+                        Log.d(Config.TAG, "Disconnected from SDR MANET with handler already closed");
+                        sdrManet = null;
                     }
                 } catch (ManetException e) {
                     Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
@@ -243,6 +289,15 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
             } catch (ManetException e) {
                 Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
             }
+            try {
+                if (sdrManet != null) {
+                    sdrManet.disconnect();
+                    Log.d(Config.TAG,"Disconnected from SDR MANET with manetThread already closed");
+                    sdrManet = null;
+                }
+            } catch (ManetException e) {
+                Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
+            }
         }
     }
 
@@ -264,6 +319,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 Log.e(Config.TAG,"Unable to pause MANET: "+e.getMessage());
             }
         }
+        if (sdrManet != null) {
+            try {
+                sdrManet.pause();
+            } catch (ManetException e) {
+                Log.e(Config.TAG,"Unable to pause MANET: "+e.getMessage());
+            }
+        }
     }
 
     public void start() {
@@ -280,6 +342,13 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 if (btManet != null) {
                     try {
                         btManet.init();
+                    } catch (ManetException e) {
+                        sqAnService.onStatusChange(Status.ERROR, e.getMessage());
+                    }
+                }
+                if (sdrManet != null) {
+                    try {
+                        sdrManet.init();
                     } catch (ManetException e) {
                         sqAnService.onStatusChange(Status.ERROR, e.getMessage());
                     }
@@ -413,21 +482,29 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     public Status getStatus() {
-        if ((wifiManet == null) && (btManet == null))
-            return Status.OFF;
+        int wifi;
         if (wifiManet == null)
-            return btManet.getStatus();
+            wifi = Status.OFF.ordinal();
+        else
+            wifi = wifiManet.getStatus().ordinal();
+        int bt;
         if (btManet == null)
-            return wifiManet.getStatus();
-        int wifi = wifiManet.getStatus().ordinal();
-        int bt = btManet.getStatus().ordinal();
-        if (wifi > bt)
-            return wifiManet.getStatus();
-        return btManet.getStatus();
+            bt = Status.OFF.ordinal();
+        else
+            bt = btManet.getStatus().ordinal();
+        int sdr;
+        if (sdrManet == null)
+            sdr = Status.OFF.ordinal();
+        else
+            sdr = sdrManet.getStatus().ordinal();
+        int max = Math.max(wifi,bt);
+        max = Math.max(max,sdr);
+        return Status.values()[max];
     }
 
     public AbstractManet getWifiManet() { return wifiManet; }
     public AbstractManet getBtManet() { return btManet; }
+    public AbstractManet getSdrManet() { return sdrManet; }
 
     public void burst(AbstractPacket packet) {
         burst(packet, TransportPreference.AGNOSTIC);
@@ -438,7 +515,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
             Log.d(Config.TAG, "ManetOps cannot burst a null packet");
             return;
         }
-        if ((btManet == null) && (wifiManet == null))
+        if ((btManet == null) && (wifiManet == null) && (sdrManet == null))
             Log.d(Config.TAG,"ManetOps cannot burst without an available MANET");
         else {
             if (handler != null) {
@@ -447,6 +524,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                         if ((preferredTransport == null) || (preferredTransport == TransportPreference.AGNOSTIC)) {
                             boolean btGood = (btManet != null) && (btManet.getStatus() == Status.CONNECTED);
                             boolean wifiGood = (wifiManet != null) && (wifiManet.getStatus() == Status.CONNECTED);
+                            boolean sdrGood = (sdrManet != null) && (sdrManet.getStatus() == Status.CONNECTED);
                             if (btGood && wifiGood) {
                                 if (packet.isHighPerformanceNeeded())
                                     wifiManet.burst(packet);
@@ -488,19 +566,25 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                     wifiManet.burst(packet);
                                 if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                     btManet.burst(packet);
+                                if (sdrGood)
+                                    sdrManet.burst(packet);
                             }
                         } else {
-                            if ((preferredTransport == null) || (preferredTransport == TransportPreference.BOTH)) {
+                            if ((preferredTransport == null) || (preferredTransport == TransportPreference.ALL)) {
                                 if (wifiManet != null)
                                     wifiManet.burst(packet);
                                 if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                     btManet.burst(packet);
+                                if ((sdrManet != null))
+                                    sdrManet.burst(packet);
                             } else if (preferredTransport == TransportPreference.WIFI) {
                                 if (wifiManet != null)
                                     wifiManet.burst(packet);
                                 else {
                                     if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
                                         btManet.burst(packet);
+                                    else if (sdrManet != null)
+                                        sdrManet.burst(packet);
                                 }
                             } else if (preferredTransport == TransportPreference.BLUETOOTH) {
                                 if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
@@ -508,6 +592,17 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                                 else {
                                     if (wifiManet != null)
                                         wifiManet.burst(packet);
+                                    else if (sdrManet != null)
+                                        sdrManet.burst(packet);
+                                }
+                            } else if (preferredTransport == TransportPreference.SDR) {
+                                if (sdrManet != null)
+                                    sdrManet.burst(packet);
+                                else {
+                                    if (wifiManet != null)
+                                        wifiManet.burst(packet);
+                                    else if ((btManet != null) && (!Config.isLargeDataWiFiOnly() || !packet.isHighPerformanceNeeded()))
+                                        btManet.burst(packet);
                                 }
                             }
                         }
@@ -552,6 +647,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                     btManet.executePeriodicTasks();
                 if (wifiManet != null)
                     wifiManet.executePeriodicTasks();
+                if (sdrManet != null)
+                    sdrManet.executePeriodicTasks();
                 SqAnDevice.updateDeviceRoutePreferences();
             });
     }
@@ -576,6 +673,14 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     /**
+     * Does the current mesh strategy include an SDR manet
+     * @return
+     */
+    public boolean isSdrManetSelected() {
+        return (sdrManet != null);
+    }
+
+    /**
      * Does the current mesh strategy include a WiFi Direct manet
      * @return
      */
@@ -592,13 +697,26 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     public boolean isBtManetAvailable() {
-        if (!isBtManetSelected() || !shouldBeActive)
+        if (!isBtManetSelected() || !shouldBeActive || (btManet == null))
             return false;
         return btManet.isRunning();
     }
 
+    public boolean isSdrManetAvailable() {
+        if (!isSdrManetSelected() || !shouldBeActive || (sdrManet == null))
+            return false;
+        return sdrManet.isRunning();
+    }
+
+
+    public boolean isSdrManetActive() {
+        if (sdrManet == null)
+            return false;
+        return !sdrManet.isStale();
+    }
+
     public boolean isWiFiManetAvailable() {
-        if ((wifiManet == null) || !shouldBeActive)
+        if ((wifiManet == null) || !shouldBeActive || (wifiManet == null))
             return false;
         return wifiManet.isRunning();
     }

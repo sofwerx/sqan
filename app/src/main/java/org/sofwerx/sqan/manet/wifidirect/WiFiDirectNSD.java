@@ -78,6 +78,7 @@ class WiFiDirectNSD {
                                     new WifiP2pManager.ActionListener() {
                                         @Override
                                         public void onSuccess() {
+                                            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct Discovery started");
                                             Log.d(TAG,"discoverServices.onSuccess()");
                                             if (listener != null)
                                                 listener.onDiscoveryStarted();
@@ -85,6 +86,7 @@ class WiFiDirectNSD {
 
                                         @Override
                                         public void onFailure(int code) {
+                                            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct Discovery failed: "+Util.getFailureStatusString(code));
                                             Log.d(TAG,"discoverServices.onFailure("+Util.getFailureStatusString(code)+")");
                                         }
                                     });
@@ -92,10 +94,10 @@ class WiFiDirectNSD {
 
                         @Override
                         public void onFailure(int code) {
+                            CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct Discovery failed: "+Util.getFailureStatusString(code));
                             Log.d(TAG,"serviceRequest.onFailure("+Util.getFailureStatusString(code)+")");
                         }
                     });
-            CommsLog.log(CommsLog.Entry.Category.STATUS,"Discovery mode started");
         }
     }
 
@@ -107,17 +109,19 @@ class WiFiDirectNSD {
                 manager.clearLocalServices(channel, new WifiP2pManager.ActionListener() {
                     @Override
                     public void onSuccess() {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct Advertising started");
                         Log.d(TAG,"clearLocalServices.onSuccess()");
                     }
 
                     @Override
                     public void onFailure(int code) {
+                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct Advertising failed: "+Util.getFailureStatusString(code));
                         Log.d(TAG,"clearLocalServices.onFailure("+Util.getFailureStatusString(code)+")");
                     }
                 });
             } else
                 manager.clearLocalServices(channel,listener);
-            CommsLog.log(CommsLog.Entry.Category.STATUS,"Advertising mode stopped");
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct Advertising stopped");
         }
     }
 
@@ -130,6 +134,7 @@ class WiFiDirectNSD {
                         new WifiP2pManager.ActionListener() {
                             @Override
                             public void onSuccess() {
+                                CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct Discovery stopped");
                                 Log.d(TAG,"Net Service Discovery clearServiceRequests.onSuccess()");
                             }
 
@@ -140,7 +145,6 @@ class WiFiDirectNSD {
                         });
             else
                 manager.clearServiceRequests(channel, listener);
-            CommsLog.log(CommsLog.Entry.Category.STATUS,"Discovery mode stopped");
         }
     }
 

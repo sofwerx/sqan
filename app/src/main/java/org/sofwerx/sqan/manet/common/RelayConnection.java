@@ -1,5 +1,7 @@
 package org.sofwerx.sqan.manet.common;
 
+import org.sofwerx.sqan.util.StringUtil;
+
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
@@ -118,4 +120,24 @@ public class RelayConnection {
      * @param directBt
      */
     public void setDirectBt(boolean directBt) { this.directBt = directBt; }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("SqAN ID "+sqAnID);
+        if (hops == 0) {
+            if (directBt)
+                sb.append(", direct BT");
+            if (directWiFi)
+                sb.append(", direct WiFi");
+        } else
+            sb.append(", "+hops+((hops==1)?"":"s")+" away");
+        if (lastConnection > 0l) {
+            sb.append(", last ");
+            sb.append(StringUtil.toDuration(System.currentTimeMillis() - lastConnection));
+        }
+
+        return sb.toString();
+    }
 }

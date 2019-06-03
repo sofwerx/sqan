@@ -19,14 +19,13 @@ only:
 - travis-only
 - "/^v\\d.*$/"
 deploy:
-provider: releases
-skip_cleanup: true
-api_key: "${GITHUB_TOKEN}"
-file:
-- sqan-debug_${TAG}.apk
-- sqantest-debug_${TAG}.apk
-- sqan-release-unsigned_${TAG}.apk
-on:
-tags: true
-repo: "${TRAVIS_REPO_SLUG}"
-
+  provider: releases
+  skip_cleanup: true
+  api_key: "${GITHUB_TOKEN}"
+  file:
+  - sqan-debug_${TAG}.apk
+  - sqantest-debug_${TAG}.apk
+  - sqan-release-unsigned_${TAG}.apk
+  on:
+    tags: true
+    repo: "${TRAVIS_REPO_SLUG}"

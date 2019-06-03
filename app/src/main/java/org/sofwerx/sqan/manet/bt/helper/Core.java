@@ -6,7 +6,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.UUID;
 
-import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
@@ -184,7 +183,7 @@ public class Core {
                                                     reconstructedPacket = AbstractPacket.newFromBytes(data);
                                                 CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " referring " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ") for relay over WiFi"));
                                                 SqAnService.burstVia(reconstructedPacket, TransportPreference.WIFI);
-                                                useThisManet = (socket.getDevice().getPreferredTransport() == TransportPreference.BOTH);
+                                                useThisManet = (socket.getDevice().getPreferredTransport() == TransportPreference.ALL);
                                                 if (useThisManet) {
                                                     socket.getDevice().setLastForward();
                                                     CommsLog.log(CommsLog.Entry.Category.COMMS, "BT socket #" + socket.getBtSocketIdNum() + " relaying (WiFi was preferred but not available) " + data.length + "b from " + origin + " to " + socket.getDevice().getUUID() + ((socket.getDevice() == null) ? "" : " (" + socket.getDevice().getCallsign() + ")"));

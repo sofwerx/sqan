@@ -22,11 +22,11 @@ public class AddressUtil {
             return true;
 
         //FIXME work-around to forward IP addresses that are connected to a SqAN node but not in the mesh directly as multicast - this is a work around for now
-        SqAnDevice device = SqAnDevice.findByUUID(filterAddress);
-        if (device == null) {
-            Log.d(Config.TAG,"Unable to find SqAN device with UUID "+filterAddress+" (corresponds to "+AddressUtil.intToIpv4String(filterAddress)+") so this address is being handled as applicable to all SqAN nodes (i.e. multicast)");
-            return true;
-        }
+        //SqAnDevice device = SqAnDevice.findByUUID(filterAddress);
+        //if (device == null) {
+        //    Log.d(Config.TAG,"Unable to find SqAN device with UUID "+filterAddress+" (corresponds to "+AddressUtil.intToIpv4String(filterAddress)+") so this address is being handled as applicable to all SqAN nodes (i.e. multicast)");
+        //    return true;
+        //}
         //FIXME end of work around
 
 

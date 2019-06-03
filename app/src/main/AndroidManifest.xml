@@ -26,6 +26,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
         <service android:name="org.sofwerx.sqan.SqAnService" />
         <service
@@ -46,6 +47,10 @@
         <activity android:name=".ui.StoredTeammatesActivity"
             android:launchMode="singleTask"
             android:label="Saved Teammates"
+            android:resizeableActivity="true" />
+        <activity android:name=".ui.ConnectionDetailsActivity"
+            android:launchMode="singleTask"
+            android:label="Connected Devices"
             android:resizeableActivity="true" />
         <activity
             android:name=".ui.SettingsActivity"

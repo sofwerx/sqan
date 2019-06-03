@@ -66,13 +66,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     protected boolean serviceBound = false;
     protected SqAnService sqAnService = null;
-    private Switch switchActive;
+    //private Switch switchActive;
     private boolean isSystemChangingSwitchActive = false;
     private TextView textResults;
     private TextView textTxTally, textNetType;
     private TextView textSysStatus;
     private TextView statusMarquee, textOverall;
-    private TextView roleWiFi, roleBT, roleBackhaul, textLocation;
+    private TextView roleWiFi, roleBT, roleSDR, roleSDRstale, roleBackhaul, textLocation;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
     private View offlineStamp;
     private DevicesList devicesList;
@@ -111,12 +111,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        switchActive = findViewById(R.id.mainSwitchActive);
+        //switchActive = findViewById(R.id.mainSwitchActive);
         connectToBackend();
-        if (Config.isAutoStart(this))
+        /*if (Config.isAutoStart(this))
             switchActive.setChecked(true);
         else
-            switchActive.setChecked(false);
+            switchActive.setChecked(false);*/
         textResults = findViewById(R.id.mainTextTemp); //TODO temp
         textTxTally = findViewById(R.id.mainTxBytes);
         textSysStatus = findViewById(R.id.mainTextSysStatus);
@@ -131,6 +131,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         textOverall = findViewById(R.id.mainDescribeOverall);
         roleWiFi = findViewById(R.id.mainRoleWiFi);
         roleBT = findViewById(R.id.mainRoleBT);
+        roleSDR = findViewById(R.id.mainRoleSDR);
+        roleSDRstale = findViewById(R.id.mainRoleSDRstale);
         roleBackhaul = findViewById(R.id.mainBackhaul);
         pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
 
@@ -148,7 +150,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             textNetType.setOnClickListener(v ->
                     startActivity(new Intent(MainActivity.this,SettingsActivity.class)));
         }
-        switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
+        /*switchActive.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (!isSystemChangingSwitchActive) {
                 Config.setAutoStart(MainActivity.this,isChecked);
                 if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null))
@@ -156,7 +158,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             }
             updateManetTypeDisplay();
             updateActiveIndicator();
-        });
+        });*/
         devicesList = findViewById(R.id.mainDevicesList);
     }
 
@@ -252,6 +254,16 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             roleWiFi.setVisibility(View.INVISIBLE);
             roleBT.setVisibility(View.INVISIBLE);
             roleBackhaul.setVisibility(View.INVISIBLE);
+        }
+        if ((sqAnService != null) && sqAnService.isSdrManetAvailable()) {
+            if (sqAnService.isSdrManetActive()) {
+                roleSDRstale.setVisibility(View.INVISIBLE);
+                roleSDR.setVisibility(View.VISIBLE);
+            } else
+                roleSDRstale.setVisibility(View.VISIBLE);
+        } else {
+            roleSDR.setVisibility(View.INVISIBLE);
+            roleSDRstale.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -421,18 +433,16 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         if (serviceBound && (sqAnService != null) && (sqAnService.getManetOps() != null)) {
             AbstractManet btManet = sqAnService.getManetOps().getBtManet();
             AbstractManet wifiManet = sqAnService.getManetOps().getWifiManet();
-            if (btManet == null) {
-                if (wifiManet != null)
-                    active = wifiManet.isRunning();
-            } else {
-                if (wifiManet == null)
-                    active = btManet.isRunning();
-                else
-                    active = btManet.isRunning() || wifiManet.isRunning();
-            }
+            AbstractManet sdrManet = sqAnService.getManetOps().getSdrManet();
+            if (btManet != null)
+                active = active || btManet.isRunning();
+            if (wifiManet != null)
+                active = active || wifiManet.isRunning();
+            if (sdrManet != null)
+                active = active || sdrManet.isRunning();
         }
         isSystemChangingSwitchActive = true;
-        switchActive.setChecked(active);
+        //switchActive.setChecked(active);
         isSystemChangingSwitchActive = false;
         if (offlineStamp != null)
             offlineStamp.setVisibility(active?View.INVISIBLE:View.VISIBLE);
@@ -459,16 +469,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     private void updateManetTypeDisplay() {
         if ((textNetType.getText().toString() == null) || (textNetType.getText().toString().length() < 3)) {
-            if (serviceBound && (sqAnService != null)) {
-                AbstractManet manetWiFi = sqAnService.getManetOps().getWifiManet();
-                if (manetWiFi != null)
-                     textNetType.setText(" Core: "+manetWiFi.getName());
-                else {
-                    AbstractManet manetBt = sqAnService.getManetOps().getBtManet();
-                    if (manetBt != null)
-                        textNetType.setText(" Core: "+manetBt.getName());
-                }
+            int manetType = 0;
+            try {
+                manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(this).getString(Config.PREFS_MANET_ENGINE,"4"));
+            } catch (NumberFormatException e) {
             }
+            textNetType.setText("Core: "+getResources().getStringArray(R.array.listManetTypes)[manetType-1]);
         }
     }
 

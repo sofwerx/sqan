@@ -416,4 +416,5 @@ public class Config {
     public static boolean isLargeDataWiFiOnly() { return largeDataWiFiOnly; }
     public static boolean isMulticastEnabled() { return multicast; }
     public static int getMtuSize() { return mtuSize; }
+    public static boolean portForwardingEnabled() { return true; /*TODO*/}
 }

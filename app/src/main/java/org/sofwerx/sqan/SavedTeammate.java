@@ -4,6 +4,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.util.StringUtil;
 
 public class SavedTeammate {
     private String callsign;
@@ -22,6 +23,43 @@ public class SavedTeammate {
         if (checkWiFi)
             problem = problem || (netID == null) || (netID.length() < 2);
         return problem;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Callsign: ");
+        if (callsign == null)
+            sb.append("NONE");
+        else
+            sb.append(callsign);
+        sb.append(", SqAN ID: ");
+        sb.append(Integer.toString(sqAnAddress));
+        sb.append(", last contact: ");
+        if (lastContact <0l)
+            sb.append("NEVER");
+        else
+            sb.append(StringUtil.toDuration(System.currentTimeMillis() - lastContact));
+        sb.append(", BT MAC: ");
+        if ((bluetoothMac == null) || !bluetoothMac.isValid())
+            sb.append("UNKNOWN");
+        else
+            sb.append(bluetoothMac.toString());
+        if (btPaired != null) {
+            sb.append(",BT pairing ");
+            sb.append(btPaired.name());
+        }
+        if (netID != null) {
+            sb.append("transient WiFi ID ");
+            sb.append(netID);
+        }
+        if (enabled)
+            sb.append(", teammate is enabled");
+        else
+            sb.append(", teammate is disabled");
+
+        return sb.toString();
     }
 
     /**

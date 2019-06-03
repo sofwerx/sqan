@@ -2,7 +2,6 @@ package org.sofwerx.sqan.manet.common;
 
 import android.bluetooth.BluetoothAdapter;
 import android.util.Log;
-import android.util.TimeUtils;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
@@ -58,6 +57,7 @@ public class SqAnDevice {
     private boolean directBt = false;
     private boolean directWiFi = false;
     private boolean directWiFiHiPerf = false; //is high performance WiFi connected
+    private boolean directSDR = false;
     private long lastHopUpdate = Long.MIN_VALUE;
     private long lastForwardedToThisDevice = Long.MIN_VALUE;
     private ArrayList<RelayConnection> relays = new ArrayList<>();
@@ -71,6 +71,90 @@ public class SqAnDevice {
     private Inet6Address awareServerIp;
     //private boolean awareServer = false;
     //private Inet6Address ipv6 = null;
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Callsign: ");
+        if (callsign == null)
+            sb.append("NONE");
+        else
+            sb.append(callsign);
+        if (status != null) {
+            sb.append(", ");
+            sb.append(status.name());
+        }
+        sb.append(", BT MAC: ");
+        if ((bluetoothMac == null) || !bluetoothMac.isValid())
+            sb.append("unknown");
+        else
+            sb.append(bluetoothMac.toString());
+        if ((networkId != null) && (networkId.length() > 0)) {
+            sb.append(", transient WiFI ID ");
+            sb.append(networkId);
+        }
+        if (transientAwareId != UNASSIGNED_UUID) {
+            sb.append(", AWARE ID ");
+            sb.append(Integer.toString(transientAwareId));
+        }
+        if (lastConnect > 0l)
+            sb.append(", last comms "+StringUtil.toDuration(System.currentTimeMillis() - lastConnect)+" ago");
+        if (backhaulConnection)
+            sb.append(", is backhaul connection");
+        if ((roleWiFi != null) && (roleWiFi != NodeRole.OFF)) {
+            sb.append(", WiFi role ");
+            sb.append(roleWiFi.name());
+        }
+        if ((roleBT != null) && (roleBT != NodeRole.OFF)) {
+            sb.append(", BT role ");
+            sb.append(roleBT.name());
+        }
+        if (hopsAway == 0)
+            sb.append(", directly connected");
+        else
+            sb.append(", "+hopsAway+" hop"+((hopsAway==1)?"":"s")+" away");
+        sb.append(", preferred transport: ");
+        sb.append(preferredTransport.name());
+        if (directWiFiHiPerf)
+            sb.append(", requires high performance WiFi");
+        sb.append(", ");
+        sb.append(StringUtil.toDataSize(rxDataTally)+" received");
+        if (connectionStart > 0l) {
+            sb.append(" since connecting ");
+            sb.append(StringUtil.toDuration(System.currentTimeMillis() - connectionStart));
+            sb.append(" ago");
+        }
+        if (lastLocation != null) {
+            sb.append(", location (");
+            sb.append(lastLocation.toString());
+            sb.append(")");
+        }
+        if ((relays != null) && !relays.isEmpty()) {
+            sb.append(", connected to [");
+            boolean first = true;
+            for (RelayConnection relay:relays) {
+                if (first)
+                    first = false;
+                else
+                    sb.append(", ");
+                sb.append(relay.toString());
+            }
+            sb.append("]");
+        }
+        if (packetsDropped > 0)
+            sb.append(packetsDropped+" packet"+((packetsDropped==1)?"":"s")+" dropped");
+        if ((awareMac != null) && awareMac.isValid())
+            sb.append(", AWARE MAC "+awareMac.toString());
+        if (awareServerIp != null)
+            sb.append(", AWARE IP "+awareServerIp.getHostAddress());
+        if ((issues != null) && (issues.size() > 0)) {
+            sb.append(", ");
+            sb.append(issues.get(issues.size()-1).toString());
+        }
+
+        return sb.toString();
+    }
 
     /**
      * SqAnDevice
@@ -250,6 +334,11 @@ public class SqAnDevice {
         }
     }
 
+    public void setDirectSDR(boolean directSDR) {
+        this.directSDR = directSDR;
+        hopsAway = 0;
+    }
+
     /**
      * Is this device connected with a high performance version of WiFi (as opposed to something like using WiFi
      * Aware messages
@@ -332,7 +421,18 @@ public class SqAnDevice {
     public boolean isBtPreferred() {
         switch (preferredTransport) {
             case BLUETOOTH:
-            case BOTH:
+            case ALL:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    public boolean isSdrPreferred() {
+        switch (preferredTransport) {
+            case SDR:
+            case ALL:
                 return true;
 
             default:
@@ -343,7 +443,7 @@ public class SqAnDevice {
     public boolean isWiFiPreferred() {
         switch (preferredTransport) {
             case WIFI:
-            case BOTH:
+            case ALL:
                 return true;
 
             default:
@@ -542,6 +642,8 @@ public class SqAnDevice {
                     else
                         device.removePreferBt();
                 }
+                if (device.directSDR)
+                    device.addPreferSDR();
             } else
                 device.preferredTransport = TransportPreference.AGNOSTIC;
         }
@@ -553,8 +655,8 @@ public class SqAnDevice {
     public void addPreferWiFi() {
         switch (preferredTransport) {
             case BLUETOOTH:
-            case BOTH:
-                preferredTransport = TransportPreference.BOTH;
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
                 break;
 
             default:
@@ -568,8 +670,8 @@ public class SqAnDevice {
     public void addPreferBt() {
         switch (preferredTransport) {
             case WIFI:
-            case BOTH:
-                preferredTransport = TransportPreference.BOTH;
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
                 break;
 
             default:
@@ -578,11 +680,27 @@ public class SqAnDevice {
     }
 
     /**
+     * Updates this device's routing preference to include WiFi
+     */
+    public void addPreferSDR() {
+        switch (preferredTransport) {
+            case WIFI:
+            case BLUETOOTH:
+            case ALL:
+                preferredTransport = TransportPreference.ALL;
+                break;
+
+            default:
+                preferredTransport = TransportPreference.SDR;
+        }
+    }
+
+    /**
      * Updates this device's routing preference to exclude WiFI
      */
     public void removePreferWiFi() {
         switch (preferredTransport) {
-            case BOTH:
+            case ALL:
             case BLUETOOTH:
                 preferredTransport = TransportPreference.BLUETOOTH;
                 break;
@@ -597,7 +715,7 @@ public class SqAnDevice {
      */
     public void removePreferBt() {
         switch (preferredTransport) {
-            case BOTH:
+            case ALL:
             case WIFI:
                 preferredTransport = TransportPreference.WIFI;
                 break;

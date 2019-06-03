@@ -118,6 +118,18 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         return manetOps.isBtManetAvailable();
     }
 
+    public boolean isSdrManetAvailable() {
+        if (manetOps == null)
+            return false;
+        return manetOps.isSdrManetAvailable();
+    }
+
+    public boolean isSdrManetActive() {
+        if (manetOps == null)
+            return false;
+        return manetOps.isSdrManetActive();
+    }
+
     public static void burstVia(AbstractPacket packet, TransportPreference transportPreference) {
         if ((thisService == null) || (packet == null) || (thisService.manetOps == null) || (transportPreference == null))
             return;
@@ -314,16 +326,27 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             onIssueDetected(new SqAnAppIssue(true,"ManetOps is null"));
             systemReady = false;
         } else {
-            if ((manetOps.getWifiManet() == null) && (manetOps.getBtManet() == null)) {
+            if ((manetOps.getWifiManet() == null) && (manetOps.getBtManet() == null) && (manetOps.getSdrManet() == null)) {
                 onIssueDetected(new SqAnAppIssue(true, "No MANET selected"));
                 systemReady = false;
             } else {
-                if (manetOps.getBtManet() == null)
-                    systemReady = manetOps.getWifiManet().checkForSystemIssues();
-                else if (manetOps.getWifiManet() == null)
-                    systemReady = manetOps.getBtManet().checkForSystemIssues();
+                boolean issuesBt;
+                if (manetOps.getBtManet() != null)
+                    issuesBt = !manetOps.getBtManet().checkForSystemIssues();
                 else
-                    systemReady = manetOps.getBtManet().checkForSystemIssues() && manetOps.getWifiManet().checkForSystemIssues();
+                    issuesBt = false;
+                boolean issuesWiFi;
+                if (manetOps.getWifiManet() != null)
+                    issuesWiFi = !manetOps.getWifiManet().checkForSystemIssues();
+                else
+                    issuesWiFi = false;
+                boolean issuesSDR;
+                if (manetOps.getSdrManet() != null)
+                    issuesSDR = !manetOps.getSdrManet().checkForSystemIssues();
+                else
+                    issuesSDR = false;
+
+                systemReady = !issuesBt && !issuesWiFi && !issuesSDR;
             }
         }
 

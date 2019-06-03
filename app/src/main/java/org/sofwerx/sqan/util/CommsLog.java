@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat;
 public class CommsLog {
     private final static int MAX_LOG_LENGTH = 20;
     private static ArrayList<Entry> entries = null;
+    private static File file;
     private static FileOutputStream fos;
     private static OutputStreamWriter oswriter;
     private static BufferedWriter bwriter;
@@ -48,9 +49,9 @@ public class CommsLog {
                         filename.append(cs);
                     }
                     filename.append(".txt");
-                    File file1 = new File(logDir,filename.toString());
-                    file1.createNewFile();
-                    fos = new FileOutputStream(file1);
+                    file = new File(logDir,filename.toString());
+                    file.createNewFile();
+                    fos = new FileOutputStream(file);
                     oswriter = new OutputStreamWriter(fos);
                     bwriter = new BufferedWriter(oswriter);
                     isRunning.set(true);
@@ -79,7 +80,7 @@ public class CommsLog {
                 bwriter.newLine();
                 bwriter.append(" ------------------------ ");
                 bwriter.newLine();
-            } catch (IOException ignore) {
+            } catch (Exception ignore) {
             }
         } else
             close();
@@ -111,6 +112,13 @@ public class CommsLog {
             }
         } catch (IOException ignore) {
         }
+    }
+
+    public static File getFileAndStartNew(Context context) {
+        File fileToReport = file;
+        close();
+        init(context);
+        return fileToReport;
     }
 
     public static class Entry {

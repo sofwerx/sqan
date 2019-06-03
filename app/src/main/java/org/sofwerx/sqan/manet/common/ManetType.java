@@ -4,5 +4,6 @@ public enum ManetType {
     NEARBY_CONNECTION,
     WIFI_AWARE,
     WIFI_DIRECT,
-    BT_ONLY
+    BT_ONLY,
+    SDR
 }

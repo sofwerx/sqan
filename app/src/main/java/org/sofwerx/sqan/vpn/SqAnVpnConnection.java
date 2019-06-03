@@ -76,13 +76,18 @@ public class SqAnVpnConnection implements Runnable {
                     VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
                     int destinationIp = NetUtil.getDestinationIpFromIpPacket(rawBytes);
                     if (!Config.isIgnoringPacketsTo0000() || (destinationIp != 0)) {
+                        NetUtil.PacketType type = NetUtil.getPacketType(rawBytes);
                         byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
                         if (destinationIp != SqAnDevice.BROADCAST_IP) {
                             SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
                             if (device == null)
                                 Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
                             else {
-                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ") being sent to " + device.getLabel());
+                                if (Config.portForwardingEnabled()) {
+                                    int port = NetUtil.getPort(rawBytes);
+                                    Log.d(getTag(),"Port "+port+" found for forwarding...");
+                                }
+                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name()+", "+ type.name() + ") being sent to " + device.getLabel());
                                 outgoing.setDestination(device.getUUID());
                             }
                         }
