@@ -44,6 +44,38 @@ public class LiteWebServer {
 
         public Response serve(IHTTPSession session) {
             Method method = session.getMethod();
+            Log.d(TAG,"Method: "+method.name());
+            SqAnDevice device = Config.getThisDevice();
+            if (device == null)
+                return null;
+
+            Map<String, List<String>> decodedQueryParameters = decodeParameters(session.getQueryParameterString());
+            if (decodedQueryParameters.containsKey(Config.PREFS_VIDEO_SRC_ADDR)) {
+                Config.setVideoSrcAddr(decodedQueryParameters.get(Config.PREFS_VIDEO_SRC_ADDR).get(0));
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("<html><head><title>SqAN VPN Host</title></head><body>");
+            sb.append("<h1>This site is hosted by SqAN on "+ device.getCallsign()+" at "+ device.getVpnIpv4AddressString()+":"+PORT+"</h1>");
+            sb.append("<p><blockquote><b>URI</b> = ").append(String.valueOf(session.getUri())).append("<br />");
+            sb.append("<b>Method</b> = ").append(String.valueOf(session.getMethod())).append("</blockquote></p>");
+            sb.append("<h3>Headers</h3><p><blockquote>").append(toString(session.getHeaders())).append("</blockquote></p>");
+            sb.append("<h3>Parms</h3><p><blockquote>").append(toString(session.getParms())).append("</blockquote></p>");
+            sb.append("<h3>Parms (multi values?)</h3><p><blockquote>").append(toString(decodedQueryParameters)).append("</blockquote></p>");
+            try {
+                Map<String, String> files = new HashMap<String, String>();
+                session.parseBody(files);
+                sb.append("<h3>Files</h3><p><blockquote>").append(toString(files)).append("</blockquote></p>");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            sb.append("</body></html>");
+            return newFixedLengthResponse(sb.toString());
+        }
+
+
+        public Response proxy(IHTTPSession session) {
+            Method method = session.getMethod();
             Log.d(TAG, "Method: " + method.name());
 
             URL url = null;
@@ -85,34 +117,6 @@ public class LiteWebServer {
             return prox;
         }
 
-
-
-
-//
-//            SqAnDevice device = Config.getThisDevice();
-//            if (device == null)
-//                return null;
-//
-//            Map<String, List<String>> decodedQueryParameters = decodeParameters(session.getQueryParameterString());
-//
-//            StringBuilder sb = new StringBuilder();
-//            sb.append("<html><head><title>SqAN VPN Host</title></head><body>");
-//            sb.append("<h1>This site is hosted by SqAN on "+ device.getCallsign()+" at "+ device.getVpnIpv4AddressString()+":"+PORT+"</h1>");
-//            sb.append("<p><blockquote><b>URI</b> = ").append(String.valueOf(session.getUri())).append("<br />");
-//            sb.append("<b>Method</b> = ").append(String.valueOf(session.getMethod())).append("</blockquote></p>");
-//            sb.append("<h3>Headers</h3><p><blockquote>").append(toString(session.getHeaders())).append("</blockquote></p>");
-//            sb.append("<h3>Parms</h3><p><blockquote>").append(toString(session.getParms())).append("</blockquote></p>");
-//            sb.append("<h3>Parms (multi values?)</h3><p><blockquote>").append(toString(decodedQueryParameters)).append("</blockquote></p>");
-//            try {
-//                Map<String, String> files = new HashMap<String, String>();
-//                session.parseBody(files);
-//                sb.append("<h3>Files</h3><p><blockquote>").append(toString(files)).append("</blockquote></p>");
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//            sb.append("</body></html>");
-//            return newFixedLengthResponse(sb.toString());
-//        }
 
         private String toString(Map<String, ? extends Object> map) {
             if (map.size() == 0) {

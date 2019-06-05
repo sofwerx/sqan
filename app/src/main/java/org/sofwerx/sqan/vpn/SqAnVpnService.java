@@ -2,7 +2,8 @@ package org.sofwerx.sqan.vpn;
 
 import android.content.Context;
 import android.content.Intent;
-import android.net.VpnService;
+import android.net.*;
+import android.net.ConnectivityManager.NetworkCallback;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.app.Notification;
@@ -18,6 +19,7 @@ import android.widget.Toast;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.ui.MainActivity;
 import org.sofwerx.sqan.ui.SettingsActivity;
 
 import java.io.FileOutputStream;
@@ -115,6 +117,7 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
         updateForegroundNotification(R.string.connecting);
         mHandler.sendEmptyMessage(R.string.connecting);
         startConnection(new SqAnVpnConnection(this, mNextConnectionId.getAndIncrement()));
+
         if (Config.isVpnHostLandingPage())
             webServer = new LiteWebServer();
         if (SqAnService.getInstance() != null)

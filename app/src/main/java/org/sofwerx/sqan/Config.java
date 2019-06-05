@@ -40,7 +40,9 @@ public class Config {
     public final static String PREFS_VPN_MTU = "mtu";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
+    public final static String PREFS_VIDEO_SRC_ADDR = "videoSrcAddr";
     private final static String DEFAULT_PASSCODE = "SwxTest";
+    public final static String DEFAULT_VIDEO_SRC_ADDR = "127.0.0.1";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
     private static boolean broadcastSa = true;
@@ -53,6 +55,7 @@ public class Config {
     private static boolean ignore0000 = true;
     private static boolean largeDataWiFiOnly = true;
     private static int mtuSize = 1500;
+    private static String videoSrcAddr = "127.0.0.1";
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
     private static String passcode;
@@ -141,6 +144,7 @@ public class Config {
         warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
         ignore0000 = prefs.getBoolean(PREFS_IGNORE_0_0_0_0,true);
         largeDataWiFiOnly = prefs.getBoolean(PREFS_LARGE_DATA_WIFI_ONLY,true);
+        videoSrcAddr = prefs.getString(PREFS_VIDEO_SRC_ADDR,DEFAULT_VIDEO_SRC_ADDR);
         try {
             mtuSize = Integer.parseInt(prefs.getString(PREFS_VPN_MTU, "1500"));
         } catch (NumberFormatException e) {
@@ -408,6 +412,12 @@ public class Config {
             }
         }
     }
+
+    public static void setVideoSrcAddr(String addr) {
+        videoSrcAddr = addr;
+    }
+    public static String getVideoSrcAddr() { return videoSrcAddr; }
+
 
     public static void setVpnEnabled(boolean b) {
         vpnMode = true;
