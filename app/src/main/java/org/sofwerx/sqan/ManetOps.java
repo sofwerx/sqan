@@ -504,7 +504,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     public AbstractManet getWifiManet() { return wifiManet; }
     public AbstractManet getBtManet() { return btManet; }
-    public AbstractManet getSdrManet() { return sdrManet; }
+    public SdrManet getSdrManet() { return sdrManet; }
 
     public void burst(AbstractPacket packet) {
         burst(packet, TransportPreference.AGNOSTIC);

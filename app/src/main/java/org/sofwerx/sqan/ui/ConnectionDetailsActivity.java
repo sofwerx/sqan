@@ -14,12 +14,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SavedTeammate;
+import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqandr.SqANDRService;
+import org.sofwerx.sqandr.ui.Terminal;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -27,7 +32,9 @@ import java.util.Set;
 
 public class ConnectionDetailsActivity extends AppCompatActivity {
     private TextView textTeammates, textActive, textSysConnect;
-    private View sendDiagnostics;
+    private View sendDiagnostics, openTerminal;
+    private Terminal terminal;
+    private SdrManet sdrManet;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +44,9 @@ public class ConnectionDetailsActivity extends AppCompatActivity {
         textActive = findViewById(R.id.connDetailsActiveTeammates);
         textSysConnect = findViewById(R.id.connDetailsStoredSys);
         sendDiagnostics = findViewById(R.id.connDetailsSend);
+        openTerminal = findViewById(R.id.connDetailsTerminalButton);
+        terminal = findViewById(R.id.connDetailsTerminal);
+        terminal.setVisibility(View.GONE);
         sendDiagnostics.setOnClickListener(v -> {
             StringBuilder sb = new StringBuilder();
 
@@ -65,12 +75,27 @@ public class ConnectionDetailsActivity extends AppCompatActivity {
             }
             ConnectionDetailsActivity.this.startActivity(intent);
         });
+        if ((SqAnService.getInstance() != null) && (SqAnService.getInstance().getManetOps() != null))
+            sdrManet = SqAnService.getInstance().getManetOps().getSdrManet();
+        if (sdrManet != null) {
+            openTerminal.setVisibility(View.VISIBLE);
+            openTerminal.setOnClickListener(v -> {
+                if (terminal.getVisibility() == View.VISIBLE)
+                    terminal.setVisibility(View.GONE);
+                else
+                    terminal.setVisibility(View.VISIBLE);
+            });
+            terminal.setSerialConnection(sdrManet.getSerialConnection());
+        } else
+            openTerminal.setVisibility(View.GONE);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         updateDisplay();
+        if (sdrManet != null)
+            sdrManet.setTerminal(terminal);
     }
 
     private SpannableString getText(String title, String description) {
@@ -144,6 +169,8 @@ public class ConnectionDetailsActivity extends AppCompatActivity {
 
     @Override
     public void onPause() {
+        if (sdrManet != null)
+            sdrManet.setTerminal(null);
         super.onPause();
     }
 }

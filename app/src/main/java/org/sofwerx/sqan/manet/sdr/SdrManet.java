@@ -6,46 +6,39 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
-import org.sofwerx.sqan.SavedTeammate;
-import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
-import org.sofwerx.sqan.manet.common.TeammateConnectionPlanner;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
-import org.sofwerx.sqan.manet.sdr.helper.AcceptListener;
-import org.sofwerx.sqan.manet.sdr.helper.DeviceConnectionListener;
-import org.sofwerx.sqan.manet.sdr.helper.ReadListener;
 import org.sofwerx.sqan.util.CommsLog;
-
-import java.io.IOException;
-import java.util.ArrayList;
-
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import org.sofwerx.sqandr.SqANDRListener;
+import org.sofwerx.sqandr.SqANDRService;
+import org.sofwerx.sqandr.sdr.DataConnectionListener;
+import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.serial.SerialConnection;
 
 /**
  * MANET built for including hops over SDR
  *
  */
-public class SdrManet extends AbstractManet implements AcceptListener, DeviceConnectionListener, ReadListener {
-    private static final int MAX_PACKET_SIZE = 64000; //TODO arbitrary
+public class SdrManet extends AbstractManet implements SqANDRListener {
+    private static final int MAX_PACKET_SIZE = Segmenter.MAX_POSSIBLE_LENGTH;
     private final static long INTERVAL_BEFORE_STALE = 1000l * 60l;
     private static final long TIME_BETWEEN_TEAMMATE_CHECKS = 1000l * 15l;
     private static final long OLD_DEVICE_CHECK_INTERVAL = 1000l * 60l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
-    private static final String SERVICE_NAME = "SqAN";
     private final static String TAG = Config.TAG+".Sdr";
-    private long nextTeammateCheck = Long.MIN_VALUE;
     private long nextOldDeviceCheck = Long.MIN_VALUE;
     private static SdrManet instance;
     private long staleTime = Long.MIN_VALUE;
-    //TODO private SqANDRService sqANDRService;
+    private SqANDRService sqANDRService;
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
+        sqANDRService = new SqANDRService(context);
         instance = this;
     }
 
@@ -57,14 +50,12 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
     @Override
     public boolean checkForSystemIssues() {
         boolean passed = super.checkForSystemIssues();
-        //TODO check for SDR connection
-        passed = false;
-
+        passed = true; //TODO actually check for SDR issues
         return passed;
     }
 
     @Override
-    public int getMaximumPacketSize() { return MAX_PACKET_SIZE; /*TODO*/ }
+    public int getMaximumPacketSize() { return MAX_PACKET_SIZE; }
 
     @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
@@ -79,14 +70,6 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
         Log.d(TAG,"SDR Manet init()");
         isRunning.set(true);
         setStatus(Status.OFF);
-        connectToTeammates();
-        //TODO
-    }
-
-    private boolean reportedAtMax = false;
-    private void connectToTeammates() {
-        Log.d(TAG,"connectToTeammates()");
-        nextTeammateCheck = System.currentTimeMillis() + TIME_BETWEEN_TEAMMATE_CHECKS;
         //TODO
     }
 
@@ -100,7 +83,7 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
         } else {
             handler.post(() -> {
                 Log.d(TAG, "burst() - " + bytes.length + "b");
-                //TODO burst over SqANDR
+                sqANDRService.burst(bytes);
                 ManetOps.addBytesToTransmittedTally(bytes.length);
                 if (listener != null)
                     listener.onTx(bytes);
@@ -171,10 +154,6 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
             //TODO remove unresponsive connections
             SqAnDevice.cullOldDevices();
         }
-
-        //and look for new connections
-        if (System.currentTimeMillis() > nextTeammateCheck)
-            connectToTeammates();
     }
 
     @Override
@@ -184,42 +163,33 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
     protected boolean isWiFiBased() { return false; }
 
     @Override
-    public void onNewConnectionAccepted() {
-        //TODO
+    public void onSdrError(String message) { Log.e(TAG,"Read Error: "+message); }
+
+    @Override
+    public void onSdrReady(boolean isReady) {
+        if (isReady)
+            setStatus(Status.CONNECTED);
+        else
+            setStatus(Status.OFF);
     }
 
     @Override
-    public void onError(Exception e, String where) {
-        Log.d(TAG,"Socket, "+where+", acceptListener.onError(): "+e.getMessage());
-        //TODO
+    public void onSdrMessage(String message) {
+        CommsLog.log(CommsLog.Entry.Category.CONNECTION,message);
     }
 
     @Override
-    public void onConnectSuccess() {
-        //TODO
-        setStatus(Status.CONNECTED);
-    }
-
-    @Override
-    public void onConnectionError(Exception exception, String where) {
-        Log.e(TAG,"connectionListener.onConnectionError() @ "+where+": "+((exception==null)?"":exception.getMessage()));
-        //TODO
-    }
-
-    @Override
-    public void onSuccess(AbstractPacket packet) {
+    public void onPacketReceived(byte[] data) {
+        if (data == null)
+            return;
+        AbstractPacket packet = AbstractPacket.newFromBytes(data);
         if (packet == null) {
-            Log.e(TAG,"readListener reported receiving data, but packet was null");
-            //TODO
+            Log.w(TAG,"Unable to parse data, packet dropped");
+            onPacketDropped();
             return;
         }
         setCurrent();
         onReceived(packet);
-    }
-
-    @Override
-    public void onError(IOException e) {
-        Log.e(TAG,"Read Error: "+e.getMessage());
     }
 
     @Override
@@ -229,7 +199,7 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
 
     @Override
     public boolean isRunning() {
-        if (false /*TODO sqandr not running*/)
+        if (sqANDRService == null)
             return false;
         return super.isRunning();
     }
@@ -244,5 +214,16 @@ public class SdrManet extends AbstractManet implements AcceptListener, DeviceCon
      */
     public boolean isStale() {
         return (System.currentTimeMillis() > staleTime);
+    }
+
+    public void setTerminal(DataConnectionListener terminal) {
+        if (sqANDRService != null)
+            sqANDRService.setDataConnectionListener(terminal);
+    }
+
+    public SerialConnection getSerialConnection() {
+        if (sqANDRService == null)
+            return null;
+        return sqANDRService.getSerialConnection();
     }
 }

@@ -13,6 +13,9 @@
     <color name="trans_yellow">#55FFFF00</color>
     <color name="trans_blue">#55F9A825</color>
     <color name="white_hint_green">#CCFFCC</color>
+    <color name="colorReceiveText">#00FF00</color>
+    <color name="colorSendText">#82CAFF</color>
+    <color name="colorStatusText">#FFDB58</color>
     <color name="colorPrimary">#FF000000</color>
     <color name="colorPrimaryDark">#000000</color>
     <color name="colorAccent">#FFFF00</color>
