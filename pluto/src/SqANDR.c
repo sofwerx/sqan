@@ -185,72 +185,6 @@ bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, en
 /* simple configuration and streaming */
 int main (int argc, char **argv)
 {
-	system("losetup /dev/loop1 /opt/vfat.img -o 512");
- 
-	system("mount /dev/loop1 /root");
-	
-	struct tm tm_now;
-	char filename[128];
-	time_t now = time(NULL);
-	localtime_r(&now, &tm_now);
-
-	strftime(filename, sizeof(filename), "filename_%Y_%m_%d_%H_%M.txt", &tm_now);
-   
-    FILE *nPack = fopen("/root/nPack.txt", "r");
-	int count_lines = 0;
-	char chr;
-	printf("%ld\n",now);
-	int t = 0;
-
-	for (chr = getc(nPack); chr != 97; chr = getc(nPack)) {
-		//Count whenever new line is encountered
-		if (chr == '\n'){
-			count_lines = count_lines + 1;
-		}
-		//take next character from file.
-	}
-
-	int bitin[34][count_lines];
-	int cl = 0;
-	int sbit[18] = {1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1};
-	for (cl = 0; cl<count_lines; cl++) {
-		for (int t = 0; t < 18; t++) {
-			bitin[t][cl] = sbit[t];
-		}
-	}
-	fclose(nPack);
-	nPack = fopen("/root/nPack.txt", "r");
-	cl = 0;
-	t = 18;
-	char c;
-	for (c = getc(nPack); c != 97; c = getc(nPack)) {
-		//Count whenever new line is encountered
-		if (c == '\n'){
-			//printf(", Line: %d, Together: ", cl);
-			for (t = 0; t<34; t++) {
-				//printf("%d", bitin[t][cl]);
-			}
-			//printf("\n");
-			cl = cl + 1;
-			t = 16;
-		}
-		else if (c != 13) {
-			int z = c - 48;
-			bitin[t][cl] = z;
-			bitin[t+1][cl] = z;
-			//printf("%d", bitin[t][cl]);
-		}
-		t = t + 2;
-		//take next character from file.
-	}
-    fclose ( nPack );
-	
-	/*for (cl = 0; cl < count_lines; cl++) {
-		for (t = 0; t<34; t++) {
-			printf("%d", bitin[t][cl]);
-		}
-		printf("\n");
-	}*/
 
 	// Streaming devices
 	struct iio_device *tx;
@@ -304,32 +238,39 @@ int main (int argc, char **argv)
 	iio_channel_enable(tx0_q);
 
 	printf("* Creating non-cyclic IIO buffers with 1 MiS\n");
-	rxbuf = iio_device_create_buffer(rx, 50*count_lines, false);
+	rxbuf = iio_device_create_buffer(rx, 17*500, false);
 	if (!rxbuf) {
 		perror("Could not create RX buffer");
 		shutdown();
 	}
-	txbuf = iio_device_create_buffer(tx, 50*count_lines, false);
+	txbuf = iio_device_create_buffer(tx, 17*250, false);
 	if (!txbuf) {
 		perror("Could not create TX buffer");
 		shutdown();
 	}
  
-	int m = 1;
 	int n = 0;
-	int j = 0;
 	int h;
 	int flag = 0;
 	int a = 0;
 	int bitout[8][500];
-	int head[10000];
+	int head[1024*1025];
 	int bitflag = 0;
 	int half = 0;
 	int whole = 0;
 	int cnt = 0;
+	int cl = 0;
+	int m = 0;
+	int t = 0;
+	int startrx = 0;
+	int k = 0;
+	int bit = 0;
+	int hval;
+	char hchar;
 	printf("* Starting IO streaming (press CTRL+C to cancel)\n");
-	while (cnt < 6)
-	{		
+	while (!stop) {	
+	k = 0;
+		while (k < 5) {
 		ssize_t nbytes_rx, nbytes_tx;
 		char *p_dat, *p_end;
 		ptrdiff_t p_inc;
@@ -343,38 +284,7 @@ int main (int argc, char **argv)
 		if (nbytes_rx < 0) { printf("Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
 		//printf("here4");
 		// WRITE: Get pointers to TX buf and write IQ to TX buf port 0
-		p_inc = iio_buffer_step(txbuf);
-		p_end = iio_buffer_end(txbuf);
 		
-		cl = 0;
-		for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc) {
-			// Example: fill with zeros
-			// 12-bit sample needs to be MSB alligned so shift by 4
-			// https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-			if (bitin[m][cl] == 2) {
-				((int16_t*)p_dat)[0] = (2000); // Real (I)
-				((int16_t*)p_dat)[1] = (-1000); // Imag (Q)
-				//printf("Odd\n");
-			}
-			if (bitin[m][cl] == 1){
-				((int16_t*)p_dat)[0] = (2000); // Real (I)
-				((int16_t*)p_dat)[1] = (2000); // Imag (Q)
-				//printf("Even\n");
-			}
-			if (bitin[m][cl] == 0) {
-				((int16_t*)p_dat)[0] = (-2000); // Real (I)
-				((int16_t*)p_dat)[1] = (-2000); // Imag (Q)
-				//printf("Odd\n");
-			}
-			if (m == 33) {
-				m = 0;
-				cl = cl + 1;
-			}
-			else{
-				m = m+1;
-			}
-		}
-		//printf("here5");
 		cl = 0;
 		// READ: Get pointers to RX buf and read IQ from RX buf port 0
 		p_inc = iio_buffer_step(rxbuf);
@@ -383,62 +293,397 @@ int main (int argc, char **argv)
 			// Example: swap I and Q
 			const int16_t i = ((int16_t*)p_dat)[0]; // Real (I)
 			const int16_t q = ((int16_t*)p_dat)[1]; // Imag (Q)
-			//length = snprintf( NULL, 0, "%d", i );
-			//str = malloc( length + 1);
-			//arr[j][1] = snprintf( str, length + 1, "%d", i );
-			//length = snprintf( NULL, 0, "%d", q );
-			//str = malloc( length + 1);
-			//arr[j][2] = snprintf( str, length + 1, "%d", q );
 			a = (i << 16) | (q & 0xFFFF);
 			head[n] = a;
-			printf("\tI: %d, Q: %d, Comb: %d, Half:%d, Line: %d, count: %d\n", i, q, a, half, cl, cnt);
-			n = n+1;
-			j = j+1;
-			if (n>17) {
-				if ((head[n-18] > 0 && head[n-17] > 0 && head[n-16] > 0 && head[n-15] > 0 && head[n-14] < 0 && head[n-13] < 0 && head[n-12] > 0 && head[n-11] > 0 && head[n-10] < 0 && head[n-9] < 0 && head[n-8] > 0 && head[n-7] > 0 && head[n-6] < 0 && head[n-5] < 0 && head[n-4] > 0 && head[n-3] > 0 && head[n-2] > 0 && head[n-1] > 0) || bitflag == 1) { 
-					if (half == 1 || half == 3 || half == 5 || half == 7 || half == 9 || half == 11 || half == 13 || half == 15) {
-						if (a < -100000) {
+			if (startrx == 1) {
+			//printf("\tI: %d, Q: %d, Comb: %d, Half:%d, Line: %d, count: %d\n", i, q, a, half, cl, cnt);
+			}
+			if (n>8) {
+				if ((head[n-9] > 0 && head[n-8] > 0 && head[n-7] < 0 && head[n-6] > 0 && head[n-5] < 0 && head[n-4] > 0 && head[n-3] < 0 && head[n-2] > 0 && head[n-1] > 0) || bitflag == 1) { 
+						if (a < -10000) {
 							bitout[whole][cl] = 0;
 						}
-						else if (a > 100000) {
+						else if (a > 10000) {
 							bitout[whole][cl] = 1;
 						}
 						whole = whole + 1;
-					}
 					half = half + 1;
 					bitflag = 1;
-					if (half == 16) {
+					if (half == 8) {
 						bitflag = 0;
 						//printf("\t%d%d%d%d%d%d%d%d\n",bitout[0][cl], bitout[1][cl], bitout[2][cl], bitout[3][cl], bitout[4][cl], bitout[5][cl], bitout[6][cl], bitout[7][cl]);
 						whole = 0;
 						half = 0;
 						cl = cl + 1;
+						bit = 1;
 					}
 				}
-				else if ((head[n-18] < 0 && head[n-17] < 0 && head[n-16] < 0 && head[n-15] < 0 && head[n-14] > 0 && head[n-13] > 0 && head[n-12] < 0 && head[n-11] < 0 && head[n-10] > 0 && head[n-9] > 0 && head[n-8] < 0 && head[n-7] < 0 && head[n-6] > 0 && head[n-5] > 0 && head[n-4] < 0 && head[n-3] < 0 && head[n-2] < 0 && head[n-1] < 0) || bitflag == 2) { 
-					if (half == 1 || half == 3 || half == 5 || half == 7 || half == 9 || half == 11 || half == 13 || half == 15) {
-						if (a < -100000) {
+				else if ((head[n-9] < 0 && head[n-8] < 0 && head[n-7] > 0 && head[n-6] < 0 && head[n-5] > 0 && head[n-4] < 0 && head[n-3] > 0 && head[n-2] < 0 && head[n-1] < 0) || bitflag == 2) {
+
+						if (a < -10000) {
 							bitout[whole][cl] = 1;
 						}
-						else if (a > 100000) {
+						else if (a > 10000) {
 							bitout[whole][cl] = 0;
 						}
 						whole = whole + 1;
-					}
 					half = half + 1;
 					bitflag = 2;
-					if (half == 16) {
+					if (half == 8) {
 						bitflag = 0;
 						//printf("\t%d%d%d%d%d%d%d%d\n",bitout[0][cl], bitout[1][cl], bitout[2][cl], bitout[3][cl], bitout[4][cl], bitout[5][cl], bitout[6][cl], bitout[7][cl]);
 						whole = 0;
 						half = 0;
 						cl = cl + 1;
+						bit = 1;
 					}
 				}
 				if (bitout[0][cl-1] == 1 && bitout[1][cl-1] == 1 && bitout[2][cl-1] == 1 && bitout[3][cl-1] == 1 && bitout[4][cl-1] == 1 && bitout[5][cl-1] == 1 && bitout[6][cl-1] == 1 && bitout[7][cl-1] == 1) {
 					p_dat = p_end;
 				}
 			}
+		n = n+1;
+		}
+		k = k + 1;
+		cnt = cnt + 1;
+		if (bit == 1) {
+			printf("+");
+		for (m = 0; m < cl; m++) {
+			for (t = 0; t<2; t++) {
+				if (t == 1) {
+					hval = (bitout[4][m])*8 +(bitout[5][m])*4 + (bitout[6][m])*2 + (bitout[7][m])*1;
+					if (hval < 10) {
+						hchar = hval + 48;
+					}
+					else if (hval == 10) {hchar = 'a';} else if (hval == 11) {hchar = 'b';} else if (hval == 12) {hchar = 'c';} else if (hval == 13) {hchar = 'd';}
+					else if (hval == 14) {hchar = 'e';} else if (hval == 15) {hchar = 'f';}
+				printf("%c",hchar);
+				}
+				else {
+					hval = (bitout[0][m])*8 + (bitout[1][m])*4 + (bitout[2][m])*2 + (bitout[3][m])*1;
+					if (hval < 10) {
+						hchar = hval + 48;
+					}
+					else if (hval == 10) {hchar = 'a';} else if (hval == 11) {hchar = 'b';} else if (hval == 12) {hchar = 'c';} else if (hval == 13) {hchar = 'd';}
+					else if (hval == 14) {hchar = 'e';} else if (hval == 15) {hchar = 'f';}
+				printf("%c",hchar);
+				}
+			}
+		}
+		printf("\n");
+	}
+	}
+		
+	k = 0;
+	bit = 0;
+	cnt = cnt + 1;
+	startrx = 1;
+	char hexin[1024];
+	printf("Input: ");
+	fgets(hexin, 1024, stdin);
+	int count_lines = (strlen(hexin)-2)/2;
+	t = 0;
+	int bitin[17][count_lines];
+	int cl = 0;
+	int hex = 0;
+	int j = 0;
+	int sbit[9] = {1, 1, 0, 1, 0, 1, 0, 1, 1};
+	if (hexin[0] == 'e') {
+		break;
+	}
+	else if (hexin[0] == '*') {
+		while (cl<count_lines) {
+			for (int t = 0; t < 9; t++) {
+				bitin[t][cl] = sbit[t];
+			}
+			
+			if (hexin[hex+1] == '0') {
+				int bin[4] = {0, 0, 0, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}
+			}
+				
+			else if(hexin[hex+1] == '1') {
+				int bin[4] = {0, 0, 0, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '2') {
+				int bin[4] = {0, 0, 1, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '3') {
+				int bin[4] = {0, 0, 1, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '4') {
+				int bin[4] = {0, 1, 0, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '5') {
+				int bin[4] = {0, 1, 0, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '6') {
+				int bin[4] = {0, 1, 1, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '7') {
+				int bin[4] = {0, 1, 1, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '8') {
+				int bin[4] = {1, 0, 0, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == '9') {
+				int bin[4] = {1, 0, 0, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == 'a') {
+				int bin[4] = {1, 0, 1, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == 'b') {
+				int bin[4] = {1, 0, 1, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}	
+			}
+			
+			else if(hexin[hex+1] == 'c') {
+				int bin[4] = {1, 1, 0, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}	
+			}
+			
+			else if(hexin[hex+1] == 'd') {
+				int bin[4] = {1, 1, 0, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == 'e') {
+				int bin[4] = {1, 1, 1, 0};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			else if(hexin[hex+1] == 'f') {
+				int bin[4] = {1, 1, 1, 1};
+				for (int t = 9; t < 13; t++) {
+					bitin[t][cl] = bin[t-9];
+				}		
+			}
+			
+			if (hexin[hex+2] == '0') {
+				int bin[4] = {0, 0, 0, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}
+			}
+				
+			else if(hexin[hex+2] == '1') {
+				int bin[4] = {0, 0, 0, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '2') {
+				int bin[4] = {0, 0, 1, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '3') {
+				int bin[4] = {0, 0, 1, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '4') {
+				int bin[4] = {0, 1, 0, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '5') {
+				int bin[4] = {0, 1, 0, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '6') {
+				int bin[4] = {0, 1, 1, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '7') {
+				int bin[4] = {0, 1, 1, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '8') {
+				int bin[4] = {1, 0, 0, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == '9') {
+				int bin[4] = {1, 0, 0, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == 'a') {
+				int bin[4] = {1, 0, 1, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == 'b') {
+				int bin[4] = {1, 0, 1, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}	
+			}
+			
+			else if(hexin[hex+2] == 'c') {
+				int bin[4] = {1, 1, 0, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}	
+			}
+			
+			else if(hexin[hex+2] == 'd') {
+				int bin[4] = {1, 1, 0, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == 'e') {
+				int bin[4] = {1, 1, 1, 0};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}
+			
+			else if(hexin[hex+2] == 'f') {
+				int bin[4] = {1, 1, 1, 1};
+				for (int t = 13; t < 17; t++) {
+					bitin[t][cl] = bin[t-13];
+				}		
+			}			
+		cl = cl + 1;
+		hex = hex + 2;
+		}
+	
+	
+	for (cl = 0; cl < count_lines; cl++) {
+		for (t = 0; t<17; t++) {
+			printf("%d", bitin[t][cl]);
+		}
+		printf("\n");
+	}
+	}
+		ssize_t nbytes_rx, nbytes_tx;
+		char *p_dat, *p_end;
+		ptrdiff_t p_inc;
+		nbytes_tx = iio_buffer_push(txbuf);
+		if (nbytes_tx < 0) { printf("Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
+		//printf("here3");
+		// Refill RX buffer
+		nbytes_rx = iio_buffer_refill(rxbuf);
+		if (nbytes_rx < 0) { printf("Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
+		//printf("here4");
+		// WRITE: Get pointers to TX buf and write IQ to TX buf port 0
+		
+		p_dat = (char *)iio_buffer_first(txbuf, tx0_i);
+		p_inc = iio_buffer_step(txbuf);
+		p_end = iio_buffer_end(txbuf);
+		m = 0;
+		j = 0;
+		cl = 0;
+		k = 0;
+		//printf("p_inc: %c, p_end: %s",p_inc, p_end);
+		while (k <= 1) {
+			// Example: fill with zeros
+			// 12-bit sample needs to be MSB alligned so shift by 4
+			// https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
+			if (j < 16) {
+			((int16_t*)p_dat)[0] = (0); // Real (I)
+			((int16_t*)p_dat)[1] = (0); // Imag (Q)
+			}
+			else if (bitin[m][cl] == 1){
+				((int16_t*)p_dat)[0] = (2000); // Real (I)
+				((int16_t*)p_dat)[1] = (2000); // Imag (Q)
+				printf("%d", bitin[m][cl]);
+			}
+			else if (bitin[m][cl] == 0) {
+				((int16_t*)p_dat)[0] = (-2000); // Real (I)
+				((int16_t*)p_dat)[1] = (-2000); // Imag (Q)
+				printf("%d", bitin[m][cl]);
+			}
+			if (m == 16) {
+				m = 0;
+				cl = cl + 1;
+				if (cl > count_lines) {
+					cl = 0;
+					k = k + 1;
+				}
+				printf("\n");
+			}
+			else if (j >= 16) {
+				m = m+1;
+			}
+			p_dat += p_inc;
+			j = j + 1;
 		}
 
 
@@ -449,26 +694,8 @@ int main (int argc, char **argv)
 		printf("\t%d Samples\n", n);
 		printf("cl: %d\n", cl);
 		n = 0;
-		if (flag == 0 && cnt > 4) {
-			FILE *fp;
-			char fname[20] = ("/root/");
-			strcat(fname, filename);
-			strcat(fname,".txt");
-			printf("filename: %s\n", fname);
-			fp = fopen(fname, "w");
-			for (count_lines = 0; count_lines < cl; count_lines++) {
-				for (h = 0; h < 8; ++h) {
-					fprintf(fp, "%d", bitout[h][count_lines]);
-					//printf("%d", bitout[h][count_lines]);
-				}
-			fprintf(fp, "\n");
-			//printf("\n");
-			}
-			fclose(fp);
-			flag = 1;
-		}
 
-		cnt = cnt + 1;
+		
 	}
  	shutdown();
 	return 0;
