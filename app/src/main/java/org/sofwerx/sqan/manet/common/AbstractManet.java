@@ -50,7 +50,7 @@ public abstract class AbstractManet {
      */
     public AbstractManet(Handler handler, Context context, ManetListener listener) {
         this.handler = handler;
-        this.context = context;
+        this.context = context.getApplicationContext();
         this.listener = listener;
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
         parser = new PacketParser(this);

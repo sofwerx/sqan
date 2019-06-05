@@ -223,7 +223,7 @@ public class Discovery {
         } catch (Exception e) {
             Log.e(Config.TAG,"Unable to start intent to pairDevice: "+e.getMessage());*/
             device.createBond();
-            Core.connectAsClientAsync(activity,device,BtManetV2.getInstance());
+            Core.connectAsClientAsync(activity.getApplicationContext(),device,BtManetV2.getInstance());
         //}
     }
 

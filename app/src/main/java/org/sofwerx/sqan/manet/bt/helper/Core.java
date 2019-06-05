@@ -58,7 +58,7 @@ public class Core {
      *
      * Spawns a dedicated connect thread
      */
-    public static void connectAsClientAsync(final Context context, final BluetoothDevice device, final DeviceConnectionListener connectionListener, final boolean secure, final UUID user_serviceUuid) {
+    private static void connectAsClientAsync(final Context context, final BluetoothDevice device, final DeviceConnectionListener connectionListener, final boolean secure, final UUID user_serviceUuid) {
         new Thread() {
             public void run() {
                 if (device == null)

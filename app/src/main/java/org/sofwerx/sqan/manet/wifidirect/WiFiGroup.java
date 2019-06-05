@@ -1,5 +1,6 @@
 package org.sofwerx.sqan.manet.wifidirect;
 
+@Deprecated
 public class WiFiGroup {
     private String ssid;
     private String password;

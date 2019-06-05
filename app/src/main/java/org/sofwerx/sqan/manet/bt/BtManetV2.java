@@ -131,7 +131,7 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
                             BluetoothDevice device = getDevice(macString);
                             if (device != null) {
                                 pendingConnections++;
-                                Core.connectAsClientAsync(context, device, BtManetV2.this);
+                                Core.connectAsClientAsync(context.getApplicationContext(), device, BtManetV2.this);
                                 addedNewCheck = true;
                             }
                         }
