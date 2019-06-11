@@ -15,8 +15,10 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.StringUtils;
@@ -44,9 +46,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private SdrAppStatus sdrAppStatus = SdrAppStatus.NEED_START;
     private HandlerThread handlerThread;
     private Handler handler;
-    private final static char DATA_PACKET_HEADER_CHARACTER = '*';
-    private final static byte[] SDR_START_COMMAND = "sqandr\r\n".getBytes(StandardCharsets.UTF_8);
-    private final static byte DATA_PACKET_HEADER_CHARACTER_VALUE = (byte)DATA_PACKET_HEADER_CHARACTER;
+    private byte[] SDR_START_COMMAND;
+    private final static char HEADER_DATA_PACKET_OUTGOING_CHARACTER = '*';
+    private final static byte HEADER_DATA_PACKET_OUTGOING = (byte)HEADER_DATA_PACKET_OUTGOING_CHARACTER;
+    private final static byte HEADER_DATA_PACKET_INCOMING = (byte)43; //+
+    private final static byte HEADER_SYSTEM_MESSAGE = (byte)109; //m
+    private final static byte HEADER_SEND_COMMAND = (byte)99; //c
+    private final static char HEADER_SHUTDOWN_CHARACTER = 'e'; //e
+    private final static byte HEADER_SHUTDOWN = (byte)HEADER_SHUTDOWN_CHARACTER; //e
 
     private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 100l;
     private long nextKeepAliveMessage = Long.MIN_VALUE;
@@ -57,6 +64,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
+        SDR_START_COMMAND = ("/root/sqandr -tx "+Float.toString(SdrConfig.getTxFreq())+" -rx "+Float.toString(SdrConfig.getTxFreq())+"\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -134,6 +142,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
         if (port != null) {
             try {
+                if (sdrAppStatus == SdrAppStatus.RUNNING) {
+                    String formattedData = HEADER_SHUTDOWN_CHARACTER + "\n";
+                    try {
+                        port.write(formattedData.getBytes(StandardCharsets.UTF_8), 100);
+                    } catch (IOException e) {
+                        Log.w(TAG,"Unable to close SDR app before shutting down: "+e.getMessage());
+                    }
+                }
                 port.setDTR(false);
                 port.setRTS(false);
             } catch (Exception ignored) {
@@ -187,7 +203,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
-        String formattedData = DATA_PACKET_HEADER_CHARACTER+StringUtils.toHex(data)+"\r\n";
+        String formattedData = HEADER_DATA_PACKET_OUTGOING_CHARACTER+StringUtils.toHex(data)+"\n";
         return formattedData.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -351,25 +367,16 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //listener.onConnectionError(new String(data,StandardCharsets.UTF_8));
                 //listener.onSerialRead(data);
         } else {
-            if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                if (isDatalinkData(data))
-                    handleRawDatalinkInput(parseSerialLinkFormat(data));
-                else
-                    listener.onReceiveCommandData(data);
-            } else {
-                if (handler != null)
-                    handler.postDelayed(new SdrAppHelper(data), DELAY_FOR_SDR_APP_START);
-                if (listener != null)
-                    listener.onReceiveCommandData(data);
-            }
+            if (handler != null)
+                handler.postDelayed(new SdrAppHelper(data), DELAY_FOR_SDR_APP_START);
         }
     }
 
-    private boolean isDatalinkData(byte[] data) {
+    /*private boolean isDatalinkData(byte[] data) {
         if ((data == null) || (data.length < 3))
             return false;
-        return data[0] == DATA_PACKET_HEADER_CHARACTER_VALUE;
-    }
+        return data[0] == HEADER_DATA_PACKET_INCOMING;
+    }*/
 
     public boolean isTerminalLoggedIn() { return status == LoginStatus.LOGGED_IN; }
 
@@ -439,7 +446,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return false;
     }
 
-    private String[] SDR_APP_WORDS = {"logged"};
+    private String[] SDR_APP_WORDS = {"Starting"};
     private boolean isSdrAppSuccessMessage(String message) {
         if (message != null) {
             for (String word:SDR_APP_WORDS) {
@@ -471,24 +478,44 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         @Override
         public void run() {
             //TODO testing
-            if (runOnceTest) {
+            /*if (runOnceTest) {
                 runOnceTest = false;
                 handleRawDatalinkInput(parseSerialLinkFormat("*6699F0803D5468697320697320612061206D756368206C6F6E676572207061636B657420746861742077696C6C20646566696E6974656C79206E65656420736F6D65206B696E64206F66207365676D656E746174696F6E20616E64207265617373656D626C792E20486F706566756C6C7920736F6D657468696E67206C6F6E6720656E6F7567682074686174206974207265616C6C7920746573747320746865207365676D656E74657220636C6173732E2049206D65616E2049206E656564207468697320746F206265207265616C6C79206C6F6E672C20646566696E6974656C79206C6F6E676572207468616E20746865206F74".getBytes()));
                 handleRawDatalinkInput(parseSerialLinkFormat("*6699078103686572206F6E65".getBytes()));
                 handleRawDatalinkInput(parseSerialLinkFormat("*669901826D55".getBytes()));
-            }
+            }*/
             //TODO testing
 
-            final String message;
-            if (data == null)
-                message = null;
-            else
-                message = new String(data, StandardCharsets.UTF_8);
+            String message = null;
+            if (data != null) {
+                if (sdrAppStatus == SdrAppStatus.RUNNING) {
+                    switch (data[0]) {
+                        case HEADER_DATA_PACKET_INCOMING:
+                            handleRawDatalinkInput(parseSerialLinkFormat(data));
+                            return;
+
+                        case HEADER_SYSTEM_MESSAGE:
+                            message = new String(data,StandardCharsets.UTF_8).substring(1);
+                            break;
+
+                        case HEADER_SHUTDOWN:
+                            Log.d(TAG,"The shutdown command to the SDR was received back (this is meaningless for the Android end); ignoring.");
+                            return;
+
+                        case HEADER_DATA_PACKET_OUTGOING:
+                            Log.d(TAG,"Our own outgoing packet was received back(this is meaningless for the Android end); ignoring.");
+                            return;
+
+                        default:
+                            message = "Unknown command: "+new String(data,StandardCharsets.UTF_8);
+                    }
+                } else
+                    message = new String(data, StandardCharsets.UTF_8);
+            }
             if (attempts > 3) {
                 sdrAppStatus = SdrAppStatus.ERROR;
                 if (listener != null)
                     listener.onConnectionError("Unable to start app after 3 attempts: "+((message==null)?"":message));
-                //    listener.onSerialError(new Exception("Unable to login after 3 attempts: "+((message==null)?"":message)));
                 return;
             }
             if (message == null) {
@@ -498,8 +525,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (message.length() < 3) //ignore short echo back messages
                     return;
                 if (isSdrAppSuccessMessage(message)) {
-                    Log.d(TAG,"SDR companion app is running");
+                    CommsLog.log(CommsLog.Entry.Category.SDR,"SDR companion app is running");
                     sdrAppStatus = SdrAppStatus.RUNNING;
+                } else {
+                    CommsLog.log(CommsLog.Entry.Category.SDR,message);
+                    if (listener != null)
+                        listener.onReceiveCommandData(message.getBytes(StandardCharsets.UTF_8));
                 }
             }
         }
@@ -510,6 +541,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             Log.d(TAG,"Starting SDR companion app");
             sdrAppStatus = SdrAppStatus.STARTING;
             attempts = 0;
+            CommsLog.log(CommsLog.Entry.Category.SDR,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             write(SDR_START_COMMAND);
         }
     }

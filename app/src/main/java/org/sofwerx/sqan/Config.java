@@ -13,6 +13,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.UuidUtil;
+import org.sofwerx.sqandr.sdr.SdrConfig;
 
 import java.util.ArrayList;
 
@@ -40,6 +41,7 @@ public class Config {
     public final static String PREFS_VPN_MTU = "mtu";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
+    public final static String PREFS_SDR_SETTINGS = "sdrsettings";
     private final static String DEFAULT_PASSCODE = "SwxTest";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
@@ -146,6 +148,7 @@ public class Config {
         } catch (NumberFormatException e) {
             mtuSize = 1500;
         }
+        SdrConfig.init(context);
     }
 
     public static boolean isVpnEnabled() {
@@ -159,6 +162,7 @@ public class Config {
     public static void savePrefs(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
+        SdrConfig.saveToPrefs(context);
         updateSavedTeammates();
         if (vpnMode)
             edit.putBoolean(PREFS_VPN_MODE,true);

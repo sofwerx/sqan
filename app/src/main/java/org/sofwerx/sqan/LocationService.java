@@ -11,7 +11,7 @@ import android.os.Bundle;
 
 public class LocationService implements LocationListener {
     private final LocationManager locationManager;
-    private final SqAnService sqAnService;
+    private SqAnService sqAnService;
     private Location lastLocation = null;
     private LocationUpdateListener listener;
 
@@ -47,6 +47,7 @@ public class LocationService implements LocationListener {
     public void shutdown() {
         //TODO
         locationManager.removeUpdates(this);
+        sqAnService = null;
     }
 
     @Override

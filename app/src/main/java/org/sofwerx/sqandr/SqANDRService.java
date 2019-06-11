@@ -232,26 +232,6 @@ public class SqANDRService implements DataConnectionListener {
 
     public void setDataConnectionListener(DataConnectionListener dataConnectionListener) { this.dataConnectionListener = dataConnectionListener; }
 
-    /*@Override
-    public void onSerialConnect() {
-        if (serialListener != null)
-            serialListener.onSerialConnect();
-        //TODO for testing
-        sdrDevice.sendCommand("help");
-    }
-
-    @Override
-    public void onSerialError(Exception e) {
-        if (serialListener != null)
-            serialListener.onSerialError(e);
-    }
-
-    @Override
-    public void onSerialRead(byte[] data) {
-        if (serialListener != null)
-            serialListener.onSerialRead(data);
-    }*/
-
     private class UsbBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {

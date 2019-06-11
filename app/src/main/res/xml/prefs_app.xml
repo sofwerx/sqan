@@ -40,6 +40,11 @@
             android:title="Network Passcode"
             android:summary="The passcode used to for the network. This is a temporary solution until a network negotiated passcode scheme is put in place." />
 
+        <Preference
+            android:key="sdrsettings"
+            android:title="SDR Settings"
+            android:summary="Software Defined Radio settings" />
+
     </PreferenceCategory>
 
     <PreferenceCategory

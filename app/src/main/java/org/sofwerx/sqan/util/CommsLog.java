@@ -126,6 +126,7 @@ public class CommsLog {
             PROBLEM,
             STATUS,
             COMMS,
+            SDR,
             CONNECTION
         }
 
@@ -151,6 +152,10 @@ public class CommsLog {
             switch (category) {
                 case PROBLEM:
                     out.append("[PROBLEM]");
+                    break;
+
+                case SDR:
+                    out.append("[SDR]");
                     break;
 
                 case CONNECTION:

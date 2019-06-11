@@ -30,7 +30,8 @@ public abstract class AbstractDataConnection {
         if (raw == null) {
             Log.w(TAG,"handleRawDatalinkInput received null input, ignoring");
             return;
-        }
+        } else
+            Log.w(TAG,"handleRawDatalinkInput received "+raw.length+"b raw input");
         if (dataBuffer == null)
             dataBuffer = new WriteableInputStream();
         dataBuffer.write(raw);

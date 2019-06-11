@@ -32,5 +32,11 @@ public class CoreSettingsFragment extends PreferenceFragment {
             } else
                 clearTeammates.setEnabled(false);
         }
+        Preference sdrSettings = findPreference(Config.PREFS_SDR_SETTINGS);
+        if (sdrSettings != null)
+            sdrSettings.setOnPreferenceClickListener(preference -> {
+                SdrConfigDialog.show(getActivity());
+                return true;
+            });
     }
 }

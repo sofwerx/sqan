@@ -20,8 +20,8 @@ public class SavedTeammate {
         boolean problem = false;
         if (checkBt)
             problem = !isBtPaired();
-        if (checkWiFi)
-            problem = problem || (netID == null) || (netID.length() < 2);
+        //TODO if (checkWiFi)
+        //    problem = problem || (netID == null) || (netID.length() < 2);
         return problem;
     }
 

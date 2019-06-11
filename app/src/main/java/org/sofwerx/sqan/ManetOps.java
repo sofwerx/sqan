@@ -35,7 +35,7 @@ import org.sofwerx.sqan.util.StringUtil;
  */
 public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroadcastListener {
     private final static long MIN_SA_IPC_BROADCAST_DELAY = 250l; //dont do SA IPC broadcasts with any interval shorter than this
-    private final SqAnService sqAnService;
+    private SqAnService sqAnService;
     private AbstractManet wifiManet;
     private BtManetV2 btManet;
     private SdrManet sdrManet;
@@ -299,6 +299,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 Log.e(Config.TAG, "ManetOps is unable to shutdown MANET: " + e.getMessage());
             }
         }
+        sqAnService = null;
+        manetThread = null;
     }
 
     public void pause() {
@@ -416,9 +418,11 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void onTx(final byte[] payload) {
         if (handler != null)
             handler.post(() -> {
-                if (sqAnService.listener != null)
-                    sqAnService.listener.onDataTransmitted();
-                sqAnService.onPositiveComms();
+                if (sqAnService != null) {
+                    if (sqAnService.listener != null)
+                        sqAnService.listener.onDataTransmitted();
+                    sqAnService.onPositiveComms();
+                }
             });
     }
 

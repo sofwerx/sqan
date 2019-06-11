@@ -2,6 +2,7 @@ package org.sofwerx.sqan.ui;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.Preference;
@@ -57,6 +58,11 @@ public class SettingsActivity extends Activity {
             builder.setTitle(R.string.shutdown_required);
             builder.setMessage(R.string.prefs_manet_changed_description);
             final AlertDialog dialog = builder.create();
+            /*dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Shutdown", (dialog1, which) -> {
+                finish();
+                if (SqAnService.getInstance() != null)
+                    SqAnService.getInstance().requestShutdown(false);
+            });*/
             dialog.show();
         } else if (Config.PREFS_VPN_MTU.equalsIgnoreCase(key)) {
             Config.recheckPreferences(this);
