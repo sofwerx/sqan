@@ -209,6 +209,7 @@ public abstract class AbstractSdr implements DataConnectionListener {
     }
 
     public void shutdown() {
+        Log.d(TAG,"SDR shutting down...");
         /*if (inputStream != null) {
             try {
                 inputStream.close();

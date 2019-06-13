@@ -32,15 +32,19 @@ public abstract class AbstractDataConnection {
             return;
         } else
             Log.w(TAG,"handleRawDatalinkInput received "+raw.length+"b raw input");
+        Log.d(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
         if (dataBuffer == null)
             dataBuffer = new WriteableInputStream();
         dataBuffer.write(raw);
+        Log.d(TAG,raw.length+"b added to dataBuffer");
         if (readThread == null) {
             readThread = new Thread() {
                 @Override
                 public void run() {
+                    Log.d(TAG,"starting read thread");
                     while(keepGoing.get()) {
                         byte[] out = readPacketData();
+                        Log.d(TAG,((out==null)?"null ":out.length+"b")+"packet data read by dataBuffer");
                         if ((out != null) && (listener != null))
                             listener.onReceiveDataLinkData(out);
                         if (System.currentTimeMillis() > nextStaleCheck) {
@@ -102,11 +106,11 @@ public abstract class AbstractDataConnection {
                     dig = (byte)dataBuffer.read();
                     lost++;
                     if (dig == Segment.HEADER_MARKER[1]) {
-                        size = dataBuffer.read();
+                        size = dataBuffer.read() & 0xFF;
                         lost++;
-                        if (size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) {
+                        if ((size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
                             Log.d(TAG,lost+"b lost, but new header found");
-                            return dig;
+                            return size;
                         }
                     }
                 }
@@ -148,14 +152,17 @@ public abstract class AbstractDataConnection {
     }
 
     private byte[] readPacketData() {
+        Log.d(TAG,"readPacketData()");
         if (dataBuffer == null)
             return null;
         try {
             int size = readPartialHeader();
             if ((size < 0) || (size > Segment.MAX_LENGTH_BEFORE_SEGMENTING))
                 throw new IOException("Unable to read packet - invalid size "+size+"b - this condition should never happen unless the link is shutting down");
+            Log.d(TAG,"packet size "+size+"b");
             byte[] rest = new byte[size+2]; //2 added to get the rest of the header
             dataBuffer.read(rest);
+            Log.d(TAG,"Rest of packet read");
             Segment segment = new Segment();
             segment.parseRemainder(rest);
             if (segment.isValid()) {

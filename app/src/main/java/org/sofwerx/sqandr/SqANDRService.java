@@ -16,6 +16,9 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.manet.common.Status;
+import org.sofwerx.sqan.manet.sdr.SdrManet;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
@@ -42,11 +45,13 @@ public class SqANDRService implements DataConnectionListener {
     //private SdrSocket sdrSocket;
     //private SerialListener serialListener;
     private DataConnectionListener dataConnectionListener;
+    private SdrManet manet;
 
-    public SqANDRService(@NonNull Context context) {
+    public SqANDRService(@NonNull Context context, SdrManet manet) {
         this.context = context;
         if (context instanceof SqANDRListener)
             listener = (SqANDRListener) context;
+        this.manet = manet;
         if (context instanceof Activity)
             PermissionsHelper.checkForPermissions((Activity)context);
         SqANDRLog.init(context);
@@ -191,7 +196,8 @@ public class SqANDRService implements DataConnectionListener {
 
     @Override
     public void onConnect() {
-        //TODO
+        if (manet != null)
+            manet.setStatus(Status.CONNECTED);
         if (dataConnectionListener != null)
             dataConnectionListener.onConnect();
     }
@@ -265,6 +271,7 @@ public class SqANDRService implements DataConnectionListener {
                                 sdrDevice.setUsbDevice(context, manager, device);
                                 //startSocket();
                                 if (listener != null) {
+                                    CommsLog.log("SDR is ready");
                                     listener.onSdrMessage(sdrDevice.getInfo(context));
                                     listener.onSdrReady(true);
                                 }

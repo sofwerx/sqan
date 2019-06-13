@@ -12,7 +12,7 @@ public class SdrConfig {
     private static SdrMode mode;
     private static float txFreq;
     private static float rxFreq;
-    private final static float DEFAULT_FREQ = 2.5f;
+    private final static float DEFAULT_FREQ = 2500f; //MHz
 
     public static SdrMode getMode() { return mode; }
     public static void setMode(SdrMode mode) { SdrConfig.mode = mode; }

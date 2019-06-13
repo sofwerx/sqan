@@ -146,8 +146,11 @@ public abstract class AbstractManet {
                 changed = (this.status != status);
                 this.status = status;
         }
-        if (changed && (listener != null))
-            listener.onStatus(this.status);
+        if (changed) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,getName()+" status changed to "+this.status.name());
+            if (listener != null)
+                listener.onStatus(this.status);
+        }
     }
 
     /**

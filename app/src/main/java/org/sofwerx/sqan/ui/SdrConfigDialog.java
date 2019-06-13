@@ -31,6 +31,8 @@ public class SdrConfigDialog extends Dialog {
     private EditText tx,rx;
     private Spinner modeSpinner;
     private ArrayList<SdrMode> modes;
+    private final static float MIN_FREQ = 325f; //MHz
+    private final static float MAX_FREQ = 3800f; //MHz
 
     public SdrConfigDialog(Activity a) {
         super(a);
@@ -48,8 +50,8 @@ public class SdrConfigDialog extends Dialog {
         rx = findViewById(R.id.dSdrEditRx);
         modeSpinner = findViewById(R.id.dSdrModeSpinner);
 
-        tx.setText(Float.toString(SdrConfig.getTxFreq()));
-        rx.setText(Float.toString(SdrConfig.getRxFreq()));
+        tx.setText(String.format("%.1f",SdrConfig.getTxFreq()));
+        rx.setText(String.format("%.1f",SdrConfig.getRxFreq()));
 
         modes = new ArrayList<>();
         modes.add(SdrMode.P2P);
@@ -77,11 +79,19 @@ public class SdrConfigDialog extends Dialog {
 
         try {
             txF = Float.valueOf(tx.getText().toString());
+            if (txF < MIN_FREQ)
+                problem = String.format("%.1f",txF)+" is below the min tunable freq of "+String.format("%.1f",MIN_FREQ)+" MHz";
+            else if (txF > MAX_FREQ)
+                problem = String.format("%.1f",txF)+" is below the max tunable freq of "+String.format("%.1f",MAX_FREQ)+" MHz";
         } catch (NumberFormatException ignore) {
             problem = "Invalid TX frequency";
         }
         try {
             rxF = Float.valueOf(rx.getText().toString());
+            if (rxF < MIN_FREQ)
+                problem = String.format("%.1f",rxF)+" is below the min tunable freq of "+String.format("%.1f",MIN_FREQ)+" MHz";
+            else if (rxF > MAX_FREQ)
+                problem = String.format("%.1f",rxF)+" is below the max tunable freq of "+String.format("%.1f",MAX_FREQ)+" MHz";
         } catch (NumberFormatException ignore) {
             problem = "Invalid RX frequency";
         }
@@ -90,8 +100,6 @@ public class SdrConfigDialog extends Dialog {
         } catch (Exception ignore) {
             problem = "Invalid mode";
         }
-
-        //TODO handle mode-based validity checks
 
         if (problem != null)
             Toast.makeText(activity,"Unable to update SDR: "+problem,Toast.LENGTH_LONG).show();

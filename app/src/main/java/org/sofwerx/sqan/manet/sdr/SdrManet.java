@@ -38,7 +38,7 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
-        sqANDRService = new SqANDRService(context);
+        sqANDRService = new SqANDRService(context,this);
         instance = this;
     }
 
@@ -124,9 +124,11 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     @Override
     public void disconnect() throws ManetException {
         instance = null;
+        if (sqANDRService != null) {
+            sqANDRService.shutdown();
+            sqANDRService = null;
+        }
         setStatus(Status.OFF);
-
-        //TODO cleanup SqANDR
 
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         super.disconnect();
