@@ -71,13 +71,18 @@ Since only Nearby Connections organically uses both WiFi and Bluetooth, a sepera
 
 ### Bluetooth
 
-Bluetooth mesh is available as a separate, stand-alone options as well and SqAN will blend data acrtoss meshes based on connectivity. Of the currently available mesh approaches, the Bluetooth mesh is the most mature at this time. The Bluetooth mesh is a constom built modified flood-based system, but is not the BLE based "Mesh Profile Specification" or "Mesh Model Specification" as these two are: 1) not yet supported natively within Android and 2) not optimized for the type of traffic anticipated within a dismounted manuever unit environment.
+Bluetooth mesh is available as a separate, stand-alone options as well and SqAN will blend data across meshes based on connectivity. Of the currently available mesh approaches, the Bluetooth mesh is the most mature at this time. The Bluetooth mesh is a constom built modified flood-based system, but is not the BLE based "Mesh Profile Specification" or "Mesh Model Specification" as these two are: 1) not yet supported natively within Android and 2) not optimized for the type of traffic anticipated within a dismounted manuever unit environment.
 
 Performance so far:
  - After initial pairing process, Bluetooth based mesh appears to form relatively quickly, self heal consistently and maintain connectivity at distances in excess of 50m in open terrain
  - Some lower end and older devices occasionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
 _** Bluetooth mesh is the highest performing mesh so far for lower bandwidth, lower energy usage, multi-hop applications **_
 
+
+### Software Defined Radio
+
+_**[WARNING: prolonged use of some SDR may cause heat-related damage to the SDR]**_
+SqANDR is a support library that has is being built in parallel to extend SqAN connectivity across SDRs. Currently only PlutoSDRs or any *nix SDR with AD9361 agile transceiver family of devices supporting libiio. SqANDR is currently under active development with the latested on-SDR code provided in the "pluto" directory.
 
 ### WiFiManager
 

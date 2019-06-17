@@ -67,7 +67,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
-        SDR_START_COMMAND = ("/var/tmp/sqandr -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getTxFreq())+"\n").getBytes(StandardCharsets.UTF_8);
+        SDR_START_COMMAND = ("/var/tmp/sqandr -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getTxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -369,7 +369,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void onNewData(byte[] data) {
         if ((data == null) || (data.length < 3))
             return;
-        Log.d(TAG,"onNewData("+data.length+"b): "+new String(data));
+        //Log.d(TAG,"onNewData("+data.length+"b): "+new String(data));
         if (status != LoginStatus.LOGGED_IN) {
             if (handler != null)
                 handler.postDelayed(new LoginHelper(data), DELAY_FOR_LOGIN_WRITE);
@@ -503,6 +503,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
         public SdrAppHelper(String input) {
             this.input = input;
+            //Log.d(TAG,"SdrAppHelper received: "+input);
             //Log.d(TAG,"SdrAppHelper received "+((data==null)?"null ":data.length)+"b");
             //this.data = data;
         }

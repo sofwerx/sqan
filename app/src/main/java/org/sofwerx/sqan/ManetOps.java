@@ -361,7 +361,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     @Override
     public void onStatus(Status status) {
-        sqAnService.onStatusChange(status,null);
+        if (sqAnService != null)
+            sqAnService.onStatusChange(status,null);
     }
 
     @Override

@@ -45,7 +45,10 @@ public class SdrConfigDialog extends Dialog {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.dialog_sdr_settings);
         Button bDone = findViewById(R.id.dSdrDone);
-        bDone.setOnClickListener(v -> dismiss());
+        bDone.setOnClickListener(v -> {
+            if (savePrefs())
+                dismiss();
+        });
         tx = findViewById(R.id.dSdrEditTx);
         rx = findViewById(R.id.dSdrEditRx);
         modeSpinner = findViewById(R.id.dSdrModeSpinner);
@@ -70,7 +73,10 @@ public class SdrConfigDialog extends Dialog {
         }
     }
 
-    public void savePrefs() {
+    /**
+     * @return true == success
+     */
+    private boolean savePrefs() {
         float txF = SdrConfig.getTxFreq();
         float rxF = SdrConfig.getRxFreq();
         SdrMode mode = SdrConfig.getMode();
@@ -101,13 +107,15 @@ public class SdrConfigDialog extends Dialog {
             problem = "Invalid mode";
         }
 
-        if (problem != null)
-            Toast.makeText(activity,"Unable to update SDR: "+problem,Toast.LENGTH_LONG).show();
-        else {
+        if (problem != null) {
+            Toast.makeText(activity, "Unable to update SDR: " + problem, Toast.LENGTH_LONG).show();
+            return false;
+        } else {
             SdrConfig.setTxFreq(txF);
             SdrConfig.setRxFreq(rxF);
             SdrConfig.setMode(mode);
             SdrConfig.saveToPrefs(activity);
+            return true;
         }
     }
 
