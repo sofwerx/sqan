@@ -503,7 +503,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
         public SdrAppHelper(String input) {
             this.input = input;
-            //Log.d(TAG,"SdrAppHelper received: "+input);
+            //Unknown commandLog.d(TAG,"SdrAppHelper received: "+input);
             //Log.d(TAG,"SdrAppHelper received "+((data==null)?"null ":data.length)+"b");
             //this.data = data;
         }
@@ -552,6 +552,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }*/
             if (input != null) {
                 if (sdrAppStatus == SdrAppStatus.RUNNING) {
+                    Log.d(TAG,"From SDR: "+input);
                     switch (input.charAt(0)) {
                         case HEADER_DATA_PACKET_INCOMING_CHAR:
                             Log.d(TAG,"SdrAppHelper - found Data Packet");
