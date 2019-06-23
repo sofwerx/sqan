@@ -75,7 +75,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     protected SqAnStatusListener listener = null;
     private NotificationChannel channel = null;
     private ManetOps manetOps;
-    private Status lastNotifiedStatus = Status.ERROR; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
+    private Status lastNotifiedStatus = Status.OFF; //the last status provided in a notification (used to prevent the notifications from firing multiple times when there is no meaningful status change)
     private int numDevicesInLastNotification = 0;
     private long lastPositiveOutgoingComms = Long.MIN_VALUE;
     private int lastHeartbeatLevel = 0;
@@ -639,6 +639,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             notifyStatusChange(message);
         }
     }
+
+    public Status getStatus() { return lastNotifiedStatus; }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

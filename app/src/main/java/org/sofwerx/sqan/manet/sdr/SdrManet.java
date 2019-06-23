@@ -35,6 +35,8 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     private static SdrManet instance;
     private long staleTime = Long.MIN_VALUE;
     private SqANDRService sqANDRService;
+    private long[] DEDUP_LIST = new long[10]; //used to prevent handling duplicate messages but still allow messages out of order (within a small group)
+    private int dedupIndex = 0;
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
         super(handler, context,listener);
@@ -56,6 +58,13 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
 
     @Override
     public int getMaximumPacketSize() { return MAX_PACKET_SIZE; }
+
+    @Override
+    public boolean isCongested() {
+        if (sqANDRService == null)
+            return true;
+        return sqANDRService.isSdrConnectionRecentlyCongested();
+    }
 
     @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
@@ -189,8 +198,17 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             Log.w(TAG,"Unable to parse data, packet dropped");
             onPacketDropped();
             return;
-        } else
-            Log.d(TAG,packet.getClass().getSimpleName()+" packet received");
+        }
+        if (hasTimeAlreadyInDedupList(packet.getTime())) {
+            Log.d(TAG,packet.getClass().getSimpleName()+" packet is likely a duplicate; ignoring");
+            return;
+        }
+        addTimeToDedupList(packet.getTime());
+        if (packet.getOrigin() == Config.getThisDevice().getUUID()) {
+            Log.d(TAG,packet.getClass().getSimpleName()+" is circular; ignoring");
+            return;
+        }
+        Log.d(TAG,packet.getClass().getSimpleName()+" packet received");
         setCurrent();
         onReceived(packet);
     }
@@ -222,6 +240,30 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     public void setTerminal(DataConnectionListener terminal) {
         if (sqANDRService != null)
             sqANDRService.setDataConnectionListener(terminal);
+    }
+
+    /**
+     * Checks to see if a message time is already in the list of duplicate times
+     * @param time
+     * @return
+     */
+    private boolean hasTimeAlreadyInDedupList(long time) {
+        for (int i=0;i<DEDUP_LIST.length;i++) {
+            if (DEDUP_LIST[i] == time)
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Adds a message time to the list of times to check for duplication
+     * @param time
+     */
+    private void addTimeToDedupList(long time) {
+        DEDUP_LIST[dedupIndex] = time;
+        dedupIndex++;
+        if (dedupIndex >= DEDUP_LIST.length)
+            dedupIndex = 0;
     }
 
     public SerialConnection getSerialConnection() {

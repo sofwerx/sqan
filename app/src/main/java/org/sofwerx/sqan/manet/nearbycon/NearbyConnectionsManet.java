@@ -75,6 +75,12 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     @Override
+    public boolean isCongested() {
+        //FIXME
+        return false;
+    }
+
+    @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
         //TODO toggle advertise/discovery
     }

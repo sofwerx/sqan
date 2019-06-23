@@ -70,10 +70,15 @@ public class SqANDRService implements DataConnectionListener {
         sdrThread.start();
     }
 
+    public boolean isSdrConnectionRecentlyCongested() {
+        if (sdrDevice == null)
+            return false;
+        return sdrDevice.isSdrConnectionRecentlyCongested();
+    }
+
     private Runnable periodicTask = new Runnable() {
         @Override
         public void run() {
-            //startSocket(); //try to connect ths socket if it's not already running
             //TODO handle any periodic tasks here
             if (handler != null)
                 handler.postDelayed(periodicTask, PERIODIC_TASK_INTERVAL);
@@ -85,8 +90,6 @@ public class SqANDRService implements DataConnectionListener {
             return;
         handler.post(runnable);
     }
-
-    //public void setSerialListener(SerialListener listener) { this.serialListener = listener; }
 
     private void updateUsbDevices(final Context context) {
         post(() -> {
@@ -220,8 +223,6 @@ public class SqANDRService implements DataConnectionListener {
             Log.d(TAG,"...but ignored as there is no SqANDRService Listener");
         if (dataConnectionListener != null)
             dataConnectionListener.onReceiveDataLinkData(data);
-        else
-            Log.d(TAG,"...but ignored as there is no SqANDRService DataConnectionListener");
     }
 
     @Override
@@ -348,18 +349,6 @@ public class SqANDRService implements DataConnectionListener {
             });
         }
     }
-
-    /*private void startSocket() {
-        if (sdrSocket == null) {
-            if ((sdrDevice != null) && sdrDevice.isStreamingReady()) {
-            //if (sdrDevice != null) {
-                Log.d(TAG,"Starting SdrSocket...");
-                sdrSocket = new SdrSocket(this);
-                sdrSocket.open(sdrDevice.getInputStream(), sdrDevice.getOutputStream());
-            } else
-                Log.d(TAG,"Streams are not ready yet, not starting SdrSocket");
-        }
-    }*/
 
     public void onPacketReceived(final byte[] data) {
         if (handler != null) {

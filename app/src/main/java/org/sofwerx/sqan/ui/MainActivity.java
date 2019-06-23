@@ -4,7 +4,6 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
@@ -26,12 +25,10 @@ import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.ExceptionHelper;
 import org.sofwerx.sqan.LocationService;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
@@ -39,19 +36,16 @@ import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
-import org.sofwerx.sqan.manet.bt.Discovery;
 import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
-import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
 
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -180,7 +174,33 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         }
     }
 
+    //private long marqueUpdate = Long.MIN_VALUE;
+    private String[] marqueStatuses = new String[10];
+    private void addMarqueStatus(String status) {
+        //marqueUpdate = System.currentTimeMillis();
+        for (int i = 1; i< marqueStatuses.length; i++) {
+            marqueStatuses[i-1]= marqueStatuses[i];
+        }
+        marqueStatuses[marqueStatuses.length-1] = StringUtil.getFormattedJustTime(System.currentTimeMillis())+": "+status;
+        runOnUiThread(() -> updateStatusMarquee());
+    }
+
     private void updateStatusMarquee() {
+        StringBuilder out = new StringBuilder();
+        boolean first = true;
+
+        for (int i=0;i<marqueStatuses.length;i++) {
+            if (marqueStatuses[i] != null) {
+                if (first)
+                    first = false;
+                else
+                    out.append("\n");
+                out.append(marqueStatuses[i]);
+            }
+        }
+
+        statusMarquee.setText(out.toString());
+        statusMarquee.setSelected(true);
         /*TODO change how this is handled if (statusMarquee != null) {
             CommsLog.Entry lastError = CommsLog.getLastProblemOrStatus();
             if ((lastError != null) && ((System.currentTimeMillis() < lastError.time + REPORT_PROBLEMS_DURATION))) {
@@ -377,7 +397,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             onNodesChanged(null);
             //updateTransmitText();
             //updateSysStatusText();
-            //updateStatusMarquee();
+            updateStatusMarquee();
         });
     }
 
@@ -535,6 +555,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             sqAnService = binder.getService();
             serviceBound = true;
             registerListeners();
+            addMarqueStatus("Status is: "+StatusHelper.getName(sqAnService.getStatus()));
             updateManetTypeDisplay();
             updateSysStatusText();
             updateActiveIndicator();
@@ -710,7 +731,9 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     @Override
     public void onStatus(final Status status) {
         runOnUiThread(() -> {
-            textResults.setText("Status is: "+StatusHelper.getName(status));
+            String statusString = "Status is: "+StatusHelper.getName(status);
+            textResults.setText(statusString);
+            addMarqueStatus(statusString);
             updateManetTypeDisplay();
             updateActiveIndicator();
             updateMainStatus(status);
@@ -723,7 +746,10 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onNodesChanged(SqAnDevice device) {
         runOnUiThread(() -> {
             devicesList.update(device);
-            updateStatusMarquee();
+            //if (device != null) {
+            //    addMarqueStatus(device.getLabel()+" status "+device.getStatus().name());
+            //    updateStatusMarquee();
+            //}
             updateOverallMeshHealth();
         });
     }
@@ -735,7 +761,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     @Override
     public void onSystemReady(boolean isReady) {
-        runOnUiThread(() -> updateSysStatusText());
+        runOnUiThread(() -> {
+            addMarqueStatus("System is ready");
+            updateSysStatusText();
+            updateStatusMarquee();
+        });
     }
 
     @Override

@@ -20,6 +20,12 @@ public abstract class AbstractPacket {
         this.packetHeader = packetHeader;
     }
 
+    public long getTime() {
+        if (packetHeader == null)
+            return Long.MIN_VALUE;
+        return packetHeader.getTime();
+    }
+
     public void incrementHopCount() {
         if (packetHeader != null)
             packetHeader.incrementHopCount();

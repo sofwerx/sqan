@@ -25,6 +25,12 @@ public abstract class AbstractDataConnection {
     private Thread readThread;
     private long nextStaleCheck = Long.MIN_VALUE;
     private ArrayList<Segmenter> segmenters;
+    protected long sdrConnectionCongestedUntil = Long.MIN_VALUE;
+    private final static long TIME_CONGESTION_IS_RECENT = 1000l * 5l; //time in ms to consider any congestion marker as recent
+
+    //TODO implement the below
+    protected long rfCongestedUntil = Long.MIN_VALUE;
+    private final static long TIME_FOR_RF_ACTIVITY_TO_ADD_TO_CONGESTION = 100l; //ms to wait if data is flowing in via RF on the bulk data channel
 
     protected void handleRawDatalinkInput(final byte[] raw) {
         if (raw == null) {
@@ -70,6 +76,22 @@ public abstract class AbstractDataConnection {
             };
             readThread.start();
         }
+    }
+
+    /**
+     * Is the comms path to the SDR unable to keep up with the current outflow of data
+     * @return true == congested
+     */
+    public boolean isSdrConnectionCongested() {
+        return System.currentTimeMillis() < sdrConnectionCongestedUntil;
+    }
+
+    /**
+     * Is the connection to the SDR congested or recently congested
+     * @return true == the connection to the SDR was recently or is congested
+     */
+    public boolean isSdrConnectionRecentlyCongested() {
+        return System.currentTimeMillis() < sdrConnectionCongestedUntil + TIME_CONGESTION_IS_RECENT;
     }
 
     public void close() {

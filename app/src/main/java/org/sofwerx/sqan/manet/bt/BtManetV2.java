@@ -93,6 +93,12 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
     }
 
     @Override
+    public boolean isCongested() {
+        //FIXME
+        return false;
+    }
+
+    @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
         //TODO
     }

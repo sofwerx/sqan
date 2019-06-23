@@ -409,6 +409,8 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
             return;
         if (handler != null)
             handler.post(() -> {
+                if (sqAnService == null)
+                    return;
                 if (sqAnService.listener != null)
                     sqAnService.listener.onDataTransmitted();
                 sqAnService.onPositiveComms();

@@ -132,6 +132,12 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     }
 
     @Override
+    public boolean isCongested() {
+        //FIXME
+        return false;
+    }
+
+    @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {
         //TODO
     }

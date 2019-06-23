@@ -172,6 +172,12 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
     public int getMaximumPacketSize() { return 255; /*TODO temp maximum that reflects Aware message limitations */ }
 
     @Override
+    public boolean isCongested() {
+        //FIXME
+        return false;
+    }
+
+    @Override
     public void setNewNodesAllowed(boolean newNodesAllowed) {/*TODO*/ }
 
     @Override

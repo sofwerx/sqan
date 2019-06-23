@@ -52,7 +52,6 @@ public class PacketHeader {
      */
     public final static int getSize() { return 1 + 1 + 4 + 4 + 4 + 8; }
 
-
     private final static int MASK_LOSSY_OK = 0b0000000000000001;
     private int getFlags() {
         int result = 0;

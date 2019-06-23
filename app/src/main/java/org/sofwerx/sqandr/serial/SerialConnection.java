@@ -45,7 +45,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private SdrAppStatus sdrAppStatus = SdrAppStatus.NEED_START;
     private HandlerThread handlerThread;
     private Handler handler;
+    private final static String SDR_APP_LOCATION = "/var/tmp/sqandr";
     private byte[] SDR_START_COMMAND;
+    private final static byte[] SDR_PERMISSIONS_COMMAND = ("chmod +x "+SDR_APP_LOCATION).getBytes(StandardCharsets.UTF_8);
     private final static char HEADER_DATA_PACKET_OUTGOING_CHAR = '*';
     private final static byte HEADER_DATA_PACKET_OUTGOING = (byte) HEADER_DATA_PACKET_OUTGOING_CHAR;
     private final static char HEADER_DATA_PACKET_INCOMING_CHAR = '+';
@@ -58,16 +60,18 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 100l; //TODO
+    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //TODO
     private long nextKeepAliveMessage = Long.MIN_VALUE;
 
-    enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN };
-    enum SdrAppStatus { NEED_START, STARTING, RUNNING, ERROR, OFF };
+    private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 200l; //ms to wait if the USB is having problems sending all its data
+
+    enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
+    enum SdrAppStatus { NEED_START, STARTING, RUNNING, ERROR, OFF }
 
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
-        SDR_START_COMMAND = ("/var/tmp/sqandr -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getTxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
+        SDR_START_COMMAND = (SDR_APP_LOCATION+" -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getTxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -90,8 +94,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             Log.d(TAG,"SerialConnection already open, ignoring open call");
             return;
         }
-        //if (context instanceof SerialListener)
-        //    listener = (SerialListener)context;
         Log.d(TAG,"Opening...");
         Runnable initRunnable = () -> {
             UsbSerialDriver driver = new PlutoCdcAsmDriver(usbDevice);
@@ -126,7 +128,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         @Override
         public void run() {
             if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                if (System.currentTimeMillis() > nextKeepAliveMessage)
+                if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage))
                     write(KEEP_ALIVE_MESSAGE);
             }
             if (handler != null)
@@ -259,10 +261,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
                 //TODO testing
-                Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                //Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
-                port.write(data,SERIAL_TIMEOUT);
+                int bytesWritten = port.write(data,SERIAL_TIMEOUT);
+                if (bytesWritten < data.length)
+                    sdrConnectionCongestedUntil = System.currentTimeMillis()+TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION;
             } catch (IOException e) {
                 Log.e(TAG,"Unable to write data: "+e.getMessage());
             }

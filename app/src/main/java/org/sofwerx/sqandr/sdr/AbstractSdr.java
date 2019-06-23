@@ -56,6 +56,12 @@ public abstract class AbstractSdr implements DataConnectionListener {
         return null;
     }
 
+    public boolean isSdrConnectionRecentlyCongested() {
+        if (dataConnection == null)
+            return false;
+        return dataConnection.isSdrConnectionRecentlyCongested();
+    }
+
     public void setDataConnectionListener(DataConnectionListener listener) { this.dataConnectionListener = listener; }
 
     protected void setCommLinkUsbInterface(UsbInterface usbInterface) {

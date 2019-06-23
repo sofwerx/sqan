@@ -81,6 +81,8 @@ public abstract class AbstractManet {
 
     public abstract int getMaximumPacketSize();
 
+    public abstract boolean isCongested();
+
     /**
      * Intended to support more efficient radio operations by allowing devices to stop
      * advertising/discovering one the group has been adequately formed.
