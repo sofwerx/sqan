@@ -350,8 +350,11 @@ public abstract class AbstractSdr implements DataConnectionListener {
 
     @Override
     public void onReceiveDataLinkData(byte[] data) {
+        Log.d(TAG,"AbstractSdr.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
         if (dataConnectionListener != null)
             dataConnectionListener.onReceiveDataLinkData(data);
+        else
+            Log.d(TAG,"...but ignored as there is no AbstractSDR DataConnectionListener");
     }
 
     @Override

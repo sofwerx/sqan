@@ -51,6 +51,8 @@ public class SqANDRService implements DataConnectionListener {
         this.context = context;
         if (context instanceof SqANDRListener)
             listener = (SqANDRListener) context;
+        else if (manet instanceof SqANDRListener)
+            listener = manet;
         this.manet = manet;
         if (context instanceof Activity)
             PermissionsHelper.checkForPermissions((Activity)context);
@@ -211,14 +213,15 @@ public class SqANDRService implements DataConnectionListener {
 
     @Override
     public void onReceiveDataLinkData(byte[] data) {
-        if (listener != null)
+        Log.d(TAG,"SqANDRService.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
+        if (listener != null) {
             listener.onPacketReceived(data);
+        } else
+            Log.d(TAG,"...but ignored as there is no SqANDRService Listener");
         if (dataConnectionListener != null)
             dataConnectionListener.onReceiveDataLinkData(data);
-
-        //TODO
-        Log.d(TAG,new String(data));
-        //TODO
+        else
+            Log.d(TAG,"...but ignored as there is no SqANDRService DataConnectionListener");
     }
 
     @Override

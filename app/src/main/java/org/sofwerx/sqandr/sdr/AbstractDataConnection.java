@@ -44,9 +44,11 @@ public abstract class AbstractDataConnection {
                     Log.d(TAG,"starting read thread");
                     while(keepGoing.get()) {
                         byte[] out = readPacketData();
-                        Log.d(TAG,((out==null)?"null ":out.length+"b")+"packet data read by dataBuffer");
+                        Log.d(TAG,((out==null)?"null":out.length+"b")+" packet data read by dataBuffer");
                         if ((out != null) && (listener != null))
                             listener.onReceiveDataLinkData(out);
+                        else if (listener == null)
+                            Log.d(TAG,"...but ignored as DataConnectionListener in AbstractDataConnection is null");
                         if (System.currentTimeMillis() > nextStaleCheck) {
                             if ((segmenters != null) && !segmenters.isEmpty()) {
                                 int i=0;
@@ -102,6 +104,10 @@ public abstract class AbstractDataConnection {
             while (keepGoing.get()) {
                 byte dig = (byte)dataBuffer.read();
                 lost++;
+                if ((lost % 100) == 0) {
+                    Log.d(TAG, "100b lost as no packet header found");
+                    listener.onPacketDropped();
+                }
                 if (dig == Segment.HEADER_MARKER[0]) {
                     dig = (byte)dataBuffer.read();
                     lost++;
@@ -166,9 +172,10 @@ public abstract class AbstractDataConnection {
             Segment segment = new Segment();
             segment.parseRemainder(rest);
             if (segment.isValid()) {
-                if (segment.isStandAlone())
+                if (segment.isStandAlone()) {
+                    Log.d(TAG,"Standalone packet recovered");
                     return segment.getData();
-                else
+                } else
                     handleSegment(segment);
             } else {
                 Log.d(TAG,"readPacketData produced invalid Segment; dropping");

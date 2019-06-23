@@ -189,7 +189,8 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             Log.w(TAG,"Unable to parse data, packet dropped");
             onPacketDropped();
             return;
-        }
+        } else
+            Log.d(TAG,packet.getClass().getSimpleName()+" packet received");
         setCurrent();
         onReceived(packet);
     }

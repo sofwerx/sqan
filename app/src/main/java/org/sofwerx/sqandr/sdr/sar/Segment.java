@@ -138,10 +138,11 @@ public class Segment {
             byte checksum = buf.get();
             buf.get(data);
             if (checksum != SdrUtils.getChecksum(data)) {
-                Log.w(TAG, "Parsing failed - bad checksum");
+                Log.w(TAG, "Parsing failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksum(data)+" expected)");
                 data = null;
                 return;
             }
+            Log.d(TAG,"Segmented successfully parsed");
         } catch (BufferUnderflowException e) {
             Log.w(TAG,"Parsing failed - "+e.getMessage());
         }

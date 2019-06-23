@@ -58,7 +58,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 1000l; //TODO
+    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 100l; //TODO
     private long nextKeepAliveMessage = Long.MIN_VALUE;
 
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN };
@@ -576,7 +576,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             return;
 
                         default:
-                            input = "Unknown command: "+input+"\n";
+                            if (input.contains("-sh")) {
+                                sdrAppStatus = SdrAppStatus.ERROR;
+                                if (listener != null)
+                                    listener.onConnectionError("The app on the SDR is having a problem: "+input);
+                            } else
+                                input = "Unknown command: "+input+"\n";
                     }
                 }
             }

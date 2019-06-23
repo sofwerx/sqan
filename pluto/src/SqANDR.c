@@ -190,9 +190,9 @@ int main (int argc, char **argv)
 	bool diagnostics = false; //allow running testing values
 	bool binaryTestPattern = false; //used in conjunction with diagnostics to just send a simple repeated test pattern instead of more complex traffic
 
-	//TODO here are the new bitwise operation constants and variables
-	//these are declared outside the while loop since he buffer (will likely) split some of our actual data between pulls
-	//TODO I switched the byteflag to 8 bits
+	//just used as sample test traffic
+	const char TEST_CHARS[] = {'0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f'};
+
 	const char BYTE_FLAG[] = {0b00000001,0b00000010,0b00000100,0b00001000,0b00010000,0b00100000,0b01000000,0b10000000};
 	const unsigned short HEADER               = 0b0000000110101011; //this is the 9 bit header that signals coming data
 	const unsigned short HEADER_MASK          = 0b0000000111111111;
@@ -200,16 +200,18 @@ int main (int argc, char **argv)
 	const unsigned short INVERSE_HEADER       = 0b0000000001010100;
 	const unsigned short SHORT_FLAG[] =        {0b0000000000000001,0b0000000000000010,0b0000000000000100,0b0000000000001000,0b0000000000010000,0b0000000000100000,0b0000000001000000,0b0000000010000000,0b0000000100000000,0b0000001000000000,0b0000010000000000,0b0000100000000000,0b0001000000000000,0b0010000000000000,0b0100000000000000,0b1000000000000000};
 	//const unsigned char LOWER_BITS_MASK = 0b00001111;
-	int16_t SIGNAL_THRESHOLD = 600;
+	int16_t SIGNAL_THRESHOLD = 0;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
-	const int16_t TRANSMIT_SIGNAL_POS_I = 1000;
-	const int16_t TRANSMIT_SIGNAL_NEG_I = -1000;
-	const int16_t TRANSMIT_SIGNAL_POS_Q = 1500;
-	const int16_t TRANSMIT_SIGNAL_NEG_Q = -1500;
+	const int16_t TRANSMIT_SIGNAL_POS_I = 10000;
+	const int16_t TRANSMIT_SIGNAL_NEG_I = -10000;
+	const int16_t TRANSMIT_SIGNAL_POS_Q = 5000;
+	const int16_t TRANSMIT_SIGNAL_NEG_Q = -5000;
 	const int MAX_BYTES_PER_LINE = 250;
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
+	char dataout[512]; //used in testing to compare what was received to the actual sent data
+	int dataoutIndex = 0;
 	int bitIndex = 0;
 	unsigned short tempHeader = (unsigned short)0;
 	bool isReadingHeader = true;
@@ -283,23 +285,23 @@ int main (int argc, char **argv)
 	signal(SIGINT, handle_sig);
 
 	// RX stream config
-	rxcfg.bw_hz = MHZ(2);   // 2 MHz rf bandwidth
-	rxcfg.fs_hz = MHZ(2.5);   // 2.5 MS/s rx sample rate
+	rxcfg.bw_hz = MHZ(6);   // 2 MHz rf bandwidth
+	rxcfg.fs_hz = MHZ(7.5);   // 2.5 MS/s rx sample rate
 	if (rxf > 0.1) {
 		printf("m Assigning RX frequency = %f MHz\n", rxf);
 		rxcfg.lo_hz = MHZ(rxf);
 	} else
-		rxcfg.lo_hz = GHZ(2.5); // 2.5 GHz rf frequency
+		rxcfg.lo_hz = GHZ(3.2); // 2.5 GHz rf frequency
 	rxcfg.rfport = "A_BALANCED"; // port A (select for rf freq.)
 
 	// TX stream config
-	txcfg.bw_hz = MHZ(1.5); // 1.5 MHz rf bandwidth
-	txcfg.fs_hz = MHZ(2.5);   // 2.5 MS/s tx sample rate
+	txcfg.bw_hz = MHZ(6); // 1.5 MHz rf bandwidth
+	txcfg.fs_hz = MHZ(7.5);   // 2.5 MS/s tx sample rate
 	if (txf > 0.1) {
 		printf("mAssigning TX frequency = %f MHz\n", txf);
 		txcfg.lo_hz = MHZ(txf);
 	} else
-		txcfg.lo_hz = GHZ(2.5); // 2.1 GHz rf frequency
+		txcfg.lo_hz = GHZ(3.2); // 2.1 GHz rf frequency
 	txcfg.rfport = "A"; // port A (select for rf freq.)
 
 	if (verbose)
@@ -389,6 +391,7 @@ int main (int argc, char **argv)
 		printf("\nd Tx and Rx buffers cleared out\n");
 
 	int count = 0; // a counter just used in the binary test pattern
+	int bestMatch = 0; //a counter used to keep track of the best match returned during a test pattern
 	while (!stop) {
 		//if (diagnostics)
 		//	sleep(1);
@@ -425,17 +428,20 @@ int main (int argc, char **argv)
 			int aNoiseNegU = 0;
 			int aNoiseNegL = 0;
 			int tempCounter = 0;
+			bytesSentThisLine = 0;
 			int helperShowIQindex = 0; //only show the I and Q readings for the first 200 samples
+			dataoutIndex = 0;
+			int SIZE_OF_DATAOUT = (int)(sizeof(dataout)/sizeof(dataout[0]));
 			for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
 				totalSamples++;
-				const int16_t i = ((int16_t*)p_dat)[0]; // Real (I)
-				const int16_t q = ((int16_t*)p_dat)[1]; // Imag (Q)
+				const int16_t i = ((int16_t*)p_dat)[0] << 4; // Real (I)
+				const int16_t q = ((int16_t*)p_dat)[1] << 4; // Imag (Q)
 
-				if ((i >=0 && q <=0) || (q >=0 && i <=0))
-					a = ((i-q)/2);
+				if (abs(i) > abs(q))
+					a = i;
 				else
-					a = ((i+q)/2);
-
+					a = q;
+				//printf("\tI: %d, Q: %d, A: %d, Byte Count: %d\n", i, q, a, bytesSentThisLine);
 				if (diagnostics && (helperShowIQindex < 200)) {
 					printf("\tBin: ");
 					if (a >= SIGNAL_THRESHOLD)
@@ -506,8 +512,7 @@ int main (int argc, char **argv)
 						isSignalInverted = true;
 
 					} else {
-						if (diagnostics && testDataSent) {
-							//if (tempHeader != (unsigned char)0) {
+						/*if (diagnostics && testDataSent) {
 							if (bitsSearchedForHeader == 10)
 								printf("...\n");
 							else if ((bitsSearchedForHeader > 10) && (bitsSearchedForHeader < 20)) {
@@ -521,7 +526,7 @@ int main (int argc, char **argv)
 								printf("\n");
 							} else if (bitsSearchedForHeader == 20)
 								printf("...\n");
-						}
+						}*/
 					}
 
 					if (headerComplete) {
@@ -554,14 +559,20 @@ int main (int argc, char **argv)
 					if (bitIndex > 7) {
 						if (!diagnostics && (bytesSentThisLine < 1))
 							printf("+");
-						if (diagnostics)
-							printf("\t\t\t#### Byte Found: ");
-						//print out this byte in Hex
 						char *a = "0123456789abcdef"[tempByte >> 4];
 						char *b = "0123456789abcdef"[tempByte & 0x0F];
+						if (diagnostics) {
+							printf("\t\t\t#### Byte Found: ");
+							
+							if (dataoutIndex < (SIZE_OF_DATAOUT-2)) {
+								dataout[dataoutIndex] = a;
+								dataoutIndex++;
+								dataout[dataoutIndex] = b;
+								dataoutIndex++;
+							}
+						}
 						printf("%c%c",a,b);
 						if (verbose)
-						printf("\n");
 						if (diagnostics)
 							printf(" (i == %d, q == %d) ####\n",i,q);
 
@@ -581,6 +592,36 @@ int main (int argc, char **argv)
 			}
 			if (!multiline)
 				printf("\n");
+			if (diagnostics) {
+				if (!binaryTestPattern && testDataSent) { //compare what was received with what was sent
+					int longestMatch = 0;
+					const int PERFECT_MATCH_COUNT = (int)(sizeof(TEST_CHARS)/sizeof(TEST_CHARS[0])) ;
+					int matchIndex = 0;
+					
+					for (int i=0;i<dataoutIndex;i++) {
+						if (matchIndex < PERFECT_MATCH_COUNT) {
+							if (dataout[i] == TEST_CHARS[matchIndex]) {
+								matchIndex++;
+								if (matchIndex > longestMatch)
+									longestMatch = matchIndex;
+							} else
+								matchIndex = 0;
+						} else
+							break; //complete sequence found
+					}
+					if (dataoutIndex >= SIZE_OF_DATAOUT -1)
+						dataoutIndex = SIZE_OF_DATAOUT -1;
+					dataout[dataoutIndex] = '\0';
+					printf("d Sequence received: %s\n",dataout);
+					if (longestMatch > bestMatch)
+						bestMatch = longestMatch;
+					printf("d Longest contiguous match to sequence was %d out of %d characters (best match so far is %d)\n",longestMatch,PERFECT_MATCH_COUNT,bestMatch);
+					if (longestMatch == PERFECT_MATCH_COUNT) {
+						printf("d data received with 100% fidelity; shutting down...\n");
+						shutdown();
+					}
+				}
+			}
 			if (verbose) {
 				if (totalSamples == samplesWithNoSignal)
 					printf("d no data received\n");
@@ -609,22 +650,25 @@ int main (int argc, char **argv)
 		 */
 
 		if (diagnostics) {
-			const char TEST_CHARS_A[] = {'*','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','\n','\0'};
-			const char TEST_CHARS_B[] = {'*','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','\n','\0'};
 			if (testCounter < 16) {
-				if (testCounter == 3) {
-					printf("Diagnostic test is sending Test Message A for transmission\n");
-					for (int i=0; i< (int)( sizeof(TEST_CHARS_A)/sizeof(TEST_CHARS_A[0]) ); i++) {
-						if (i < 1024)
-							hexin[i] = TEST_CHARS_A[i];
+					if (testCounter == 3) {
+					hexin[0] = '*';
+					int i=1;
+					int size = (int)(sizeof(TEST_CHARS)/sizeof(TEST_CHARS[0]));
+					while (i<=size) {
+						hexin[i]=TEST_CHARS[i-1];
+						i++;
 					}
+					hexin[i] = '\n';
+					i++;
+					hexin[i] = '\0';
+					printf("Diagnostic test is sending Test Message for transmission: %s\nd Enter key to continue\n",hexin);
+					//char str1[20];
+					//fgets(str1, 20, stdin);
+					/*for (int i=0; i< (int)( sizeof(TEST_CHARS)/sizeof(TEST_CHARS[0]) ); i++) {
+						hexin[i] = TEST_CHARS[i];
+					}*/
 					testDataSent = true;
-				/*} else if (testCounter == 12) {
-					printf("Diagnostic test is sending Test Message B for transmission\n");
-					for (int i=0; i< (int)( sizeof(TEST_CHARS_B)/sizeof(TEST_CHARS_B[0]) ); i++) {
-						hexin[i] = TEST_CHARS_B[i];
-					}
-					testDataSent = true;*/
 				} else {
 					if (testDataSent)
 						printf("Diagnostic test is listening for last transmission\n");
@@ -642,6 +686,7 @@ int main (int argc, char **argv)
 				printf("Input: 0100 repeating\n");
 			else
 				printf("Input: %s",hexin);
+			//sleep(10);
 			testCounter++;
 		} else {
 			if (verbose)
@@ -699,25 +744,6 @@ int main (int argc, char **argv)
 			printf("dAdding %ib to Tx buffer:\n",bytesInput);
 		while (bufferCycleCount < 1) {
 			if (binaryTestPattern) {
-				/*int temp = 0;
-				while (p_dat < p_end) {
-					if (temp == 1) {
-						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-					} else if (temp < 4) {
-						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-					} else {
-						((int16_t*)p_dat)[0] = (0); // Real (I)
-						((int16_t*)p_dat)[1] = (0); // Imag (Q)
-					}
-					temp++;
-					if (temp > 3)
-						temp = 0;
-					p_dat += p_inc;
-				}
-				printf("d Sending repeated 0100 as a signal");*/
-
 				int temp = 8;
 				while (p_dat < p_end) {
 					if ((HEADER & SHORT_FLAG[temp]) == SHORT_FLAG[temp]) {
@@ -744,17 +770,23 @@ int main (int argc, char **argv)
 			}
 
 			//Send leading "no signal" bytes
-			for (int i=0;i<16;i++) {
+			for (int i=0;i<510;i++) {
 				if (p_dat > p_end) {
 					printf("m Error - header was larger than remaining buffer size (this should not happen)");
 					break;
 				}
-				((int16_t*)p_dat)[0] = 0; // Real (I)
-				((int16_t*)p_dat)[1] = 0; // Imag (Q)
+				if (i % 2 == 0) {
+				((int16_t*)p_dat)[0] = 25000; // Real (I)
+				((int16_t*)p_dat)[1] = 25000; // Imag (Q)
+				}
+				else {
+				((int16_t*)p_dat)[0] = -25000; // Real (I)
+				((int16_t*)p_dat)[1] = -25000; // Imag (Q)
+				}
 				p_dat += p_inc;
 			}
 
-			for (int bytePayloadIndex=0;bytePayloadIndex<=bytesInput;bytePayloadIndex++) { //send the data
+			for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
 				if (verbose)
 					printf("d Sending byte data with 9 bit header to the buffer\n");
 
@@ -801,66 +833,19 @@ int main (int argc, char **argv)
 				}
 				if (verbose)
 					printf(" = %d\n",(unsigned int)bitin[bytePayloadIndex]);
-
-
-				//FIXME for testing
-				/*((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-
-				((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-				((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-				if (verbose)
-					printf("0");
-				p_dat += p_inc;
-				*///FIXME end of testing
-
 			}
 
 			int emptySignalCount = 0;
 			while (p_dat < p_end) {
-				((int16_t*)p_dat)[0] = (0); // Real (I)
-				((int16_t*)p_dat)[1] = (0); // Imag (Q)
-				if (verbose)
-					emptySignalCount++;
+				if (emptySignalCount % 2 == 0) {
+				((int16_t*)p_dat)[0] = 25000; // Real (I)
+				((int16_t*)p_dat)[1] = 25000; // Imag (Q)
+				}
+				else {
+				((int16_t*)p_dat)[0] = -25000; // Real (I)
+				((int16_t*)p_dat)[1] = -25000; // Imag (Q)
+				}
+				emptySignalCount++;
 				p_dat += p_inc;
 			}
 			if (verbose)
