@@ -188,10 +188,12 @@ int main (int argc, char **argv)
 {
 	bool verbose = true;
 	bool diagnostics = false; //allow running testing values
+	bool listenOnlyMode = false; //continously listens and displays received traffic
 	bool binaryTestPattern = false; //used in conjunction with diagnostics to just send a simple repeated test pattern instead of more complex traffic
 
 	//just used as sample test traffic
-	const char TEST_CHARS[] = {'0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f'};
+	const char TEST_CHARS[] = {'6','6','9','9','6','3','0','0','e','a','0','0','0','0','0','0','0','0','0','0','0','1','5','d','8','a','a','b','d','f','8','0','0','0','0','0','0','0','0','0','0','0','0','1','6','b','8','0','b','d','d','2','a','e','4','0','4','1','0','c','7','9','7','2','c','8','1','e','9','2','c','0','5','d','6','9','0','a','9','e','c','a','3','0','0','f','4','0','7','5','2','2','9','2','0','0','0','0','0','0','0','0','4','1','1','a','5','e','3','6','0','0','0','0','0','1','6','b','8','0','b','d','d','5','4','8','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','a','5','7','6','8','6','9','7','3','6','b','6','5','7','9','2','0','3','9','3','1'};
+	//const char TEST_CHARS[] = {'0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f'};
 
 	const char BYTE_FLAG[] = {0b00000001,0b00000010,0b00000100,0b00001000,0b00010000,0b00100000,0b01000000,0b10000000};
 	const unsigned short HEADER               = 0b0000000110101011; //this is the 9 bit header that signals coming data
@@ -207,6 +209,7 @@ int main (int argc, char **argv)
 	const int16_t TRANSMIT_SIGNAL_POS_Q = 5000;
 	const int16_t TRANSMIT_SIGNAL_NEG_Q = -5000;
 	const int MAX_BYTES_PER_LINE = 250;
+	const float DEFAULT_FREQ = 900.0; //in MHz
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
@@ -225,7 +228,15 @@ int main (int argc, char **argv)
 	ptrdiff_t p_inc;
 
 	float txf = 0.0; //assigned tX freq (if any)
+	float txb = 0.0; //assigned tX bandwidth(if any)
+	float txsr = 0.0; //assigned tX sample rate (if any)
+	float txgain = 0.0; //assigned tX gain (if any)
+	char cmd[40] = "";
+	char chgain[40] = "";
 	float rxf = 0.0; //assigned rX freq (if any)
+	float rxb = 0.0; //assigned rX bandwidth (if any)
+	float rxsr = 0.0; //assigned rX sample rate (if any)
+		
 	//ingest arguments
 	if (argc > 0) {
 		int pt = 0;
@@ -236,9 +247,22 @@ int main (int argc, char **argv)
 				pt = 2;
 			} else if (strcmp("-threshold",argv[j]) == 0) {
 				pt = 3;
+			} else if (strcmp("-rxbandwidth",argv[j]) == 0) {
+				pt = 4;
+			} else if (strcmp("-rxsrate",argv[j]) == 0) {
+				pt = 5;
+			} else if (strcmp("-txbandwidth",argv[j]) == 0) {
+				pt = 6;
+			} else if (strcmp("-txsrate",argv[j]) == 0) {
+				pt = 7;
+			} else if (strcmp("-txgain",argv[j]) == 0) {
+				pt = 8;
 			} else if (strcmp("-minComms",argv[j]) == 0) {
 				printf("m Starting in min verbosity mode\n");
 				verbose = false;
+			} else if (strcmp("-listen",argv[j]) == 0) {
+				printf("m Starting in listen only mode\n");
+				listenOnlyMode = true;
 			} else if (strcmp("-test",argv[j]) == 0) {
 				printf("m Running test traffic. SqANDR will wait for 5 cycles then send test traffic.\n");
 				diagnostics = true;
@@ -248,7 +272,19 @@ int main (int argc, char **argv)
 				binaryTestPattern = true;
 			} else if ((strcmp("help",argv[j]) == 0) || (strcmp("-help",argv[j])==0)) {
 				printf("SqANDR - the Squad Area Network Defined Radio app. This is the PlutoSDR app that serves as a companion to the SqAN Android app (https://github.com/sofwerx/sqan) and is intended to provide a link from the PlutoSDR to the Android device. SqANDR is intended to be called from within the SqAN app on Android but there are some basic capabilities included for manual diagnostics.\n\n");
-				printf("Help, valid commands are:\n -rx [freq in MHz] = sets Rx freq\n -tx [freq in MHz] = sets Rx freq\n -threshold [signal threshold] = sets the minimum \"a\" level to be considered a signal\n -minComms = sets least verbose mode\n -test = runs in diagnostic mode\n -test01 = runs in diagnostic mode with a simple repeated pattern\n\n");
+				printf("Help, valid commands are:\n");
+				printf(" -rx [freq in MHz] = sets Rx freq\n");
+				printf(" -tx [freq in MHz] = sets Rx freq\n");
+				printf(" -threshold [signal threshold] = sets the minimum \"a\" level to be considered a signal\n");
+				printf(" -rxbandwidth [freq in MHz] = sets the rx bandwidth\n");
+				printf(" -rxsrate [rate in MegaSamples/Sec] = sets the rx sample rate\n");
+				printf(" -txbandwidth [freq in MHz] = sets the tx bandwidth\n");
+				printf(" -txsrate [rate in MegaSamples/Sec] = sets the tx sample rate\n");
+				printf(" -txgain [absolute value of gain in dB] = sets the tx gain. Note this shall be input as a positive number decibel and will then be converted to a negative decibel.\n");
+				printf(" -minComms = sets least verbose mode\n");
+				printf(" -test = runs in diagnostic mode\n");
+				printf(" -test01 = runs in diagnostic mode with a simple repeated pattern\n");
+				printf(" -listen = runs in a continous listen only mode\n");
 				exit(0);
 			} else if (pt > 0) {
 				float val = atof(argv[j]);
@@ -265,6 +301,26 @@ int main (int argc, char **argv)
 						case 3:
 							SIGNAL_THRESHOLD = val;
 							printf("m Threshold signal set to %d\n",SIGNAL_THRESHOLD);
+							break;
+							
+						case 4:
+							rxb = val;
+							break;
+							
+						case 5:
+							rxsr = val;
+							break;
+							
+						case 6:
+							txb = val;
+							break;
+							
+						case 7:
+							txsr = val;
+							break;
+							
+						case 8:
+							txgain = val;
 							break;
 					}
 					pt = 0;
@@ -285,23 +341,50 @@ int main (int argc, char **argv)
 	signal(SIGINT, handle_sig);
 
 	// RX stream config
-	rxcfg.bw_hz = MHZ(6);   // 2 MHz rf bandwidth
-	rxcfg.fs_hz = MHZ(7.5);   // 2.5 MS/s rx sample rate
+	if (rxb > 0.1) {
+		printf("m Assigning RX bandwidth = %f MHz\n", rxb);
+		rxcfg.bw_hz = MHZ(rxb);
+	} else
+		rxcfg.bw_hz = MHZ(6);   // 6 MHz rf bandwidth
+	if (rxsr > 0.1) {
+		printf("m Assigning RX Sample Rate = %f MHz\n", rxsr);
+		rxcfg.fs_hz = MHZ(rxsr);
+	} else
+		rxcfg.fs_hz = MHZ(7.5);   // 7.5 MS/s rx sample rate
 	if (rxf > 0.1) {
 		printf("m Assigning RX frequency = %f MHz\n", rxf);
 		rxcfg.lo_hz = MHZ(rxf);
 	} else
-		rxcfg.lo_hz = GHZ(3.2); // 2.5 GHz rf frequency
+		rxcfg.lo_hz = MHZ(DEFAULT_FREQ); //Rx freq
 	rxcfg.rfport = "A_BALANCED"; // port A (select for rf freq.)
 
 	// TX stream config
-	txcfg.bw_hz = MHZ(6); // 1.5 MHz rf bandwidth
-	txcfg.fs_hz = MHZ(7.5);   // 2.5 MS/s tx sample rate
+	
+	if (txb > 0.1) {
+		printf("m Assigning TX bandwidth = %f MHz\n", txb);
+		txcfg.bw_hz = MHZ(txb);
+	} else
+		txcfg.bw_hz = MHZ(6);   // 6 MHz rf bandwidth
+	if (txsr > 0.1) {
+		printf("m Assigning TX Sample Rate = %f MHz\n", txsr);
+		txcfg.fs_hz = MHZ(txsr);
+	} else
+		txcfg.fs_hz = MHZ(7.5);   // 7.5 MS/s rx sample rate
+	if (txgain != 0) {
+		printf("m Assigning TX gain = -%.0f dB\n", txgain);
+		txgain = abs(txgain);
+		sprintf(chgain, "-%.0f", txgain);
+		strcat(cmd, "echo ");
+		strcat(cmd,	chgain);
+		strcat(cmd, " >  out_voltage0_hardwaregain");
+		system(cmd);
+	} else
+		printf("m TX gain = -10 dB\n");
 	if (txf > 0.1) {
 		printf("mAssigning TX frequency = %f MHz\n", txf);
 		txcfg.lo_hz = MHZ(txf);
 	} else
-		txcfg.lo_hz = GHZ(3.2); // 2.1 GHz rf frequency
+		txcfg.lo_hz = GHZ(DEFAULT_FREQ); // Tx freq
 	txcfg.rfport = "A"; // port A (select for rf freq.)
 
 	if (verbose)
@@ -343,7 +426,7 @@ int main (int argc, char **argv)
 
 	if (verbose)
 		printf("d* Creating non-cyclic IIO buffers with 1 MiS\n");
-	rxbuf = iio_device_create_buffer(rx, 17*600, false);
+	rxbuf = iio_device_create_buffer(rx, 17*6000, false);
 	if (!rxbuf) {
 		perror("m Could not create RX buffer");
 		shutdown();
@@ -617,7 +700,7 @@ int main (int argc, char **argv)
 						bestMatch = longestMatch;
 					printf("d Longest contiguous match to sequence was %d out of %d characters (best match so far is %d)\n",longestMatch,PERFECT_MATCH_COUNT,bestMatch);
 					if (longestMatch == PERFECT_MATCH_COUNT) {
-						printf("d data received with 100% fidelity; shutting down...\n");
+						printf("d data received with complete fidelity; shutting down...\n");
 						shutdown();
 					}
 				}
@@ -689,9 +772,14 @@ int main (int argc, char **argv)
 			//sleep(10);
 			testCounter++;
 		} else {
-			if (verbose)
-				printf("dInput:\n");
-			fgets(hexin, 1024, stdin);
+			if (listenOnlyMode) {
+					hexin[0] = '\n';
+					hexin[1] = '\0';
+			} else {
+				if (verbose)
+					printf("dInput:\n");
+				fgets(hexin, 1024, stdin);
+			}
 		}
 		int bytesInput;
 		int inputLength = strlen(hexin);

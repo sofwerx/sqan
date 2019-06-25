@@ -59,8 +59,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static char HEADER_SHUTDOWN_CHAR = 'e'; //e
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
+    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //TODO
+    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 200l; //TODO
     private long nextKeepAliveMessage = Long.MIN_VALUE;
 
     private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 200l; //ms to wait if the USB is having problems sending all its data
@@ -71,7 +72,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
-        SDR_START_COMMAND = (SDR_APP_LOCATION+" -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getTxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
+        SDR_START_COMMAND = (SDR_APP_LOCATION+" -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getRxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -192,6 +193,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         if (Segment.isAbleToWrapInSingleSegment(data)) {
             Segment segment = new Segment();
             segment.setData(data);
+            Log.d(TAG,"Outgoing: "+new String(toSerialLinkFormat(segment.toBytes()),StandardCharsets.UTF_8)); //FIXME for testing only
             write(toSerialLinkFormat(segment.toBytes()));
         } else {
             Log.d(TAG,"This packet is larger than the SerialConnection output, segmenting...");
@@ -206,10 +208,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
     }
 
+    private final static String PADDING_BYTE = "00112233445566778899aabbccddeeff01020304"; //FIXME this is a work-around for the Rx not seeing the first byte
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
-        String formattedData = HEADER_DATA_PACKET_OUTGOING_CHAR +StringUtils.toHex(data)+"\n";
+        String formattedData = HEADER_DATA_PACKET_OUTGOING_CHAR + PADDING_BYTE +StringUtils.toHex(data)+"\n";
         return formattedData.getBytes(StandardCharsets.UTF_8);
     }
 
