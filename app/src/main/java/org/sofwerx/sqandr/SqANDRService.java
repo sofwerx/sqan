@@ -24,7 +24,6 @@ import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
 import org.sofwerx.sqandr.sdr.UsbStorage;
 import org.sofwerx.sqandr.serial.SerialConnection;
-import org.sofwerx.sqandr.util.SqANDRLog;
 import org.sofwerx.sqandr.util.PermissionsHelper;
 
 import java.util.HashMap;
@@ -56,12 +55,14 @@ public class SqANDRService implements DataConnectionListener {
         this.manet = manet;
         if (context instanceof Activity)
             PermissionsHelper.checkForPermissions((Activity)context);
-        SqANDRLog.init(context);
-        SqANDRLog.log("Starting SqANDRService...");
+        //SqANDRLog.init(context);
+        //SqANDRLog.log("Starting SqANDRService...");
+        CommsLog.log(CommsLog.Entry.Category.SDR,"Starting SqANDRService...");
         sdrThread = new HandlerThread("SqANDRSrvc") {
             @Override
             protected void onLooperPrepared() {
-                SqANDRLog.log("SqANDRService started");
+                //SqANDRLog.log("SqANDRService started");
+                CommsLog.log(CommsLog.Entry.Category.SDR,"SqANDRService started");
                 handler = new Handler(sdrThread.getLooper());
                 handler.postDelayed(periodicTask,PERIODIC_TASK_INTERVAL);
                 init();
@@ -152,7 +153,8 @@ public class SqANDRService implements DataConnectionListener {
 
     public void shutdown() {
         Log.d(TAG,"Shutting down SqANDRService...");
-        SqANDRLog.log("Shutting down SqANDRService...");
+        //SqANDRLog.log("Shutting down SqANDRService...");
+        CommsLog.log(CommsLog.Entry.Category.SDR,"Shutting down SqANDRService...");
         if (usbBroadcastReceiver != null) {
             try {
                 context.unregisterReceiver(usbBroadcastReceiver);
@@ -188,7 +190,7 @@ public class SqANDRService implements DataConnectionListener {
             handler = null;
             sdrThread = null;
         }
-        SqANDRLog.close();
+        //SqANDRLog.close();
     }
 
     public SerialConnection getSerialConnection() {

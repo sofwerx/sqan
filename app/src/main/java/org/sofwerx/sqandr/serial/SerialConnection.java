@@ -21,6 +21,8 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.util.Loader;
+import org.sofwerx.sqandr.util.SqANDRLoaderListener;
 import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.IOException;
@@ -42,12 +44,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private String username;
     private String password;
     private LoginStatus status = LoginStatus.NEED_CHECK_LOGIN_STATUS;
-    private SdrAppStatus sdrAppStatus = SdrAppStatus.NEED_START;
+    private SdrAppStatus sdrAppStatus = SdrAppStatus.OFF;
     private HandlerThread handlerThread;
     private Handler handler;
-    private final static String SDR_APP_LOCATION = "/var/tmp/sqandr";
+    private Context context;
     private byte[] SDR_START_COMMAND;
-    private final static byte[] SDR_PERMISSIONS_COMMAND = ("chmod +x "+SDR_APP_LOCATION).getBytes(StandardCharsets.UTF_8);
     private final static char HEADER_DATA_PACKET_OUTGOING_CHAR = '*';
     private final static byte HEADER_DATA_PACKET_OUTGOING = (byte) HEADER_DATA_PACKET_OUTGOING_CHAR;
     private final static char HEADER_DATA_PACKET_INCOMING_CHAR = '+';
@@ -58,6 +59,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte HEADER_DEBUG_MESSAGE = (byte)100; //d
     private final static char HEADER_SHUTDOWN_CHAR = 'e'; //e
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
+    private final static byte HEADER_BUSYBOX = (byte)'b';
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
@@ -67,12 +69,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 200l; //ms to wait if the USB is having problems sending all its data
 
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
-    enum SdrAppStatus { NEED_START, STARTING, RUNNING, ERROR, OFF }
+    enum SdrAppStatus { INSTALLING, NEED_START, STARTING, RUNNING, ERROR, OFF }
 
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
-        SDR_START_COMMAND = (SDR_APP_LOCATION+" -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getRxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
+        SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION+" -tx "+String.format("%.2f", SdrConfig.getTxFreq())+" -rx "+String.format("%.2f",SdrConfig.getRxFreq())+" -minComms\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -85,6 +87,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
+        this.context = context;
         UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         if ((manager == null) || (usbDevice == null)) {
             Log.e(TAG, "Cannot open, manager or device are null");
@@ -146,10 +149,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             ioManager.stop();
             ioManager = null;
         }
+        sdrAppStatus = SdrAppStatus.OFF;
         if (port != null) {
             try {
                 if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                    sdrAppStatus = SdrAppStatus.OFF;
                     String formattedData = HEADER_SHUTDOWN_CHAR + "\n";
                     try {
                         port.write(formattedData.getBytes(StandardCharsets.UTF_8), 100);
@@ -190,25 +193,28 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void burstPacket(final byte[] data) {
         if (data == null)
             return;
-        if (Segment.isAbleToWrapInSingleSegment(data)) {
-            Segment segment = new Segment();
-            segment.setData(data);
-            Log.d(TAG,"Outgoing: "+new String(toSerialLinkFormat(segment.toBytes()),StandardCharsets.UTF_8)); //FIXME for testing only
-            write(toSerialLinkFormat(segment.toBytes()));
-        } else {
-            Log.d(TAG,"This packet is larger than the SerialConnection output, segmenting...");
-            ArrayList<Segment> segments = Segmenter.wrapIntoSegments(data);
-            if ((segments == null) || segments.isEmpty()) {
-                Log.e(TAG,"There was an unexpected problem that did not produce any segments from this packet");
-                return;
-            }
-            for (Segment segment:segments) {
+        if (sdrAppStatus == SdrAppStatus.RUNNING) {
+            if (Segment.isAbleToWrapInSingleSegment(data)) {
+                Segment segment = new Segment();
+                segment.setData(data);
+                Log.d(TAG, "Outgoing: " + new String(toSerialLinkFormat(segment.toBytes()), StandardCharsets.UTF_8)); //FIXME for testing only
                 write(toSerialLinkFormat(segment.toBytes()));
+            } else {
+                Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
+                ArrayList<Segment> segments = Segmenter.wrapIntoSegments(data);
+                if ((segments == null) || segments.isEmpty()) {
+                    Log.e(TAG, "There was an unexpected problem that did not produce any segments from this packet");
+                    return;
+                }
+                for (Segment segment : segments) {
+                    write(toSerialLinkFormat(segment.toBytes()));
+                }
             }
-        }
+        } else
+            Log.d(TAG,"Dropping "+data.length+"b packet as SqANDR is not yet running on the SDR");
     }
 
-    private final static String PADDING_BYTE = "00112233445566778899aabbccddeeff01020304"; //FIXME this is a work-around for the Rx not seeing the first byte
+    private final static String PADDING_BYTE = "00112233445566778899"; //FIXME this is a work-around for the Rx not seeing the first byte
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
@@ -264,7 +270,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
                 //TODO testing
-                //Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
@@ -317,7 +323,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     if (isLoggedInAlready(message)) {
                         Log.d(TAG, "Already logged-in");
                         status = LoginStatus.LOGGED_IN;
-                        startSdrApp();
+                        launchSdrApp();
                         if (listener != null)
                             listener.onConnect();
                             //listener.onSerialConnect();
@@ -355,7 +361,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 } else if (isLoginSuccessMessage(message)) {
                     Log.d(TAG, "Terminal login successful");
                     status = LoginStatus.LOGGED_IN;
-                    startSdrApp();
+                    launchSdrApp();
                     if (listener != null)
                         listener.onConnect();
                         //listener.onSerialConnect();
@@ -505,58 +511,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     //TODO testing
 
     private class SdrAppHelper implements Runnable {
-        //private byte[] data;
         private String input;
 
         public SdrAppHelper(String input) {
             this.input = input;
-            //Unknown commandLog.d(TAG,"SdrAppHelper received: "+input);
-            //Log.d(TAG,"SdrAppHelper received "+((data==null)?"null ":data.length)+"b");
-            //this.data = data;
         }
 
         @Override
         public void run() {
-            //TODO testing
-            /*if (runOnceTest) {
-                runOnceTest = false;
-                handleRawDatalinkInput(parseSerialLinkFormat("*6699F0803D5468697320697320612061206D756368206C6F6E676572207061636B657420746861742077696C6C20646566696E6974656C79206E65656420736F6D65206B696E64206F66207365676D656E746174696F6E20616E64207265617373656D626C792E20486F706566756C6C7920736F6D657468696E67206C6F6E6720656E6F7567682074686174206974207265616C6C7920746573747320746865207365676D656E74657220636C6173732E2049206D65616E2049206E656564207468697320746F206265207265616C6C79206C6F6E672C20646566696E6974656C79206C6F6E676572207468616E20746865206F74".getBytes()));
-                handleRawDatalinkInput(parseSerialLinkFormat("*6699078103686572206F6E65".getBytes()));
-                handleRawDatalinkInput(parseSerialLinkFormat("*669901826D55".getBytes()));
-            }*/
-            //TODO testing
-
-            /*String message = null;
-            if (data != null) {
-                if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                    switch (data[0]) {
-                        case HEADER_DATA_PACKET_INCOMING:
-                            Log.d(TAG,"SdrAppHelper - found Data Packet");
-                            handleRawDatalinkInput(parseSerialLinkFormat(data));
-                            return;
-
-                        case HEADER_SYSTEM_MESSAGE:
-                            message = new String(data,StandardCharsets.UTF_8).substring(1)+"\n";
-                            break;
-
-                        case HEADER_DEBUG_MESSAGE:
-                            Log.d(TAG,"Ignoring debug message: "+new String(data,StandardCharsets.UTF_8).substring(1));
-                            return;
-
-                        case HEADER_SHUTDOWN:
-                            Log.d(TAG,"The shutdown command to the SDR was received back (this is meaningless for the Android end); ignoring.");
-                            return;
-
-                        case HEADER_DATA_PACKET_OUTGOING:
-                            Log.d(TAG,"Our own outgoing packet was received back(this is meaningless for the Android end); ignoring.");
-                            return;
-
-                        default:
-                            message = "Unknown command: "+new String(data,StandardCharsets.UTF_8)+"\n";
-                    }
-                } else
-                    message = new String(data, StandardCharsets.UTF_8);
-            }*/
             if (input != null) {
                 if (sdrAppStatus == SdrAppStatus.RUNNING) {
                     Log.d(TAG,"From SDR: "+input);
@@ -590,6 +552,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             } else
                                 input = "Unknown command: "+input+"\n";
                     }
+                } else if (sdrAppStatus == SdrAppStatus.INSTALLING) {
+                    /*Log.d(TAG,"From SDR (app installing): "+input);
+                    switch (input.charAt(0)) {
+                        case HEADER_BUSYBOX: //ignore calls to busybox
+                            return;
+                    }*/
+                    return; //ignore all messages during install
                 }
             }
             if (attempts > 3) {
@@ -600,7 +569,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }
             if (input == null) {
                 if (sdrAppStatus == SdrAppStatus.NEED_START)
-                    startSdrApp();
+                    launchSdrApp();
             } else {
                 if (input.length() < 3) //ignore short echo back messages
                     return;
@@ -608,13 +577,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     CommsLog.log(CommsLog.Entry.Category.SDR,"SDR companion app is running");
                     sdrAppStatus = SdrAppStatus.RUNNING;
                 } else {
-                    CommsLog.log(CommsLog.Entry.Category.SDR,input);
+                    CommsLog.log(CommsLog.Entry.Category.SDR,"SDR input: "+input);
                     if (listener != null)
                         listener.onReceiveCommandData(input.getBytes(StandardCharsets.UTF_8));
                 }
             }
         }
-    };
+    }
 
     private void startSdrApp() {
         if (sdrAppStatus == SdrAppStatus.NEED_START) {
@@ -623,6 +592,42 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             attempts = 0;
             CommsLog.log(CommsLog.Entry.Category.SDR,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             write(SDR_START_COMMAND);
+        }
+    }
+
+    /**
+     * Installs the SqANDR app on the SDR if needed ans starts the app
+     */
+    private void launchSdrApp() {
+        if (Loader.isCurrentSqANDRInstalled())
+            startSdrApp();
+        else {
+            if (sdrAppStatus != SdrAppStatus.OFF)
+                return; //already installing, ignore
+            sdrAppStatus = SdrAppStatus.INSTALLING;
+            if (context == null) {
+                final String errorMessage = "Cannot push the SqANDR app onto the SDR with a null context - this should never happen";
+                Log.e(TAG,errorMessage);
+                sdrAppStatus = SdrAppStatus.ERROR;
+                if (listener != null)
+                    listener.onConnectionError(errorMessage);
+                return;
+            }
+            Loader.pushAppToSdr(context, port, new SqANDRLoaderListener() {
+                @Override
+                public void onSuccess() {
+                    sdrAppStatus = SdrAppStatus.NEED_START;
+                    startSdrApp();
+                }
+
+                @Override
+                public void onFailure(String message) {
+                    Log.e(TAG,"Error installing SqANDR: "+message);
+                    sdrAppStatus = SdrAppStatus.ERROR;
+                    if (listener != null)
+                        listener.onConnectionError(message);
+                }
+            });
         }
     }
 }

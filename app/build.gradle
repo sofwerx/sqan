@@ -20,9 +20,12 @@ android {
     productFlavors {
         full {
             dimension "version"
+            //buildConfigField "String", "SQANDR_VERSION", "01"
         }
     }
-
+    aaptOptions { //for SqANDR binary injection
+        noCompress "sqandr"
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -39,5 +42,5 @@ dependencies {
     implementation 'com.google.android.material:material:1.0.0'
     implementation 'org.nanohttpd:nanohttpd:2.3.1' //for VPN web server
     implementation 'com.github.kai-morich:usb-serial-for-android:1.7.0' //for SDR USB connection
-    implementation 'commons-net:commons-net:3.6' //for FTP to SDR capabilities
+    //implementation 'commons-net:commons-net:3.6' //for FTP to SDR capabilities
 }

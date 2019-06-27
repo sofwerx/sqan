@@ -18,6 +18,7 @@ import org.sofwerx.sqandr.sdr.hackrf.HackRfSDR;
 import org.sofwerx.sqandr.sdr.lime.LimeSDR;
 import org.sofwerx.sqandr.sdr.pluto.PlutoSDR;
 import org.sofwerx.sqandr.serial.SerialConnection;
+import org.sofwerx.sqandr.util.Loader;
 import org.sofwerx.sqandr.util.SdrUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -116,6 +117,9 @@ public abstract class AbstractSdr implements DataConnectionListener {
                             }
                         }
                         Log.d(TAG,sb.toString());
+                        if (iface.getInterfaceClass() == UsbConstants.USB_CLASS_CDC_DATA) {
+                            //TODO possible claim the RNDIS interface and try to FTP a file across or maybe try the mount command - see https://linuxhint.com/list-usb-devices-linux/
+                        }
                         //TODO handle the other interfaces
                     }
                 }

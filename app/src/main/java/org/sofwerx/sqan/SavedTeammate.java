@@ -51,7 +51,7 @@ public class SavedTeammate {
             sb.append(btPaired.name());
         }
         if (netID != null) {
-            sb.append("transient WiFi ID ");
+            sb.append(", transient WiFi ID ");
             sb.append(netID);
         }
         if (enabled)

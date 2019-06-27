@@ -9,8 +9,6 @@ public class StringUtil {
     private final static long DAY = HOUR * 24l;
 
     public final static String toDuration(long duration) {
-        if (duration < 250l)
-            return "immediately";
         if (duration < 2000l)
             return Long.toString(duration)+"ms";
         else if (duration < 2l * MIN)

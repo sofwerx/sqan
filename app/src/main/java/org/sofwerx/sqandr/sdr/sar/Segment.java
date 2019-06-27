@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
     private final static byte[] FINAL_SEGMENT_MARKER = {(byte)0b01010101};
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 240; //Not to exceed 250 //TODO tune this number
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 80; //Not to exceed 250 //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     private final static byte SEGMENTED_FLAG = (byte)0b10000000;
     private final static byte OVERALL_ID_MASK = (byte)0b01110000;

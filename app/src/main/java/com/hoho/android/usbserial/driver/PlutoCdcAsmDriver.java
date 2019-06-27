@@ -266,7 +266,6 @@ public class PlutoCdcAsmDriver implements UsbSerialDriver {
 
         @Override
         public int write(byte[] src, int timeoutMillis) throws IOException {
-            // TODO(mikey): Nearly identical to FtdiSerial write. Refactor.
             int offset = 0;
 
             while (offset < src.length) {

@@ -130,14 +130,52 @@ public class StringUtils {
     }
 
     private final static char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
-    public static String toHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for ( int j = 0; j < bytes.length; j++ ) {
+    private final static char[] HEX_ARRAY_UCASE = "0123456789ABCDEF".toCharArray();
+
+    /**
+     * Converts a byte string up to length "len" to an array of hex
+     * @param bytes
+     * @param len
+     * @return
+     */
+    public static String toHex(byte[] bytes, int len) {
+        if ((bytes == null) || (len < 1))
+            return null;
+        if (len > bytes.length)
+            len = bytes.length;
+        char[] hexChars = new char[len * 2];
+        for ( int j = 0; j < len; j++ ) {
             int v = bytes[j] & 0xFF;
             hexChars[j * 2] = HEX_ARRAY[v >>> 4];
             hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
         }
         return new String(hexChars);
+    }
+
+    /**
+     * Converts a byte string up to length "len" to an array of hex preceeded by "\x"
+     * @param bytes
+     * @param len
+     * @return
+     */
+    public static String toFormattedHex(byte[] bytes, int len) {
+        if ((bytes == null) || (len < 1))
+            return null;
+        if (len > bytes.length)
+            len = bytes.length;
+        char[] hexChars = new char[len * 4];
+        for ( int j = 0; j < len; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 4] = '\\';
+            hexChars[j * 4 + 1] = 'x';
+            hexChars[j * 4 + 2] = HEX_ARRAY_UCASE[v >>> 4];
+            hexChars[j * 4 + 3] = HEX_ARRAY_UCASE[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    public static String toHex(byte[] bytes) {
+        return toHex(bytes,bytes.length);
     }
 
     public static byte toByte(char a, char b) {

@@ -20,15 +20,16 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@Deprecated
 public class SqANDRLog {
     private final static int MAX_LOG_LENGTH = 20;
-    private static ArrayList<Entry> entries = null;
+    //private static ArrayList<Entry> entries = null;
     private static FileOutputStream fos;
     private static OutputStreamWriter oswriter;
     private static BufferedWriter bwriter;
     private static AtomicBoolean isRunning = new AtomicBoolean(false);
 
-    public static void clear() {
+    /*public static void clear() {
         entries = null;
     }
 
@@ -196,5 +197,5 @@ public class SqANDRLog {
         }
 
         return out.toString();
-    }
+    }*/
 }
