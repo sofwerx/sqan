@@ -3,6 +3,7 @@ package org.sofwerx.sqandr.sdr.lime;
 import android.content.Context;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
 
 import java.io.InputStream;
@@ -28,4 +29,9 @@ public class LimeSDR extends AbstractSdr {
 
     @Override
     protected String getTerminalPassword() { return null; }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //TODO
+    }
 }

@@ -9,7 +9,6 @@ import androidx.annotation.NonNull;
 
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 
-import org.sofwerx.sqan.BuildConfig;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
@@ -48,7 +47,7 @@ public class Loader {
                 Log.d(TAG, "sqandr found on Android");
 
                 boolean success = true;
-                success = success && write(port, "cd " + SDR_APP_LOCATION + "\n");
+                //success = success && write(port, "cd " + SDR_APP_LOCATION + "\n");
                 success = success && write(port, "touch " + SQANDR_VERSION + "\n");
                 success = success && write(port, "chmod +x " + SDR_APP_LOCATION + SQANDR_VERSION + "\n");
 
@@ -65,7 +64,9 @@ public class Loader {
                 int lengthRemaining = (int)assetFileDescriptor.getLength();
                 final int totalChunks = lengthRemaining/MAX_BYTES_PER_CHUNK;
                 boolean keepGoing = true;
-
+                final long startOffset = assetFileDescriptor.getStartOffset();
+                Log.d(TAG,"Skipping "+Long.toString(startOffset)+"b to get start of sqandr file");
+                stream.skip(startOffset);
                 while (keepGoing) {
                     if (lengthRemaining < 1)
                         keepGoing = false;
@@ -78,6 +79,7 @@ public class Loader {
                             hexes = StringUtils.toFormattedHex(b, bytesRead);
                             total += bytesRead;
                             command = INSTALL_HEADER + hexes + INSTALL_FOOTER;
+                            //hey dummy! fix endianness of the hex
                             Log.d(TAG, "Chunk " + chunks + " of " + totalChunks + ": " + command);
                             if (!write(port, command))
                                 throw new IOException("Error while installing SqANDR...; unable to write chunk #" + chunks + " (" + bytesRead + "b)");
@@ -87,8 +89,8 @@ public class Loader {
                     }
                 }
                 Log.d(TAG, SQANDR_VERSION + " (" + total + "b from "+chunks+" chunks) installed on SDR in "+ StringUtil.toDuration(System.currentTimeMillis()-start));
-                //FIXME if (listener != null)
-                //FIXME    listener.onSuccess();
+                if (listener != null)
+                    listener.onSuccess();
             } catch (Exception e) {
                 final String message;
                 if ((e == null) || (e.getMessage() == null))
@@ -127,8 +129,9 @@ public class Loader {
         return false;
     }
 
-    public static boolean isCurrentSqANDRInstalled() {
-        //TODO actually see if the current version of sqandr is installed
-        return false; //FIXME
+    public static void queryIsCurrentSqANDRInstalled(@NonNull UsbSerialPort port) {
+        //write(port,"if [ -f "+SDR_APP_LOCATION+SQANDR_VERSION+" ] ; then echo \"SqANDR update needed: FALSE\" ; else echo \"SqANDR update needed: TRUE\" ; fi");
+        write(port,"cd "+SDR_APP_LOCATION+"\n");
+        write(port,"ls\n");
     }
 }

@@ -13,6 +13,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.manet.bt.helper.Core;
 import org.sofwerx.sqan.manet.bt.helper.AcceptListener;
@@ -61,6 +62,11 @@ public class BtManetV2 extends AbstractManet implements AcceptListener, DeviceCo
 
         Core.init(bluetoothAdapter,this);
         Core.listenForConnectionsAsync(SERVICE_NAME,this);
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //ignore
     }
 
     @Override

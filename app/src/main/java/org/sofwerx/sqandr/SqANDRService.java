@@ -16,6 +16,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.util.CommsLog;
@@ -45,6 +46,7 @@ public class SqANDRService implements DataConnectionListener {
     //private SerialListener serialListener;
     private DataConnectionListener dataConnectionListener;
     private SdrManet manet;
+    private PeripheralStatusListener peripheralStatusListener;
 
     public SqANDRService(@NonNull Context context, SdrManet manet) {
         this.context = context;
@@ -114,8 +116,10 @@ public class SqANDRService implements DataConnectionListener {
                         sdrDevice = AbstractSdr.newFromVendor(pair.getValue().getVendorId());
                         //if (sdrDevice != null)
                         //    sdrDevice.setSerialListener(this);
-                        if (sdrDevice != null)
+                        if (sdrDevice != null) {
                             sdrDevice.setDataConnectionListener(this);
+                            sdrDevice.setPeripheralStatusListener(peripheralStatusListener);
+                        }
                         final UsbDevice device = pair.getValue();
                         post(() -> setUsbDevice(context,manager,device) );
                     }
@@ -152,6 +156,7 @@ public class SqANDRService implements DataConnectionListener {
     }
 
     public void shutdown() {
+        peripheralStatusListener = null;
         Log.d(TAG,"Shutting down SqANDRService...");
         //SqANDRLog.log("Shutting down SqANDRService...");
         CommsLog.log(CommsLog.Entry.Category.SDR,"Shutting down SqANDRService...");
@@ -243,6 +248,15 @@ public class SqANDRService implements DataConnectionListener {
     }
 
     public void setDataConnectionListener(DataConnectionListener dataConnectionListener) { this.dataConnectionListener = dataConnectionListener; }
+
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        peripheralStatusListener = listener;
+        if (sdrDevice == null) {
+            if (listener != null)
+                listener.onPeripheralMessage("SDR not connected");
+        } else
+            sdrDevice.setPeripheralStatusListener(listener);
+    }
 
     private class UsbBroadcastReceiver extends BroadcastReceiver {
         @Override

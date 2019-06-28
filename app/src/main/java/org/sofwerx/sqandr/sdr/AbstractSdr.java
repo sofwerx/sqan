@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 //import com.github.mjdev.libaums.UsbMassStorageDevice;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.hackrf.HackRfSDR;
 import org.sofwerx.sqandr.sdr.lime.LimeSDR;
 import org.sofwerx.sqandr.sdr.pluto.PlutoSDR;
@@ -378,4 +379,6 @@ public abstract class AbstractSdr implements DataConnectionListener {
         if (dataConnectionListener != null)
             dataConnectionListener.onPacketDropped();
     }
+
+    public abstract void setPeripheralStatusListener(PeripheralStatusListener listener);
 }

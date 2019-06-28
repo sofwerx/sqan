@@ -34,6 +34,7 @@ import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.bt.helper.BTSocket;
@@ -52,7 +53,7 @@ import java.util.TimerTask;
 
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
-public class MainActivity extends AppCompatActivity implements SqAnStatusListener {
+public class MainActivity extends AppCompatActivity implements SqAnStatusListener, PeripheralStatusListener {
     protected static final int REQUEST_DISABLE_BATTERY_OPTIMIZATION = 401;
     private final static long REPORT_PROBLEMS_DURATION = 1000l * 60l;
     private final static long PERIODIC_REFRESH_INTERVAL = 1000l * 5l;
@@ -67,6 +68,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView textSysStatus;
     private TextView statusMarquee, textOverall;
     private TextView roleWiFi, roleBT, roleSDR, roleSDRstale, roleBackhaul, textLocation;
+    private TextView statusPerphieral;
+    private View statusPeripheralView;
     private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
     private View offlineStamp;
     private DevicesList devicesList;
@@ -128,6 +131,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         roleSDR = findViewById(R.id.mainRoleSDR);
         roleSDRstale = findViewById(R.id.mainRoleSDRstale);
         roleBackhaul = findViewById(R.id.mainBackhaul);
+        statusPeripheralView = findViewById(R.id.mainStatusPeripheral);
+        statusPerphieral = findViewById(R.id.mainStatusPeripheralStatus);
         pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
 
         if (statusMarquee != null) {
@@ -186,10 +191,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void updateStatusMarquee() {
+        if (marqueStatuses.length < 1) {
+            statusMarquee.setText(null);
+            return;
+        }
         StringBuilder out = new StringBuilder();
         boolean first = true;
-
-        for (int i=0;i<marqueStatuses.length;i++) {
+        for (int i=marqueStatuses.length-1;i>=0;i--) {
             if (marqueStatuses[i] != null) {
                 if (first)
                     first = false;
@@ -201,34 +209,6 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
         statusMarquee.setText(out.toString());
         statusMarquee.setSelected(true);
-        /*TODO change how this is handled if (statusMarquee != null) {
-            CommsLog.Entry lastError = CommsLog.getLastProblemOrStatus();
-            if ((lastError != null) && ((System.currentTimeMillis() < lastError.time + REPORT_PROBLEMS_DURATION))) {
-                String entry = lastError.toString();
-                if (entry != null) {
-                    if (!marqueeMessages.isEmpty()) {
-                        if (!entry.equalsIgnoreCase(marqueeMessages.get(marqueeMessages.size() - 1)))
-                            marqueeMessages.add(entry);
-                        while (marqueeMessages.size() > 4) {
-                            marqueeMessages.remove(0);
-                        }
-                    } else
-                        marqueeMessages.add(entry);
-                    StringWriter out = new StringWriter();
-                    boolean first = true;
-                    for (String message:marqueeMessages) {
-                        if (first)
-                            first = false;
-                        else
-                            out.append("\r\n");
-                        out.append(message);
-                    }
-
-                    statusMarquee.setText(out.toString());
-                }
-            }
-            statusMarquee.setSelected(true);
-        }*/
         SqAnDevice device = Config.getThisDevice();
         if (device != null) {
             switch (device.getRoleWiFi()) {
@@ -310,6 +290,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         updateCallsignText();
         registerListeners();
         updateManetTypeDisplay();
+        updatePeripheralStatus(null,true);
         if (!permissionsNagFired) {
             permissionsNagFired = true;
             openBatteryOptimizationDialogIfNeeded();
@@ -605,13 +586,17 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void unregisterListeners() {
-        if (serviceBound && (sqAnService != null))
+        if (serviceBound && (sqAnService != null)) {
             sqAnService.setListener(null);
+            sqAnService.setPeripheralStatusListener(null);
+        }
     }
 
     private void registerListeners() {
-        if (serviceBound && (sqAnService != null))
+        if (serviceBound && (sqAnService != null)) {
             sqAnService.setListener(this);
+            sqAnService.setPeripheralStatusListener(this);
+        }
     }
 
     private void checkForLocationServices() {
@@ -772,5 +757,35 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onConflict(SqAnDevice conflictingDevice) {
         //FIXME do something other than toast this
         Toast.makeText(this,"Error: this device has the same identifier as "+conflictingDevice.getCallsign(),Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onPeripheralMessage(String message) {
+        updatePeripheralStatus(message,false);
+    }
+
+    @Override
+    public void onPeripheralReady() {
+        updatePeripheralStatus(null,true);
+    }
+
+    @Override
+    public void onPeripheralError(String message) {
+        updatePeripheralStatus(message,false);
+    }
+
+    private void updatePeripheralStatus(final String message, final boolean ready) {
+        this.runOnUiThread(() -> {
+            if (ready) {
+                statusPeripheralView.setVisibility(View.GONE);
+                addMarqueStatus("Connected device is operational");
+            } else {
+                if (message != null) {
+                    statusPerphieral.setText(message);
+                    addMarqueStatus(message);
+                }
+                statusPeripheralView.setVisibility(View.VISIBLE);
+            }
+        });
     }
 }

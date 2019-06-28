@@ -4,6 +4,7 @@ import android.content.Context;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
 import org.sofwerx.sqandr.sdr.SdrException;
 
@@ -111,4 +112,9 @@ public class HackRfSDR extends AbstractSdr {
 
     @Override
     public boolean useMassStorage() { return false; }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //TODO
+    }
 }

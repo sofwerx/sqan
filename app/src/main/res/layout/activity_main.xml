@@ -237,7 +237,44 @@
             android:layout_height="0dp"
             android:background="@color/trans_black"
             app:layout_constraintBottom_toTopOf="@+id/mainStatusMarquee"
-            app:layout_constraintTop_toBottomOf="@+id/linearLayout2" />
+            app:layout_constraintTop_toBottomOf="@+id/linearLayout2" >
+
+        </org.sofwerx.sqan.ui.DevicesList>
+
+        <LinearLayout
+            android:id="@+id/mainStatusPeripheral"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_gravity="center"
+            app:layout_constraintBottom_toTopOf="@+id/mainStatusMarquee"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:background="@drawable/bg_item_2_yellow">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:layout_gravity="center_horizontal"
+                android:drawableStart="@drawable/ic_usb_white"
+                android:text="Connected Device" />
+
+            <TextView
+                android:id="@+id/mainStatusPeripheralStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/yellow"
+                android:text="Connecting..." />
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminateOnly="true" />
+
+        </LinearLayout>
 
         <TextView
             android:id="@+id/mainStatusMarquee"

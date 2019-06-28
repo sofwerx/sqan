@@ -21,6 +21,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.listeners.SqAnStatusListener;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
@@ -690,4 +691,9 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     }
 
     public ManetOps getManetOps() { return manetOps; }
+
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        if (manetOps != null)
+            manetOps.setPeripheralStatusListener(listener);
+    }
 }

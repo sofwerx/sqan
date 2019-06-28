@@ -30,6 +30,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.ManetException;
@@ -1317,5 +1318,10 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
         favorThisDevice = thisDevice.getUUID() > other.getUUID();
         Log.d(TAG,"The "+(favorThisDevice?"local":"other")+" device should host as it has a higher UUID");
         return favorThisDevice;
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //ignore
     }
 }

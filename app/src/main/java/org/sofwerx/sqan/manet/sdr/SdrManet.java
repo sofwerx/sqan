@@ -7,6 +7,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
@@ -208,7 +209,14 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             Log.d(TAG,packet.getClass().getSimpleName()+" is circular; ignoring");
             return;
         }
-        Log.d(TAG,packet.getClass().getSimpleName()+" packet received");
+        SqAnDevice dev = SqAnDevice.findByUUID(packet.getOrigin());
+        if (dev == null)
+            Log.d(TAG,packet.getClass().getSimpleName()+" packet received from unknown device");
+        if (dev != null) {
+            Log.d(TAG,packet.getClass().getSimpleName()+" received from "+dev.getLabel());
+            dev.setDirectSDR(true);
+            dev.addToDataTally(data.length);
+        }
         setCurrent();
         onReceived(packet);
     }
@@ -270,5 +278,11 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
         if (sqANDRService == null)
             return null;
         return sqANDRService.getSerialConnection();
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        if (sqANDRService != null)
+            sqANDRService.setPeripheralStatusListener(listener);
     }
 }

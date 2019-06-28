@@ -23,6 +23,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
@@ -48,6 +49,7 @@ import static com.google.android.gms.nearby.connection.Strategy.P2P_CLUSTER;
 public class NearbyConnectionsManet extends AbstractManet {
     private static final String SERVICE_ID = "sqan";
     public NearbyConnectionsManet(Handler handler, Context context, ManetListener listener) { super(handler,context,listener); }
+
     private HashMap<String,Long> connectionQueue = new HashMap<>(); //attempted work-around for problems Nearby Connections seems to have in connecting
 
     //Experimental strategies to try to enhance MANET stability
@@ -492,4 +494,9 @@ public class NearbyConnectionsManet extends AbstractManet {
             //TODO handle transfer updates from File and Stream types
         }
     };
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //ignore
+    }
 }

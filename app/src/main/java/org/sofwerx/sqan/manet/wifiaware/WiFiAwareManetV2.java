@@ -27,6 +27,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.ManetException;
@@ -708,5 +709,10 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
      */
     private byte[] decrypt(byte[] payload) {
         return payload;
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //ignore
     }
 }

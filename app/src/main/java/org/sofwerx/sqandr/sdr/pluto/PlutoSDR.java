@@ -1,6 +1,7 @@
 package org.sofwerx.sqandr.sdr.pluto;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
 
 public class PlutoSDR extends AbstractSdr {
@@ -28,5 +29,11 @@ public class PlutoSDR extends AbstractSdr {
             dataConnection = serialConnection;
             commandConnection = serialConnection;
         }
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        if (dataConnection != null)
+            dataConnection.setPeripheralStatusListener(listener);
     }
 }

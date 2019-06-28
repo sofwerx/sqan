@@ -19,6 +19,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.AbstractManet;
 import org.sofwerx.sqan.manet.common.ManetException;
 import org.sofwerx.sqan.manet.common.ManetType;
@@ -663,5 +664,10 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             }
         } else
             Log.e(TAG, "manager.requestConnectionInfo cannot get info - this should not happen");
+    }
+
+    @Override
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        //ignore
     }
 }

@@ -8,6 +8,7 @@ import android.util.Log;
 import org.sofwerx.sqan.ipc.IpcBroadcastTransceiver;
 import org.sofwerx.sqan.ipc.IpcSaBroadcastTransmitter;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.manet.common.AbstractManet;
@@ -726,5 +727,14 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         if ((wifiManet == null) || !shouldBeActive || (wifiManet == null))
             return false;
         return wifiManet.isRunning();
+    }
+
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        if (btManet != null)
+            btManet.setPeripheralStatusListener(listener);
+        if (wifiManet != null)
+            wifiManet.setPeripheralStatusListener(listener);
+        if (sdrManet != null)
+            sdrManet.setPeripheralStatusListener(listener);
     }
 }

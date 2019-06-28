@@ -9,6 +9,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.listeners.ManetListener;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.bt.BtManetV2;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.DisconnectingPacket;
@@ -55,6 +56,12 @@ public abstract class AbstractManet {
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
         parser = new PacketParser(this);
     }
+
+    /**
+     * Sets the listener for any status reports from a peripheral (most manet will not have a peripheral)
+     * @param listener
+     */
+    public abstract void setPeripheralStatusListener(PeripheralStatusListener listener);
 
     /**
      * Gets they type of MANET in use (i.e. Nearby Connections, WiFi Aware, WiFi Direct

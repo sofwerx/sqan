@@ -3,6 +3,7 @@ package org.sofwerx.sqandr.sdr;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.WriteableInputStream;
@@ -20,7 +21,7 @@ public abstract class AbstractDataConnection {
     public abstract void burstPacket(byte[] data);
     public void setListener(DataConnectionListener listener) { this.listener = listener; }
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
-
+    protected PeripheralStatusListener peripheralStatusListener = null;
     private WriteableInputStream dataBuffer;
     private Thread readThread;
     private long nextStaleCheck = Long.MIN_VALUE;
@@ -208,5 +209,9 @@ public abstract class AbstractDataConnection {
             Log.e(TAG,"Unable to read packet: "+e.getMessage());
         }
         return null;
+    }
+
+    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        this.peripheralStatusListener = listener;
     }
 }
