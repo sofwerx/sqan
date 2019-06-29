@@ -21,19 +21,21 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    private final static byte[] FINAL_SEGMENT_MARKER = {(byte)0b01010101};
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 35; //Not to exceed 250 //TODO tune this number
+    //private final static byte[] FINAL_SEGMENT_MARKER = {(byte)0b01010101};
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 102; //Not to exceed 250 (Serial line output problem), can't be below 15 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
-    private final static byte SEGMENTED_FLAG = (byte)0b10000000;
+    private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
     private final static byte OVERALL_ID_MASK = (byte)0b01110000;
     private final static byte INDEX_IN_SEGMENT_MASK = (byte)0b00001111;
-    private final static int MAX_VALID_INDEX = 127;
+    //private final static int MAX_VALID_INDEX = 127;
+    private final static int MAX_VALID_INDEX = 15;
 
     private final static int HEADER_SIZE = 5;
 
-    private int index;
+    private int index; //this segment's position in the overall packet
     private byte packetId;
     private byte[] data;
+    private boolean isFinalSegment;
 
     /**
      * See if this is probably a valid packet. If this fails, then you should keep
@@ -50,7 +52,7 @@ public class Segment {
     }
 
     public byte getPacketId() { return packetId; }
-    public boolean isStandAlone() { return index > MAX_VALID_INDEX; }
+    public boolean isStandAlone() { return isFinalSegment && (index == 0); }
     public int getIndex() { return index; }
     public byte[] getData() { return data; }
 
@@ -79,6 +81,10 @@ public class Segment {
     public void setData(byte[] data) { this.data = data; }
 
     public void setIndex(int index) { this.index = index; }
+    public void setStandAlone() {
+        index = 0;
+        isFinalSegment = true;
+    }
 
     public byte[] toBytes() {
         if (data == null)
@@ -95,23 +101,17 @@ public class Segment {
     }
 
     private byte getFlags() {
-        int out;
-        if (index > MAX_VALID_INDEX)
-            out = 0;
-        else {
-            out = index;
-            out = out | packetId;
-            out = out | SEGMENTED_FLAG;
-        }
+        int out = index;
+        out = out | packetId;
+        if (isFinalSegment)
+            out = out | FINAL_SEGMENT_FLAG;
         return (byte)out;
     }
 
     private void parseFlags(byte flags) {
-        if ((flags & SEGMENTED_FLAG) == SEGMENTED_FLAG) {
-            packetId = (byte)(flags & OVERALL_ID_MASK);
-            index = (flags & INDEX_IN_SEGMENT_MASK) & 0xFF;
-        } else
-            index = MAX_VALID_INDEX+1;
+        packetId = (byte)(flags & OVERALL_ID_MASK);
+        index = (flags & INDEX_IN_SEGMENT_MASK) & 0xFF;
+        isFinalSegment = (FINAL_SEGMENT_FLAG & flags) == FINAL_SEGMENT_FLAG;
     }
 
     /**
@@ -125,6 +125,8 @@ public class Segment {
         }
         parseRemainder(raw.length-2,ByteBuffer.wrap(raw));
     }
+
+    public void setPacketId(byte packetId) { this.packetId = packetId; }
 
     private void parseRemainder(int size,ByteBuffer buf) {
         if ((buf == null) || (size < 1)) {
@@ -142,7 +144,7 @@ public class Segment {
                 data = null;
                 return;
             }
-            Log.d(TAG,"Segmented successfully parsed");
+            Log.d(TAG,"Segment "+index+" packet "+((int)packetId)+" successfully parsed");
         } catch (BufferUnderflowException e) {
             Log.w(TAG,"Parsing failed - "+e.getMessage());
         }
@@ -174,25 +176,21 @@ public class Segment {
     }
 
     public boolean isValid() { return (data != null); }
+    public boolean isFinalSegment() { return isFinalSegment; }
 
-
-    public boolean isFinalSegment() {
-        if ((data == null) || (data.length != 1))
-            return false;
-        return FINAL_SEGMENT_MARKER[0] == data[0];
-    }
-
-    public static Segment newFinalSegment(byte packetId, int index) {
+    /*public static Segment newFinalSegment(byte packetId, int index) {
         Segment segment = new Segment();
         segment.packetId = packetId;
         segment.index = index;
-        segment.data = FINAL_SEGMENT_MARKER;
+        segment.isFinalSegment = true;
         return segment;
-    }
+    }*/
 
     public static boolean isAbleToWrapInSingleSegment(byte[] data) {
         if (data == null)
             return true;
         return data.length <= MAX_LENGTH_BEFORE_SEGMENTING;
     }
+
+    public void setFinalSegment(boolean finalSegment) { isFinalSegment = finalSegment; }
 }

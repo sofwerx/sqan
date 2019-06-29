@@ -61,7 +61,7 @@ public abstract class AbstractDataConnection {
                                 int i=0;
                                 while (i<segmenters.size()) {
                                     if ((segmenters.get(i) == null) || segmenters.get(i).isStale()) {
-                                        Log.d(TAG,"Segment "+i+" stale, dropping");
+                                        Log.d(TAG,"Segment #"+i+" (id "+((int)segmenters.get(i).getPacketId())+") stale, dropping (Segments: "+segmenters.get(i).getParts()+")");
                                         segmenters.remove(i);
                                         if (listener != null)
                                             listener.onPacketDropped();

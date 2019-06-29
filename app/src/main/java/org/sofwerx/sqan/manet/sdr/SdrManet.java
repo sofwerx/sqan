@@ -31,7 +31,7 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     private static final long TIME_BETWEEN_TEAMMATE_CHECKS = 1000l * 15l;
     private static final long OLD_DEVICE_CHECK_INTERVAL = 1000l * 60l;
     private static final int MAX_HOP_COUNT = 4; //max number of times a message should be relayed
-    private final static String TAG = Config.TAG+".Sdr";
+    private final static String TAG = Config.TAG+".SdrManet";
     private long nextOldDeviceCheck = Long.MIN_VALUE;
     private static SdrManet instance;
     private long staleTime = Long.MIN_VALUE;

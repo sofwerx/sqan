@@ -32,7 +32,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class SqANDRService implements DataConnectionListener {
-    private final static String TAG = Config.TAG+".svc";
+    private final static String TAG = Config.TAG+".sqandr";
     private final static String SDR_USB_PERMISSION = "org.sofwerx.sqandr.SDR_USB_PERMISSION";
     private final static long PERIODIC_TASK_INTERVAL = 1000l * 10l;
     private Context context;

@@ -74,7 +74,7 @@ public class Segmenter {
      */
     public boolean isComplete() {
         if ((segments != null) && !segments.isEmpty()) {
-            sortAssending();
+            sortAscending();
             int index = -1;
             for (Segment segment:segments) {
                 index++;
@@ -88,7 +88,7 @@ public class Segmenter {
         return false;
     }
 
-    private void sortAssending() {
+    private void sortAscending() {
         if ((segments == null) || (segments.size() < 2))
             return;
         boolean sorted = false;
@@ -172,10 +172,16 @@ public class Segmenter {
             i += len;
             segment = wrap(chunk);
             segment.setIndex(index);
+            segment.setPacketId(packetId);
+            if (i >= data.length)
+                segment.setFinalSegment(true);
             segments.add(segment);
             index++;
+            if (index > Segment.MAX_LENGTH_BEFORE_SEGMENTING) {
+                Log.e(TAG, "WARNING, unable to segment packet - packet is larger than supported; this packet should be broken into smaller packets before being passed to the segmenter");
+                break;
+            }
         }
-        segments.add(Segment.newFinalSegment(packetId,index));
         return segments;
     }
 
@@ -198,4 +204,21 @@ public class Segmenter {
     }
 
     public byte getPacketId() { return packetId; }
+
+    public String getParts() {
+        if ((segments == null) || segments.isEmpty())
+            return "empty";
+        else {
+            StringBuilder out = new StringBuilder();
+            boolean first = true;
+            for (Segment seg:segments) {
+                if (first)
+                    first = false;
+                else
+                    out.append(',');
+                out.append(seg.getIndex());
+            }
+            return out.toString();
+        }
+    }
 }
