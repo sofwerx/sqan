@@ -193,7 +193,6 @@ int main (int argc, char **argv)
 
 	clock_t startTime, stopTime, blockedForReadTime;
 
-	//const char TEST_CHARS[] = {'6','6','9','9','6','3','0','0','e','a','0','0','0','0','0','0','0','0','0','0','0','1','5','d','8','a','a','b','d','f','8','0','0','0','0','0','0','0','0','0','0','0','0','1','6','b','8','0','b','d','d','2','a','e','4','0','4','1','0','c','7','9','7','2','c','8','1','e','9','2','c','0','5','d','6','9','0','a','9','e','c','a','3','0','0','f','4','0','7','5','2','2','9','2','0','0','0','0','0','0','0','0','4','1','1','a','5','e','3','6','0','0','0','0','0','1','6','b','8','0','b','d','d','5','4','8','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','a','5','7','6','8','6','9','7','3','6','b','6','5','7','9','2','0','3','9','3','1'};
 	const char TEST_CHARS[] = {'6','6','9','9','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f'};
 
 	const char BYTE_FLAG[] = {0b00000001,0b00000010,0b00000100,0b00001000,0b00010000,0b00100000,0b01000000,0b10000000};
@@ -311,7 +310,7 @@ int main (int argc, char **argv)
 				printf("Help, valid commands are:\n");
 				printf(" -rx [freq in MHz] = sets Rx freq\n");
 				printf(" -tx [freq in MHz] = sets Rx freq\n");
-				printf(" -threshold [signal threshold] = sets the minimum \"a\" level to be considered a signal\n");
+				//TODO commented out as may be deprectated: printf(" -threshold [signal threshold] = sets the minimum \"a\" level to be considered a signal\n");
 				printf(" -rxbandwidth [freq in MHz] = sets the rx bandwidth\n");
 				printf(" -rxsrate [rate in MegaSamples/Sec] = sets the rx sample rate\n");
 				printf(" -txbandwidth [freq in MHz] = sets the tx bandwidth\n");
@@ -539,7 +538,7 @@ int main (int argc, char **argv)
 		((int16_t*)p_dat)[1] = (0); // Imag (Q)
 	}
 
-	int16_t a = 0; //amplitude
+	int16_t amplitude = 0; //amplitude
 
 	int cnt = 0;
 	int startrx = true;
@@ -628,8 +627,6 @@ int main (int argc, char **argv)
 			/**
 			 * READING the Rx buffer
 			 */
-			//if (verbose)
-			//	printf("m Reading buffer...\n");
 			bytesSentThisLine = 0;
 			dataoutIndex = 0;
 			for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
@@ -638,11 +635,13 @@ int main (int argc, char **argv)
 				const int16_t q = ((int16_t*)p_dat)[1] << 4; // Imag (Q)
 
 				if ((i > 0 && q > 0) || (i < 0 && q < 0))
-					a = (i+q)/2;
+					amplitude = (i+q)>>1; //bitshiftig for speed
+					//amplitude = (i+q)/2;
 				else
-					a = (i-q)/2;
+					amplitude = (i-q)>>1; //bitshiftig for speed
+					//amplitude = (i-q)/2;
 				
-				if (superVerbose) {
+				/*TODO deprecating SIGNAL_THRESHOLD and some verbosity: if (superVerbose) {
 					if (samplesToShow > 0) {
 					//if ((samplesToShow > 0) && (cnt > 3)) {
 						printf("\tI: %d, Q: %d, A: %d, Byte Count: %d, Sample Count: %d, Timing Found: %d, Bit Sensor: %d, Index: %d\n", i, q, a, bytesSentThisLine, bitTimerCount, timingFound, bitSensor, totalSamples);
@@ -652,21 +651,21 @@ int main (int argc, char **argv)
 
 				if (diagnostics && (helperShowIQindex < 200)) {
 					printf("\tBin: ");
-					if (a >= SIGNAL_THRESHOLD)
+					if (amplitude >= SIGNAL_THRESHOLD)
 						printf("1");
-					else if (a <= -SIGNAL_THRESHOLD)
+					else if (amplitude <= -SIGNAL_THRESHOLD)
 						printf("0");
 					else
 						printf("-");
-					printf(" I: %d, Q: %d, A: %d\n", i, q, a);
+					printf(" I: %d, Q: %d, A: %d\n", i, q, amplitude);
 					helperShowIQindex++;
-				}
+				}*/
 
 				if (binaryTestPattern) {
 					if (helperShowIQindex >= 200) {
-						if (a >= SIGNAL_THRESHOLD)
+						if (amplitude >= SIGNAL_THRESHOLD)
 							printf("1");
-						else if (a <= -SIGNAL_THRESHOLD)
+						else if (amplitude <= -SIGNAL_THRESHOLD)
 							printf("0");
 						else
 							printf("-");
@@ -678,12 +677,11 @@ int main (int argc, char **argv)
 					}
 					continue;
 				} else {
-					if (abs(a) < SIGNAL_THRESHOLD) {
+					/*TODO deprecating amplitude and some verbosity: if (abs(amplitude) < SIGNAL_THRESHOLD) {
 						samplesWithNoSignal++;
 						if (superVerbose) {
 							if (samplesToShow > 0) {
-							//if ((samplesToShow > 0) && (cnt > 3)) {
-								printf("\tI: %d, Q: %d, A: %d, Byte Count: %d, Sample Count: %d, Timing Found: %d, Bit Sensor: %d\n", i, q, a, bytesSentThisLine, bitTimerCount, timingFound, bitSensor);
+								printf("\tI: %d, Q: %d, A: %d, Byte Count: %d, Sample Count: %d, Timing Found: %d, Bit Sensor: %d\n", i, q, amplitude, bytesSentThisLine, bitTimerCount, timingFound, bitSensor);
 								samplesToShow--;
 							}
 						}
@@ -692,26 +690,26 @@ int main (int argc, char **argv)
 
 					if (diagnostics && !testDataSent) {
 						noiseBits++;
-						if (a < 0) {
-							if (a < aNoiseNegL) {
-								aNoiseNegL = a;
+						if (amplitude < 0) {
+							if (amplitude < aNoiseNegL) {
+								aNoiseNegL = amplitude;
 								if (aNoiseNegU == 0)
-									aNoiseNegU = a;
-							} else if (a > aNoiseNegU)
-								aNoiseNegU = a;
+									aNoiseNegU = amplitude;
+							} else if (amplitude > aNoiseNegU)
+								aNoiseNegU = amplitude;
 						} else {
-							if (a > aNoisePosU) {
-								aNoisePosU = a;
+							if (amplitude > aNoisePosU) {
+								aNoisePosU = amplitude;
 								if (aNoisePosL == 0)
-									aNoisePosL = a;
-							} else if (a < aNoisePosL)
-								aNoisePosL = a;
+									aNoisePosL = amplitude;
+							} else if (amplitude < aNoisePosL)
+								aNoisePosL = amplitude;
 						}
-					}
+					}*/
 				}
 				if (timingFound) {
 					bitTimerCount++;
-					if (a >= SIGNAL_THRESHOLD) {
+					if (amplitude >= SIGNAL_THRESHOLD) {
 						bitSensor++;
 					} else {
 						bitSensor--;
@@ -719,7 +717,7 @@ int main (int argc, char **argv)
 				} else {
 					bitTimerCount = 0;
 					tempTiming = tempTiming << 1;
-					if (a >= SIGNAL_THRESHOLD)
+					if (amplitude >= SIGNAL_THRESHOLD)
 						tempTiming = tempTiming | LEAST_SIG_BIT_HEADER;
 					tempTiming = tempTiming & LONG_HEADER_MASK;
 					
@@ -806,14 +804,16 @@ int main (int argc, char **argv)
 
 						isReadingHeader = true; //go back to reading the header
 
-						//check to see if we need a new line
-						bytesSentThisLine++;
-						if (bytesSentThisLine > MAX_BYTES_PER_LINE) { //prevent our output from exceeding what we can send on a single line
-							if (diagnostics)
-								printf("Received data is long, making a new line...");
-							printf("\n");
-							multiline = true;
-							bytesSentThisLine = 0;
+						if (!binIO) {
+							//check to see if we need a new line
+							bytesSentThisLine++;
+							if (bytesSentThisLine > MAX_BYTES_PER_LINE) { //prevent our output from exceeding what we can send on a single line
+								if (diagnostics)
+									printf("Received data is long, making a new line...");
+								printf("\n");
+								multiline = true;
+								bytesSentThisLine = 0;
+							}
 						}
 					}
 				}
