@@ -60,11 +60,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static char HEADER_SHUTDOWN_CHAR = 'e'; //e
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte HEADER_BUSYBOX = (byte)'b';
-    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
-    private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
+    private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
+    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 200l; //adjust as needed
+    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 75l; //adjust as needed
     private long nextKeepAliveMessage = Long.MIN_VALUE;
 
     private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 200l; //ms to wait if the USB is having problems sending all its data
@@ -78,8 +78,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
-                +" -txgain 1"
-                +" -header" //ignore any traffic that doesn't start with the first byte of the SqAN SDR packet
+                +" -txgain 10"
+                //+" -header" //ignore any traffic that doesn't start with the first byte of the SqAN SDR packet
                 +" -minComms\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
@@ -158,14 +158,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         sdrAppStatus = SdrAppStatus.OFF;
         if (port != null) {
             try {
-                if (sdrAppStatus == SdrAppStatus.RUNNING) {
+                //if (sdrAppStatus == SdrAppStatus.RUNNING) {
                     String formattedData = HEADER_SHUTDOWN_CHAR + "\n";
                     try {
                         port.write(formattedData.getBytes(StandardCharsets.UTF_8), 100);
                     } catch (IOException e) {
                         Log.w(TAG,"Unable to close SDR app before shutting down: "+e.getMessage());
                     }
-                }
+                //}
                 port.setDTR(false);
                 port.setRTS(false);
             } catch (Exception ignored) {
@@ -278,7 +278,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
                 //TODO testing
-                Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                if ((data != null) && (data.length > 40))
+                    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
@@ -404,10 +405,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (message.contains("messages")) { //messages also occurs in the /var/tmp folder
                     Log.d(TAG,"Reply \""+message+"\" from the SDR should contain the contents of the "+Loader.SDR_APP_LOCATION+" directory");
                     if (message.contains(Loader.SQANDR_VERSION)) {
+                        Log.d(TAG,Loader.SQANDR_VERSION+" found, start needed");
                         if (peripheralStatusListener != null)
                             peripheralStatusListener.onPeripheralMessage("Current version of SqANDR found, starting...");
                         sdrAppStatus = SdrAppStatus.NEED_START;
                     } else {
+                        Log.d(TAG,Loader.SQANDR_VERSION+" not found, update needed");
                         if (peripheralStatusListener != null)
                             peripheralStatusListener.onPeripheralMessage("SqANDR update needed...");
                         sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
@@ -646,11 +649,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
         private void startSdrApp() {
         if (sdrAppStatus == SdrAppStatus.NEED_START) {
+            sdrAppStatus = SdrAppStatus.STARTING;
             final String message = "Starting SDR companion app";
             Log.d(TAG,message);
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage(message);
-            sdrAppStatus = SdrAppStatus.STARTING;
             attempts = 0;
             CommsLog.log(CommsLog.Entry.Category.SDR,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             write(SDR_START_COMMAND);
@@ -661,14 +664,17 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
      * Installs the SqANDR app on the SDR if needed ans starts the app
      */
     private void launchSdrApp() {
-        if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)
-            return;
+        Log.d(TAG, "launchSdrApp()");
+        //if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)
+        //    return;
         if (sdrAppStatus == SdrAppStatus.OFF) {
             sdrAppStatus = SdrAppStatus.CHECKING_FOR_UPDATE;
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage("Checking if current version of SqANDR is installed...");
             Loader.queryIsCurrentSqANDRInstalled(port);
-        } else {
+        } else if (sdrAppStatus == SdrAppStatus.NEED_START)
+            startSdrApp();
+        else {
             if (sdrAppStatus != SdrAppStatus.INSTALL_NEEDED)
                 return; //already installing, ignore
             if (peripheralStatusListener != null)
