@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+}
+
+version '1.0.1-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+    }
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'org.sofwerx.pisqan.Main'
+        )
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    sourceSets {
+        main {
+            output.resourcesDir = "build/libs/resources"
+        }
+    }
+}
+
+repositories {
+    google()
+    jcenter()
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+    flatDir {
+        dirs "$rootProject.projectDir/libs"
+    }
+}
+
+dependencies {
+//    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+//    compile 'com.pi4j:pi4j-core:1.2'
+//    implementation 'org.scream3r:jssc:2.8.0'
+}

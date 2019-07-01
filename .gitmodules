@@ -1,0 +1,3 @@
+[submodule "libs/java-simple-serial-connector"]
+	path = libs/java-simple-serial-connector
+	url = https://github.com/scream3r/java-simple-serial-connector.git

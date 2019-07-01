@@ -1,0 +1,1 @@
+SqANDR binary for Pluto has been moved to app/src/main/assets
