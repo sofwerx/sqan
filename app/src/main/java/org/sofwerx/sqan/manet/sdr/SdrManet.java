@@ -14,12 +14,16 @@ import org.sofwerx.sqan.manet.common.ManetType;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.SqANDRListener;
 import org.sofwerx.sqandr.SqANDRService;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
+import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.SerialConnection;
+
+import java.util.ArrayList;
 
 /**
  * MANET built for including hops over SDR
@@ -80,7 +84,19 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
         Log.d(TAG,"SDR Manet init()");
         isRunning.set(true);
         setStatus(Status.OFF);
-        //TODO
+
+        /*TODO for testing: HeartbeatPacket pkt = new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM);
+        ArrayList<Segment> segs = Segmenter.wrapIntoSegments(pkt.toByteArray());
+        Segmenter menter = new Segmenter(segs.get(0).getPacketId());
+
+        for (Segment seg:segs) {
+            Segment newSeg = new Segment();
+            byte[] data = seg.toBytes();
+            newSeg.parse(data);
+            menter.add(newSeg);
+        }
+        if (menter.isComplete())
+            Log.d(TAG,"Complete");*/
     }
 
     private void burst(final byte[] bytes, final int destination, final int origin) {

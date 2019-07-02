@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class Segmenter {
     private final static String TAG = Config.TAG+".Seg";
-    public final static int MAX_POSSIBLE_LENGTH = Segment.MAX_LENGTH_BEFORE_SEGMENTING * 10; //TODO tune this number
+    public final static int MAX_POSSIBLE_LENGTH = Segment.MAX_LENGTH_BEFORE_SEGMENTING * Segment.MAX_VALID_INDEX;
     private final static long TIME_TO_STALE_FRAGMENTS = 1000l * 10l; //after this time (ms), this fragment should be abandoned
 
     private ArrayList<Segment> segments;

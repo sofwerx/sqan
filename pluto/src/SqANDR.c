@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #ifdef __APPLE__
 #include <iio/iio.h>
@@ -205,19 +207,27 @@ int main (int argc, char **argv)
 	const unsigned short SHORT_FLAG[] =        {0b0000000000000001,0b0000000000000010,0b0000000000000100,0b0000000000001000,0b0000000000010000,0b0000000000100000,0b0000000001000000,0b0000000010000000,0b0000000100000000,
 	0b0000001000000000,0b0000010000000000,0b0000100000000000,0b0001000000000000,0b0010000000000000,0b0100000000000000,0b1000000000000000};
 	
+	const int HEARTBEAT_INTERVAL = 100; //how many cycles between heartbeats;
+	
 	const char COMMAND_EXIT = 0b0000000110101011;
 	const char COMMAND_TX =   0b0000000110101011;
 	
 	const char SQAN_HEADER[] = {0b01100110,0b10011001};
 	const int SQAN_HEADER_LEN = (int)(sizeof(SQAN_HEADER)/sizeof(SQAN_HEADER[0])) ;
 	
+	const char EXIT_HEADER[] = {0b10010110,0b01101001,0b00100010,0b01000100};
+	const int EXIT_HEADER_LEN = (int)(sizeof(EXIT_HEADER)/sizeof(EXIT_HEADER[0])) ;	
+	
+	const char NO_DATA_HEARTBEAT[] = {0b00000001,0b00000010,0b00000011,0b00000100};
+	const int NO_DATA_HEARTBEAT_LEN = (int)(sizeof(NO_DATA_HEARTBEAT)/sizeof(NO_DATA_HEARTBEAT[0])) ;	
+	
 	//const unsigned char LOWER_BITS_MASK = 0b00001111;
 	int16_t SIGNAL_THRESHOLD = 0;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
-	const int16_t TRANSMIT_SIGNAL_POS_I = 25000;
-	const int16_t TRANSMIT_SIGNAL_NEG_I = -25000;
-	const int16_t TRANSMIT_SIGNAL_POS_Q = 25000;
-	const int16_t TRANSMIT_SIGNAL_NEG_Q = -25000;
+	const int16_t TRANSMIT_SIGNAL_POS_I = 10000;
+	const int16_t TRANSMIT_SIGNAL_NEG_I = -10000;
+	const int16_t TRANSMIT_SIGNAL_POS_Q = 5000;
+	const int16_t TRANSMIT_SIGNAL_NEG_Q = -5000;
 	const int MAX_BYTES_PER_LINE = 250;
 	const float DEFAULT_FREQ = 900; //in MHz
 	const float DEFAULT_SAMPLE_RATE = 2.1;
@@ -226,12 +236,13 @@ int main (int argc, char **argv)
 	unsigned char hexin[1024];
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
-	const int MAX_DATA_IN = 1024;
-	unsigned char bitin[MAX_DATA_IN]; //the data received from OTA
+	const int MAX_DATA_IN = 2048;
+	unsigned char bytein[MAX_DATA_IN]; //the data received from OTA
 	const int SIZE_OF_DATAOUT = (int)(sizeof(dataout)/sizeof(dataout[0]));
 	int bitTimerCount = 0;
 	int bitIndex = 0;
 	int bitSensor = 0;
+	int cyclesToHeartbeat = HEARTBEAT_INTERVAL;
 	unsigned short tempHeader = (unsigned short)0;
 	unsigned short tempTiming = (unsigned short)0;
 	bool isReadingHeader = true;
@@ -242,7 +253,9 @@ int main (int argc, char **argv)
 	bool testDataSent = false;
 	bool superVerbose = false;
 	bool screenForHeader = false; //true == only dat sequences that start with the SqAN header will be reported
-	bool binIO = false;
+	bool binIn = false;
+	bool inNonBlock = false;
+	bool binOut = false;
 
 	ssize_t nbytes_rx, nbytes_tx;
 	char *p_dat, *p_end;
@@ -261,7 +274,7 @@ int main (int argc, char **argv)
 	
 	float multisampleFactor = 3;
 	unsigned short TIMING_BYTE = 0;
-		
+	
 	//ingest arguments
 	if (argc > 0) {
 		int pt = 0;
@@ -284,9 +297,14 @@ int main (int argc, char **argv)
 				pt = 8;
 			} else if (strcmp("-multiSample",argv[j]) == 0) {
 				pt = 9;
-			} else if (strcmp("-bin",argv[j]) == 0) {
-				binIO = true;
+			} else if (strcmp("-binI",argv[j]) == 0) {
+				binIn = true;
+				inNonBlock = true;
+			} else if (strcmp("-binO",argv[j]) == 0) {
+				binOut = true;
 				verbose = false;
+			} else if (strcmp("-nonBlock",argv[j]) == 0) {
+				inNonBlock = true;
 			} else if (strcmp("-minComms",argv[j]) == 0) {
 				printf("m Starting in min verbosity mode\n");
 				verbose = false;
@@ -323,7 +341,9 @@ int main (int argc, char **argv)
 				printf(" -listen = runs in a continous listen only mode\n");
 				printf(" -superVerbose = povides detailed I & Q values\n");
 				printf(" -header = when in superVerbose mode, povides detailed I & Q values only once the '88996699' header has been received; otherwise it will only report data once the first byte ('66') of the SqAN header is detected\n");
-				printf(" -bin = switches SqANDR to take pure binary input/output across the USB connection; -minComms is also invoked automatically\n");
+				printf(" -binI [NOT YET SUPPORTED] = switches SqANDR to binary input across the USB connection; -nonBlock is also invoked automatically\n");
+				printf(" -binO = switches SqANDR to binary output across the USB connection; -minComms is also invoked automatically\n");
+				printf(" -nonBlock = switches input to non-blocking mode\n");
 				exit(0);
 			} else if (pt > 0) {
 				float val = atof(argv[j]);
@@ -370,7 +390,7 @@ int main (int argc, char **argv)
 			}
 		}
 	}
-	float permissibleError = 0;
+	/*float permissibleError = 0;
 	if (multisampleFactor != 3 && multisampleFactor != 5) {
 		if (verbose)
 			printf("Multisample Governer changing Multisample Factor to 3.\n");
@@ -401,7 +421,7 @@ int main (int argc, char **argv)
 	if (verbose) {
 		printf("d Timing Byte: %hu\n", TIMING_BYTE);
 		printf("d Permissible Error: %f\n", permissibleError);
-	}
+	}*/
 	
 	// Streaming devices
 	struct iio_device *tx;
@@ -411,8 +431,8 @@ int main (int argc, char **argv)
 	struct stream_cfg rxcfg;
 	struct stream_cfg txcfg;
 
-	// Listen to ctrl+c and ASSERT
-	signal(SIGINT, handle_sig);
+	if (!binIn)
+		signal(SIGINT, handle_sig); // Listen to ctrl+c and ASSERT when not in binary mode
 
 	// RX stream config
 	if (rxb > 0.1) {
@@ -519,13 +539,13 @@ int main (int argc, char **argv)
 
 	if (verbose)
 		printf("d* Creating non-cyclic IIO buffers with 1 MiS\n");
-	rxbuf = iio_device_create_buffer(rx, 17*4800*2, false); //TODO trying out double the previous buffer size
+	rxbuf = iio_device_create_buffer(rx, 17*1400, false); //TODO trying out double the previous buffer size
 	if (!rxbuf) {
 		perror("m Could not create RX buffer");
 		shutdown();
 	}
 
-	txbuf = iio_device_create_buffer(tx, 17*2400, false);
+	txbuf = iio_device_create_buffer(tx, 17*700, false);
 	if (!txbuf) {
 		perror("m Could not create TX buffer");
 		shutdown();
@@ -570,7 +590,8 @@ int main (int argc, char **argv)
 		printf("Waiting for SqAN header....\n");
 
 	//moving all assignments outside the while to reduce allocation time in the loop
-	const int MAX_SAMPLES_IN_A_ROW = multisampleFactor * 17;
+	//const int MAX_SAMPLES_IN_A_ROW = multisampleFactor * 17;
+	const int MAX_SAMPLES_IN_A_ROW = 17;
 	bool multiline = false;
 	bool countReset = false;
 	int bitsSearchedForHeader = 0;
@@ -592,6 +613,15 @@ int main (int argc, char **argv)
 
 	int count = 0; // a counter just used in the binary test pattern
 	int bestMatch = 0; //a counter used to keep track of the best match returned during a test pattern
+	
+	if (inNonBlock) {
+		fcntl(0, F_SETFL, O_NONBLOCK); //switch stdin to non-blocking
+		//setvbuf(stdin, NULL, _IONBF, 0); //sets stdin to no buffer mode
+	}
+	if (binIn) {
+		freopen("", "rb", stdin); //open stdin in "read binary" mode
+	}
+	
 	while (!stop) {
 		startTime = clock();
 		multiline = false;
@@ -635,16 +665,17 @@ int main (int argc, char **argv)
 				const int16_t q = ((int16_t*)p_dat)[1] << 4; // Imag (Q)
 
 				if ((i > 0 && q > 0) || (i < 0 && q < 0))
-					amplitude = (i+q)>>1; //bitshiftig for speed
+					amplitude = (i+q)>>1; //bitshifting for speed
 					//amplitude = (i+q)/2;
 				else
-					amplitude = (i-q)>>1; //bitshiftig for speed
+					amplitude = (i-q)>>1; //bitshifting for speed
 					//amplitude = (i-q)/2;
-				
-				/*TODO deprecating SIGNAL_THRESHOLD and some verbosity: if (superVerbose) {
+				if (superVerbose)
+					printf("\tI: %d, Q: %d, A: %d\n", i, q, amplitude);
+				if (superVerbose) {
 					if (samplesToShow > 0) {
 					//if ((samplesToShow > 0) && (cnt > 3)) {
-						printf("\tI: %d, Q: %d, A: %d, Byte Count: %d, Sample Count: %d, Timing Found: %d, Bit Sensor: %d, Index: %d\n", i, q, a, bytesSentThisLine, bitTimerCount, timingFound, bitSensor, totalSamples);
+						printf("\tI: %d, Q: %d, A: %d, Byte Count: %d, Sample Count: %d, Timing Found: %d, Bit Sensor: %d, Index: %d\n", i, q, amplitude, bytesSentThisLine, bitTimerCount, timingFound, bitSensor, totalSamples);
 						samplesToShow--;
 					}
 				}
@@ -659,7 +690,7 @@ int main (int argc, char **argv)
 						printf("-");
 					printf(" I: %d, Q: %d, A: %d\n", i, q, amplitude);
 					helperShowIQindex++;
-				}*/
+				}
 
 				if (binaryTestPattern) {
 					if (helperShowIQindex >= 200) {
@@ -686,7 +717,7 @@ int main (int argc, char **argv)
 							}
 						}
 						continue; //ignore noise below the signal threshold
-					}
+					}*/
 
 					if (diagnostics && !testDataSent) {
 						noiseBits++;
@@ -705,9 +736,11 @@ int main (int argc, char **argv)
 							} else if (amplitude < aNoisePosL)
 								aNoisePosL = amplitude;
 						}
-					}*/
+					}
 				}
-				if (timingFound) {
+				
+															//MULTISAMPLING TIMING SNIPPET
+				/*if (timingFound) {
 					bitTimerCount++;
 					if (amplitude >= SIGNAL_THRESHOLD) {
 						bitSensor++;
@@ -725,19 +758,22 @@ int main (int argc, char **argv)
 						timingFound = true;
 						tempTiming = 0;
 					}
-				}
+				}*/
 
 				if (isReadingHeader) {
 					bool headerComplete = false;
 					
-					if (bitTimerCount == (multisampleFactor) && !countReset) {
+					//if (bitTimerCount == (multisampleFactor) && !countReset) {
 						bitsSearchedForHeader++;
 						tempHeader = tempHeader << 1; //move bits over to make room for new bit
-						if (bitSensor >= (multisampleFactor-permissibleError))
-							tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+						//if (bitSensor >= (multisampleFactor-permissibleError))
+							//if (bitSensor >= (multisampleFactor-permissibleError))
+								if (amplitude >= SIGNAL_THRESHOLD) {
+									tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+								}
 						tempHeader = tempHeader & HEADER_MASK;
-						countReset = true;
-					}
+						//countReset = true;
+					//}
 
 					if (tempHeader == HEADER) {
 						headerComplete = true;
@@ -763,27 +799,31 @@ int main (int argc, char **argv)
 						bitsSearchedForHeader = 0;
 					}
 				} else {
+					bitIndex++;
+					tempByte = tempByte << 1;
 					if (isSignalInverted) {
-						if (bitTimerCount == (multisampleFactor) && !countReset) {
-						tempByte = tempByte << 1;
-							if (bitSensor <= (permissibleError-multisampleFactor))
-								tempByte = tempByte | LEAST_SIG_BIT;
-							countReset = true;
-							bitIndex++;
-						}
-					} else if (bitTimerCount == (multisampleFactor) && !countReset) {
-						tempByte = tempByte << 1;
-							if (bitSensor >= (multisampleFactor-permissibleError))
-								tempByte = tempByte | LEAST_SIG_BIT;
-							countReset = true;
-							bitIndex++;
+						//if (bitTimerCount == (multisampleFactor) && !countReset) {
+							//if (bitSensor <= (permissibleError-multisampleFactor))
+								if (amplitude <= -SIGNAL_THRESHOLD) {
+									tempByte = tempByte | LEAST_SIG_BIT;
+								}
+							//countReset = true;
+							//bitIndex++;
+						//}
+					} else {//if (bitTimerCount == (multisampleFactor) && !countReset) {
+							//if (bitSensor >= (multisampleFactor-permissibleError))
+								if (amplitude >= SIGNAL_THRESHOLD) {
+									tempByte = tempByte | LEAST_SIG_BIT;
+								}
+							//countReset = true;
+							//bitIndex++;
 					}
 					if (bitIndex > 7) {
 						if (!diagnostics && (bytesSentThisLine < 1)) {
 							if (superVerbose)
 								printf(" Incoming traffic detected\n");
 						}
-						if (screenForHeader && !sqanHeaderFound) {
+						if (!sqanHeaderFound) {
 							if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
 								sqanHeaderMatchIndex++;
 								if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN)
@@ -804,26 +844,27 @@ int main (int argc, char **argv)
 
 						isReadingHeader = true; //go back to reading the header
 
-						if (!binIO) {
+						//if (!binOut) {
 							//check to see if we need a new line
-							bytesSentThisLine++;
-							if (bytesSentThisLine > MAX_BYTES_PER_LINE) { //prevent our output from exceeding what we can send on a single line
-								if (diagnostics)
-									printf("Received data is long, making a new line...");
-								printf("\n");
-								multiline = true;
-								bytesSentThisLine = 0;
-							}
-						}
+							//bytesSentThisLine++;
+							//if (bytesSentThisLine > MAX_BYTES_PER_LINE) { //prevent our output from exceeding what we can send on a single line
+							//	if (diagnostics)
+							//		printf("Received data is long, making a new line...");
+							//	printf("\n");
+							//	multiline = true;
+							//	bytesSentThisLine = 0;
+							//}
+						//}
 					}
 				}
-				if (countReset) {
+										//multisample resets
+				/*if (countReset) {
 					bitTimerCount = 0;
 					bitSensor = 0;
 					countReset = false;
-				}
+				}*/
 			}
-			if (!binIO && (dataoutIndex > 0))
+			if ((diagnostics || superVerbose) && (dataoutIndex > 0))
 				printf("\n");
 			if (diagnostics) {
 				if (!binaryTestPattern && testDataSent) { //compare what was received with what was sent
@@ -858,14 +899,12 @@ int main (int argc, char **argv)
 			
 			if ((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) { //only output if there's something to send
 				activityThisCycle = true;
-				if (binIO) {
+				if (binOut) {
 					/**
 					 * Output as pure binary
 					 **/
-			
-					//TODO send the bin output
-					// see https://stackoverflow.com/questions/1242974/write-to-stdout-and-printf-output-not-interleaved
-					//add COMMAND_TX first  plus the length of the data
+					fwrite(dataout,1,dataoutIndex,stdout);
+					fflush(stdout);
 				} else {
 					/**
 					 * Output as hex text
@@ -886,7 +925,19 @@ int main (int argc, char **argv)
 					}
 					printf("\n");
 				}
-			} 
+			} else {
+				if (binOut) {
+					/**
+					 * Send a heartbeat to let SqAN know the SqANDR app is active
+					 */
+					if (cyclesToHeartbeat < 1) {
+						fwrite(NO_DATA_HEARTBEAT,1,NO_DATA_HEARTBEAT_LEN,stdout);
+						fflush(stdout);
+						cyclesToHeartbeat = HEARTBEAT_INTERVAL;
+					} else
+						cyclesToHeartbeat--;
+				}
+			}				
 			if (verbose) {
 				if (totalSamples == samplesWithNoSignal)
 					printf("d no data received\n");
@@ -914,18 +965,52 @@ int main (int argc, char **argv)
 		bufferCycleCount = 0;
 		cnt = cnt + 1;
 		startrx = false;
-		timingFound = false;
+		//timingFound = false;
 
 		/**
 		 * READING serial input
 		 */
 		
-		if (binIO) {
+		bytesInput = 0;
+		if (binIn) {
 			/**
 			 * Non-blocking Binary stream input
 			 */
-			//TODO get the stream
-			// see https://stackoverflow.com/questions/5616092/non-blocking-call-for-reading-descriptor and https://stackoverflow.com/questions/2917881/how-to-implement-a-timeout-in-read-function-call and https://stackoverflow.com/questions/15883568/reading-from-stdin and maybe https://stackoverflow.com/questions/7226603/timeout-function
+
+			int exitHeaderIndexMatched = 0;
+			//char ch;
+			
+			//bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin);
+			bytesInput = read(STDIN_FILENO,bytein,MAX_DATA_IN);
+			if (bytesInput < 0)
+				bytesInput = 0;
+			//while(read(0, &ch, 1) > 0)) { // 0 == STDIN_FILENO
+			//while((read(0, &ch, 1) > 0) && (bytesInput < MAX_DATA_IN)) { // 0 == STDIN_FILENO
+				/*bytein[bytesInput] = ch;
+				if (bytesInput < EXIT_HEADER_LEN) { //check for exit command
+					if (EXIT_HEADER[exitHeaderIndexMatched] == ch) {
+						exitHeaderIndexMatched++;
+						if (exitHeaderIndexMatched == EXIT_HEADER_LEN) {
+							printf("m Shutdown command received\n");
+							shutdown();
+						}
+					}
+				}
+				bytesInput++;
+			}*/	
+			
+			if (bytesInput > 0) { //TODO temp for testing
+				printf("m Received input (%db): ",bytesInput);
+				char tempByte;
+				for (int i=0;i<bytesInput;i++) {
+					tempByte = bytein[i];
+					char *a = "0123456789abcdef"[tempByte >> 4];
+					char *b = "0123456789abcdef"[tempByte & 0x0F];
+					printf("%c%c",a,b);
+				}
+
+				printf("\n");
+			}
 		} else {
 			/**
 			 * Blocking hex input
@@ -968,7 +1053,7 @@ int main (int argc, char **argv)
 					hexin[0] = '\n';
 					hexin[1] = '\0';
 				} else {
-					if (verbose)
+					if (verbose && !inNonBlock)
 						printf("d Input:\n");
 					fgets(hexin, 1024, stdin);
 				}
@@ -990,7 +1075,7 @@ int main (int argc, char **argv)
 					while ((cl<bytesInput) && (cl<MAX_DATA_IN)) {
 						hexchar[0] = hexin[hex];
 						hexchar[1] = hexin[hex + 1];
-						bitin[cl] = hexToBin(hexchar);
+						bytein[cl] = hexToBin(hexchar);
 						if (verbose && diagnostics && !binaryTestPattern) {
 							printf("Current hex: %c%c = ",hexchar[0],hexchar[1]);
 
@@ -1003,7 +1088,7 @@ int main (int argc, char **argv)
 								asBytes = asBytes << 1;
 							}
 
-							printf(" = %d",(unsigned int)bitin[cl]);
+							printf(" = %d",(unsigned int)bytein[cl]);
 							printf("\n");
 						}
 						cl++;
@@ -1026,121 +1111,116 @@ int main (int argc, char **argv)
 			if (verbose)
 				printf("dAdding %ib to Tx buffer:\n",bytesInput);
 			while (bufferCycleCount < 1) {
-				if (binaryTestPattern) {
-					int temp = 8;
-					while (p_dat < p_end) {
-						if ((HEADER & SHORT_FLAG[temp]) == SHORT_FLAG[temp]) {
-							((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-							((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-							if (verbose)
-								printf("1");
-						} else {
-							((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-							((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-							if (verbose)
-								printf("0");
-						}
-						p_dat += p_inc;
-						temp--;
-						if (temp < 0)
-							temp = 8;
-					}
-					printf("d Sending repeated 110101011 as a signal");
-					bufferCycleCount++;
-					continue;
-				}
 				
-				//Send leading "no signal" bytes
-				for (int i=0;i<150;i++) {
+			if (binaryTestPattern) {
+				int temp = 8;
+				while (p_dat < p_end) {
+					if ((HEADER & SHORT_FLAG[temp]) == SHORT_FLAG[temp]) {
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+						if (verbose)
+							printf("1");
+					} else {
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+						if (verbose)
+							printf("0");
+					}
+					p_dat += p_inc;
+					temp--;
+					if (temp < 0)
+						temp = 8;
+				}
+
+				printf("d Sending repeated 110101011 as a signal");
+
+				bufferCycleCount++;
+				continue;
+			}
+
+			//Send leading "no signal" bytes
+			for (int i=0;i<510;i++) {
+				if (p_dat > p_end) {
+					printf("m Error - header was larger than remaining buffer size (this should not happen)");
+					break;
+				}
+				if (i % 2 == 0) {
+				((int16_t*)p_dat)[0] = 25000; // Real (I)
+				((int16_t*)p_dat)[1] = 25000; // Imag (Q)
+				}
+				else {
+				((int16_t*)p_dat)[0] = -25000; // Real (I)
+				((int16_t*)p_dat)[1] = -25000; // Imag (Q)
+				}
+				p_dat += p_inc;
+			}
+
+			for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
+				if (verbose)
+					printf("d Sending byte data with 9 bit header to the buffer\n");
+
+				for (int i=8;i>=0;i--) { //send header 9 bits
 					if (p_dat > p_end) {
 						printf("m Error - header was larger than remaining buffer size (this should not happen)");
 						break;
 					}
-					if (i % 2 == 0) {
-						for (int j=0; j<multisampleFactor; j++) { //Multisample the bits
-							((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-							((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-							p_dat += p_inc;
-						}
+					if ((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) {
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+						if (verbose)
+							printf("1");
 					} else {
-						for (int j=0; j<multisampleFactor; j++) { //Multisample the bits
-							((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-							((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-							p_dat += p_inc;
-						}
-					}				
-				}
-
-				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
-					if (verbose)
-						printf("d Sending byte data with 9 bit header to the buffer\n");
-
-					for (int i=8;i>=0;i--) { //send header 9 bits
-						if (p_dat > p_end) {
-							if (verbose)
-								printf("m Error - header was larger than remaining buffer size (this should not happen)");
-							break;
-						}
-						for (int j=0; j<multisampleFactor; j++) { //Multisample the bits
-							if ((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) {
-								((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-								((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-								if (verbose)
-									printf("1");
-							} else {
-								((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-								((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-								if (verbose)
-									printf("0");
-							}
-							p_dat += p_inc;
-						}
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+						if (verbose)
+							printf("0");
 					}
-					if (verbose)
-						printf(" ");
-
-					//send actual byte
-					for (int bitPlace=7;bitPlace>=0;bitPlace--) {
-						if (p_dat > p_end) {
-							printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
-							break;
-						}
-						for (int j=0; j<multisampleFactor; j++) { //Multisample the bits
-							if ((bitin[bytePayloadIndex] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
-								((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-								((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-								if (verbose)
-									printf("1");
-							} else {
-								((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-								((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-								if (verbose)
-									printf("0");
-							}
-							p_dat += p_inc;
-						}
-					}
-					if (verbose)
-						printf(" = %d\n",(unsigned int)bitin[bytePayloadIndex]);
-				}
-
-				int emptySignalCount = 0;
-				while (p_dat < p_end) {
-					int remain = emptySignalCount % 2;
-					if (emptySignalCount % 2 == 0) {
-						((int16_t*)p_dat)[0] = 0; // Real (I)
-						((int16_t*)p_dat)[1] = 0; // Imag (Q)
-					} else {
-						((int16_t*)p_dat)[0] = 0; // Real (I)
-						((int16_t*)p_dat)[1] = 0; // Imag (Q)
-					}
-					emptySignalCount++;
 					p_dat += p_inc;
 				}
 				if (verbose)
-					printf("d Fill the rest of the buffer with %ib of no signal\n",emptySignalCount);
+					printf(" ");
 
-				bufferCycleCount++;
+				//send actual byte
+				for (int bitPlace=7;bitPlace>=0;bitPlace--) {
+					if (p_dat > p_end) {
+						printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
+						break;
+					}
+
+					if ((bytein[bytePayloadIndex] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+						if (verbose)
+							printf("1");
+					} else {
+						((int16_t*)p_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+						((int16_t*)p_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+						if (verbose)
+							printf("0");
+					}
+					p_dat += p_inc;
+				}
+				if (verbose)
+					printf(" = %d\n",(unsigned int)bytein[bytePayloadIndex]);
+			}
+
+			int emptySignalCount = 0;
+			while (p_dat < p_end) {
+				if (emptySignalCount % 2 == 0) {
+				((int16_t*)p_dat)[0] = 25000; // Real (I)
+				((int16_t*)p_dat)[1] = 25000; // Imag (Q)
+				}
+				else {
+				((int16_t*)p_dat)[0] = -25000; // Real (I)
+				((int16_t*)p_dat)[1] = -25000; // Imag (Q)
+				}
+				emptySignalCount++;
+				p_dat += p_inc;
+			}
+			if (verbose)
+				printf("d Fill the rest of the buffer with %ib of no signal\n",emptySignalCount);
+
+			bufferCycleCount++;
 			}
 		
 			// Schedule TX buffer

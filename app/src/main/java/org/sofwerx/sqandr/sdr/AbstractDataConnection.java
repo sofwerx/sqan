@@ -35,15 +35,16 @@ public abstract class AbstractDataConnection {
 
     protected void handleRawDatalinkInput(final byte[] raw) {
         if (raw == null) {
-            Log.w(TAG,"handleRawDatalinkInput received null input, ignoring");
+            //Log.w(TAG,"handleRawDatalinkInput received null input, ignoring");
             return;
-        } else
-            Log.w(TAG,"handleRawDatalinkInput received "+raw.length+"b raw input");
-        Log.d(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
+        } else {
+            //Log.w(TAG, "handleRawDatalinkInput received " + raw.length + "b raw input");
+        }
+        //Log.d(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
         if (dataBuffer == null)
             dataBuffer = new WriteableInputStream();
         dataBuffer.write(raw);
-        Log.d(TAG,raw.length+"b added to dataBuffer");
+        //Log.d(TAG,raw.length+"b added to dataBuffer");
         if (readThread == null) {
             readThread = new Thread() {
                 @Override
@@ -51,7 +52,7 @@ public abstract class AbstractDataConnection {
                     Log.d(TAG,"starting read thread");
                     while(keepGoing.get()) {
                         byte[] out = readPacketData();
-                        Log.d(TAG,((out==null)?"null":out.length+"b")+" packet data read by dataBuffer");
+                        //Log.d(TAG,((out==null)?"null":out.length+"b")+" packet data read by dataBuffer");
                         if ((out != null) && (listener != null))
                             listener.onReceiveDataLinkData(out);
                         else if (listener == null)
@@ -114,13 +115,16 @@ public abstract class AbstractDataConnection {
     }
 
     private int readPartialHeader() throws IOException {
+        Log.d(TAG,"readPartialHeader()");
         byte[] header = new byte[3];
         dataBuffer.read(header);
         int size;
         if (Segment.isQuickValidCheck(header)) {
+            Log.d(TAG,"readPartialHeader() validity test passed");
             size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
             return size;
         } else {
+            Log.d(TAG,"readPartialHeader() validity test failed");
             if (listener != null)
                 listener.onPacketDropped();
             int lost = 0;
@@ -161,15 +165,17 @@ public abstract class AbstractDataConnection {
     private void handleSegment(Segment segment) {
         if (segment == null)
             return;
-        Segmenter segmenter = findSegmenter(segment.getPacketId());
+        byte packetId = segment.getPacketId();
+        Segmenter segmenter = findSegmenter(packetId);
         if (segmenter == null) {
-            Log.d(TAG,"First segment for new packet received");
-            segmenter = new Segmenter(segment.getPacketId());
+            Log.d(TAG,"First segment ("+segment.getIndex()+") for Packet ID "+packetId+" received");
+            segmenter = new Segmenter(packetId);
             segmenter.add(segment);
             if (segmenters == null)
                 segmenters = new ArrayList<>();
             segmenters.add(segmenter);
         } else {
+            Log.d(TAG,"Adding segment "+segment.getIndex()+" to Packet ID "+packetId);
             segmenter.add(segment);
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
@@ -182,8 +188,10 @@ public abstract class AbstractDataConnection {
 
     private byte[] readPacketData() {
         Log.d(TAG,"readPacketData()");
-        if (dataBuffer == null)
+        if (dataBuffer == null) {
+            Log.w(TAG,"dataBuffer is null, ignoring readPacketData()");
             return null;
+        }
         try {
             int size = readPartialHeader();
             if ((size < 0) || (size > Segment.MAX_LENGTH_BEFORE_SEGMENTING))
@@ -201,7 +209,7 @@ public abstract class AbstractDataConnection {
                 } else
                     handleSegment(segment);
             } else {
-                Log.d(TAG,"readPacketData produced invalid Segment; dropping");
+                Log.d(TAG,"readPacketData produced invalid Segment (data was null); dropping");
                 if (listener != null)
                     listener.onPacketDropped();
             }
