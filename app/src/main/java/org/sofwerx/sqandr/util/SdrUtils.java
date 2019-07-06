@@ -63,6 +63,19 @@ public class SdrUtils {
 
     }
 
+    /**
+     * Inverts a byte array
+     * @return
+     */
+    public static byte[] invert(byte[] data) {
+        if (data == null)
+            return null;
+        for (int i=0;i<data.length;i++) {
+            data[i] = (byte)(~data[i] & 0xFF);
+        }
+        return data;
+    }
+
     public static String getUsbClass(int interfaceClass) {
         switch (interfaceClass) {
             case UsbConstants.USB_CLASS_APP_SPEC:

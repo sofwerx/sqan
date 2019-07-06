@@ -21,9 +21,9 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    //private final static byte[] FINAL_SEGMENT_MARKER = {(byte)0b01010101};
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 21; //Not to exceed 250 (Serial line output problem), can't be below 15 (few enough segments to still meet VPN packet size) //TODO tune this number
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 110; //Not to exceed 250 (Serial line output problem), can't be below 15 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
+    public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
     private final static byte OVERALL_ID_MASK = (byte)0b01110000;
     private final static byte INDEX_IN_SEGMENT_MASK = (byte)0b00001111;
@@ -50,15 +50,41 @@ public class Segment {
                 && (getSize(data) <= MAX_LENGTH_BEFORE_SEGMENTING);
     }
 
+    /**
+     * See if this is probably a valid packet, but with inverted bits (i.e. the incoming bits are
+     * reversed). If this fails, then you should keep scanning the bytestream for the next
+     * occurance of HEADER_MARKER
+     * @param data
+     * @return
+     */
+    public static boolean isQuickInversionValidCheck(byte[] data) {
+        if ((data == null) || (data.length < 3))
+            return false;
+        return (data[0] == INVERSE_HEADER_MARKER[0])
+                && (data[1] == INVERSE_HEADER_MARKER[1])
+                && (getSizeInverse(data) <= MAX_LENGTH_BEFORE_SEGMENTING);
+    }
+
     public byte getPacketId() { return packetId; }
     public boolean isStandAlone() { return isFinalSegment && (index == 0); }
     public int getIndex() { return index; }
     public byte[] getData() { return data; }
 
-    public static int getSize(byte[] data) {
+    private static int getSize(byte[] data) {
         if ((data == null) || (data.length < 3))
             return 0;
         return data[2] & 0xFF; //needed to make the signed byte back into an unsigned int
+    }
+
+    /**
+     * Used when the data is detected as inverted
+     * @param data
+     * @return
+     */
+    private static int getSizeInverse(byte[] data) {
+        if ((data == null) || (data.length < 3))
+            return 0;
+        return ~data[2] & 0xFF; //needed to make the signed byte back into an unsigned int
     }
 
     public boolean isEqual(Segment other) {
@@ -91,8 +117,6 @@ public class Segment {
         ByteBuffer out = ByteBuffer.allocate(HEADER_SIZE+data.length);
         out.put(HEADER_MARKER);
         out.put((byte)data.length);
-        //byte len = (byte)data.length;
-        //out.put(len);
         out.put(getFlags());
         out.put(SdrUtils.getChecksum(data));
         out.put(data);

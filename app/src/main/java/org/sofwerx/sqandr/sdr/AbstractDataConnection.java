@@ -6,6 +6,8 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.util.Crypto;
+import org.sofwerx.sqandr.util.SdrUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
@@ -32,6 +34,15 @@ public abstract class AbstractDataConnection {
     //TODO implement the below
     protected long rfCongestedUntil = Long.MIN_VALUE;
     private final static long TIME_FOR_RF_ACTIVITY_TO_ADD_TO_CONGESTION = 100l; //ms to wait if data is flowing in via RF on the bulk data channel
+
+    private class PartialHeaderData {
+        public PartialHeaderData(int size, boolean inverted) {
+            this.size = size;
+            this.inverted = inverted;
+        }
+        protected int size;
+        protected boolean inverted;
+    }
 
     protected void handleRawDatalinkInput(final byte[] raw) {
         if (raw == null) {
@@ -114,7 +125,7 @@ public abstract class AbstractDataConnection {
         }
     }
 
-    private int readPartialHeader() throws IOException {
+    private PartialHeaderData readPartialHeader() throws IOException {
         Log.d(TAG,"readPartialHeader()");
         byte[] header = new byte[3];
         dataBuffer.read(header);
@@ -122,7 +133,11 @@ public abstract class AbstractDataConnection {
         if (Segment.isQuickValidCheck(header)) {
             Log.d(TAG,"readPartialHeader() validity test passed");
             size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
-            return size;
+            return new PartialHeaderData(size,false);
+        } else if (Segment.isQuickInversionValidCheck(header)) {
+            Log.d(TAG,"readPartialHeader() validity test passed, but inverted");
+            size = ~header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
+            return new PartialHeaderData(size,false);
         } else {
             Log.d(TAG,"readPartialHeader() validity test failed");
             if (listener != null)
@@ -143,12 +158,23 @@ public abstract class AbstractDataConnection {
                         lost++;
                         if ((size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
                             Log.d(TAG,lost+"b lost, but new header found");
-                            return size;
+                            return new PartialHeaderData(size,false);
+                        }
+                    }
+                } else if (dig == Segment.INVERSE_HEADER_MARKER[0]) {
+                    dig = (byte)dataBuffer.read();
+                    lost++;
+                    if (dig == Segment.INVERSE_HEADER_MARKER[1]) {
+                        size = ~dataBuffer.read() & 0xFF;
+                        lost++;
+                        if ((size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
+                            Log.d(TAG,lost+"b lost, but new header found");
+                            return new PartialHeaderData(size,true);
                         }
                     }
                 }
             }
-            return -1;
+            return new PartialHeaderData(-1,false);
         }
     }
 
@@ -180,7 +206,7 @@ public abstract class AbstractDataConnection {
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
                 if (listener != null)
-                    listener.onReceiveDataLinkData(segmenter.reassemble());
+                    listener.onReceiveDataLinkData(Crypto.decrypt(segmenter.reassemble()));
                 segmenters.remove(segmenter);
             }
         }
@@ -193,19 +219,23 @@ public abstract class AbstractDataConnection {
             return null;
         }
         try {
-            int size = readPartialHeader();
-            if ((size < 0) || (size > Segment.MAX_LENGTH_BEFORE_SEGMENTING))
-                throw new IOException("Unable to read packet - invalid size "+size+"b - this condition should never happen unless the link is shutting down");
-            Log.d(TAG,"packet size "+size+"b");
-            byte[] rest = new byte[size+2]; //2 added to get the rest of the header
+            PartialHeaderData headerData = readPartialHeader();
+            if ((headerData.size < 0) || (headerData.size > Segment.MAX_LENGTH_BEFORE_SEGMENTING))
+                throw new IOException("Unable to read packet - invalid size "+headerData.size+"b - this condition should never happen unless the link is shutting down");
+            Log.d(TAG,"packet size "+headerData.size+"b");
+            byte[] rest = new byte[headerData.size+2]; //2 added to get the rest of the header
             dataBuffer.read(rest);
             Log.d(TAG,"Rest of packet read");
+            if (headerData.inverted) {
+                Log.d(TAG,"..but header was inverted, inverting data...");
+                rest = SdrUtils.invert(rest);
+            }
             Segment segment = new Segment();
             segment.parseRemainder(rest);
             if (segment.isValid()) {
                 if (segment.isStandAlone()) {
                     Log.d(TAG,"Standalone packet recovered");
-                    return segment.getData();
+                    return Crypto.decrypt(segment.getData());
                 } else
                     handleSegment(segment);
             } else {

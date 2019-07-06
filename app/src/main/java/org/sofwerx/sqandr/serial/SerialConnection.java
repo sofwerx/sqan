@@ -22,11 +22,13 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.Loader;
 import org.sofwerx.sqandr.util.SqANDRLoaderListener;
 import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +68,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
+    private final static int TX_GAIN = 10; //Magnitude in (0 to 85dB)
+
     private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //adjust as needed
     private long nextKeepAliveMessage = Long.MIN_VALUE;
     private long lastSqandrHeartbeat = Long.MIN_VALUE;
@@ -85,8 +89,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
-                +" -txgain 10"
+                +" -txgain "+TX_GAIN
                 +" -header" //ignore any traffic that doesn't start with the first byte of the SqAN SDR packet
+                +" -nonBlock"
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms\n").getBytes(StandardCharsets.UTF_8);
@@ -169,8 +174,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (USE_BIN_USB_IN) {
                     //ignore for now
                 } else {
-                    if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage))
-                        write(KEEP_ALIVE_MESSAGE);
+                   // if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage))
+                   //     write(KEEP_ALIVE_MESSAGE);
                 }
             }
             if (handler != null)
@@ -234,23 +239,25 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
      * a write
      * @param data
      */
-    public void burstPacket(final byte[] data) {
+    public void burstPacket(byte[] data) {
         if (data == null)
             return;
+        final byte[] cipherData = Crypto.encrypt(data);
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
-            if (Segment.isAbleToWrapInSingleSegment(data)) {
+            if (Segment.isAbleToWrapInSingleSegment(cipherData)) {
                 Segment segment = new Segment();
-                segment.setData(data);
+                segment.setData(cipherData);
                 segment.setStandAlone();
                 Log.d(TAG,"burstPacket()");
                 if (USE_BIN_USB_IN) {
                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
                     write(segment.toBytes());
-                } else
+                } else {
                     write(toSerialLinkFormat(segment.toBytes()));
+                }
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
-                ArrayList<Segment> segments = Segmenter.wrapIntoSegments(data);
+                ArrayList<Segment> segments = Segmenter.wrapIntoSegments(cipherData);
                 if ((segments == null) || segments.isEmpty()) {
                     Log.e(TAG, "There was an unexpected problem that did not produce any segments from this packet");
                     return;
@@ -258,9 +265,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 for (Segment segment : segments) {
                     if (USE_BIN_USB_IN) {
                         Log.d(TAG,"Outgoing: "+StringUtils.toHex(segment.toBytes()));
-                        write(segment.toBytes());
-                    } else
-                        write(toSerialLinkFormat(segment.toBytes()));
+                        write(Segment.HEADER_MARKER);
+                        write(Crypto.encrypt(segment.toBytes()));
+                    } else {
+                        write(Segment.HEADER_MARKER);
+                        write(toSerialLinkFormat(Crypto.encrypt(segment.toBytes())));
+                    }
                 }
             }
         } else
@@ -325,7 +335,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
                 //TODO testing
                 //if ((data != null) && (data.length > 40))
-                //    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
@@ -434,8 +444,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     };
 
     @Override
-    public void onNewData(final byte[] data) {
-        if ((data == null) || (data.length < 3))
+    public void onNewData(byte[] data) {
+        if ((data == null) || (data.length < Segment.HEADER_MARKER.length))
             return;
         if (USE_BIN_USB_OUT && ((sdrAppStatus == SdrAppStatus.RUNNING) || (sdrAppStatus == SdrAppStatus.STARTING))) {
             handler.post(() -> {
@@ -453,11 +463,22 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 } else {
                     //TODO temp for testing
                     //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
-                    Log.d(TAG, "From SDR (oND): " + StringUtils.toHex(data) + ":" + new String(data));
+                    if ((data[0] == (byte)54)) // 6 - like the start of the SqAN header
+                        Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
+                    else
+                        Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
                     //else
                     //    Log.d(TAG,"From SDR: +"+StringUtils.toHex(data));
                     //TODO temp for testing
 
+                    /*byte[] preserveHeader = new byte[Segment.HEADER_MARKER.length];
+                    for (int i=0; i< preserveHeader.length; i++) {
+                        preserveHeader[i] = data[i];
+                    }
+                    byte[] plaintext = Crypto.decrypt(data);
+                    for (int i=0; i< preserveHeader.length; i++) { //restore the header after any encryption/decryption
+                        plaintext[i] = preserveHeader[i];
+                    }*/
                     handleRawDatalinkInput(data);
                 }
             });
