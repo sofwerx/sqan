@@ -52,6 +52,17 @@ public class HeartbeatPacket extends AbstractPacket {
         MEDIUM
     }
 
+
+    @Override
+    protected byte getChecksum() {
+        byte checksum = 0;
+        if (device != null) { //just base checksum on device UID
+            checksum = (byte) ((device.getUUID() | (device.getUUID()<<4) |
+                    (device.getUUID() << 8) | (device.getUUID() << 12)) & PacketHeader.MASK_CHECKSUM);
+        }
+        return checksum;
+    }
+
     @Override
     public void parse(byte[] bytes) {
         if ((bytes == null) || (packetHeader == null))
@@ -245,7 +256,7 @@ public class HeartbeatPacket extends AbstractPacket {
     }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_HEARTBEAT;
     }
 

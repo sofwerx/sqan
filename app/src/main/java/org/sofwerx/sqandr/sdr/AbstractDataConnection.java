@@ -63,7 +63,6 @@ public abstract class AbstractDataConnection {
                     Log.d(TAG,"starting read thread");
                     while(keepGoing.get()) {
                         byte[] out = readPacketData();
-                        //Log.d(TAG,((out==null)?"null":out.length+"b")+" packet data read by dataBuffer");
                         if ((out != null) && (listener != null))
                             listener.onReceiveDataLinkData(out);
                         else if (listener == null)

@@ -117,13 +117,12 @@ public class Segmenter {
             return null;
         int totalSize = 0;
         for (Segment segment:segments) {
-            if (!segment.isFinalSegment())
+            if (segment.getData() != null)
                 totalSize += segment.getData().length;
         }
         ByteBuffer out = ByteBuffer.allocate(totalSize);
         for (Segment segment:segments) {
-            if (!segment.isFinalSegment())
-                out.put(segment.getData());
+            out.put(segment.getData());
         }
         return out.array();
     }

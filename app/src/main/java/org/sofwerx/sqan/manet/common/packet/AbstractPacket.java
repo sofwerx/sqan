@@ -1,6 +1,6 @@
 package org.sofwerx.sqan.manet.common.packet;
 
-import org.sofwerx.sqan.manet.bt.helper.BTSocket;
+//import org.sofwerx.sqan.manet.bt.helper.BTSocket;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.nio.ByteBuffer;
@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
  * Data bundled for transmission over the MANET
  */
 public abstract class AbstractPacket {
-    public final static int LARGE_PACKET_SIZE = BTSocket.MAX_PACKET_SIZE;
+    //public final static int LARGE_PACKET_SIZE = BTSocket.MAX_PACKET_SIZE;
     protected PacketHeader packetHeader;
     protected boolean highPerformanceNeeded = false;
 
@@ -24,6 +24,18 @@ public abstract class AbstractPacket {
         if (packetHeader == null)
             return Long.MIN_VALUE;
         return packetHeader.getTime();
+    }
+
+    /**
+     * Checks if the packet contains valid information (ie do the reported and calculated checksums
+     * match)
+     * @return
+     */
+    public boolean isValid() {
+        byte reportedChecksum = 0;
+        if (packetHeader != null)
+            reportedChecksum = packetHeader.getChecksum();
+        return ((reportedChecksum == 0) || ((byte)(PacketHeader.MASK_CHECKSUM & getChecksum()) == reportedChecksum));
     }
 
     public void incrementHopCount() {
@@ -103,9 +115,12 @@ public abstract class AbstractPacket {
         }
     }
 
+    protected abstract byte getChecksum();
+
     public byte[] toByteArray() {
         if (packetHeader == null)
             return null;
+        packetHeader.setChecksum(getChecksum());
         return packetHeader.toByteArray();
     }
 
@@ -155,7 +170,7 @@ public abstract class AbstractPacket {
      */
     public abstract boolean isAdminPacket();
     public abstract void parse(byte[] bytes);
-    protected abstract int getType();
+    protected abstract byte getType();
 
     /**
      * Did this packet come directly from the origin (i.e. no hops in between)

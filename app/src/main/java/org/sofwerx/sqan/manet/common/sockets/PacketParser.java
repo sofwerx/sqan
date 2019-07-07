@@ -24,9 +24,14 @@ public class PacketParser {
             return null;
         }
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
-        if (packet instanceof HeartbeatPacket)
-            CommsLog.log(CommsLog.Entry.Category.COMMS, "Processed Heartbeat from " + ((device!=null)?(device.getCallsign()+" ("+device.getUUID()+")"):packet.getOrigin()) + ", " + packet.getCurrentHopCount() + " hops");
-        else
+        if (packet instanceof HeartbeatPacket) {
+            if (packet.isValid())
+                CommsLog.log(CommsLog.Entry.Category.COMMS, "Processed Heartbeat from " + ((device != null) ? (device.getCallsign() + " (" + device.getUUID() + ")") : packet.getOrigin()) + ", " + packet.getCurrentHopCount() + " hops");
+            else {
+                CommsLog.log(CommsLog.Entry.Category.COMMS, "Invalid heartbeat received");
+                return null;
+            }
+        } else
             Log.d(Config.TAG, "Processed " + packet.getClass().getSimpleName()+" from " + ((device!=null)?(device.getCallsign()+" ("+device.getUUID()+")"):packet.getOrigin()) + ", " + packet.getCurrentHopCount() + " hops");
         if (device == null) {
             if (packet.getOrigin() > 0) {

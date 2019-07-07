@@ -28,7 +28,6 @@ import org.sofwerx.sqandr.util.SqANDRLoaderListener;
 import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,7 +93,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +" -nonBlock"
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms\n").getBytes(StandardCharsets.UTF_8);
+                +" -minComms\n"
+                ).getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -183,8 +183,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
     };
 
-    //public void setListener(SerialListener listener) { this.listener = listener; }
-
     public void close() {
         Log.d(TAG,"Closing...");
         if (ioManager != null) {
@@ -202,13 +200,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     String formattedData = HEADER_SHUTDOWN_CHAR + "\n";
                     exitCommand = formattedData.getBytes(StandardCharsets.UTF_8);
                 }
-                //if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                    try {
-                        port.write(exitCommand, 100);
-                    } catch (IOException e) {
-                        Log.w(TAG,"Unable to close SDR app before shutting down: "+e.getMessage());
-                    }
-                //}
+                try {
+                    port.write(exitCommand, 100);
+                } catch (IOException e) {
+                    Log.w(TAG,"Unable to close SDR app before shutting down: "+e.getMessage());
+                }
                 port.setDTR(false);
                 port.setRTS(false);
             } catch (Exception ignored) {

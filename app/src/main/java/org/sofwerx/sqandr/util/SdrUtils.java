@@ -52,7 +52,7 @@ public class SdrUtils {
      * @param bytes
      * @return
      */
-    public static byte getChecksum(byte[] bytes) {
+    public static byte getChecksum(byte[] bytes) { //FIXME improve checksum as collision is frequent
         byte checksum = 0b111000;
         if (bytes != null) {
             for (byte b:bytes) {

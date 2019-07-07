@@ -50,7 +50,7 @@ public class PingPacket extends AbstractPacket {
     }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_PING;
     }
 
@@ -91,6 +91,11 @@ public class PingPacket extends AbstractPacket {
                 latency = System.currentTimeMillis() - getDepartureTime();
             return false;
         }
+    }
+
+    @Override
+    protected byte getChecksum() {
+        return PacketHeader.calcChecksum(null);
     }
 
     public long getLatency() {

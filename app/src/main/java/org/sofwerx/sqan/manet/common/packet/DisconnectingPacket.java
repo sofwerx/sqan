@@ -36,10 +36,15 @@ public class DisconnectingPacket extends AbstractPacket {
     }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_DISCONNECTING;
     }
 
     @Override
     public boolean isAdminPacket() { return true; }
+
+    @Override
+    protected byte getChecksum() {
+        return PacketHeader.calcChecksum(null);
+    }
 }

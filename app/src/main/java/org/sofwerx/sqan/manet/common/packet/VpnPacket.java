@@ -34,8 +34,14 @@ public class VpnPacket extends AbstractPacket {
     }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_VPN_BYTES;
+    }
+
+
+    @Override
+    protected byte getChecksum() {
+        return PacketHeader.calcChecksum(null); // checksum cals for VPN packets are not calculated as this is usually handled within the packet traffic itself (like in an HTTP header) and would cost additional processor time
     }
 
     public byte[] getData() { return data; }

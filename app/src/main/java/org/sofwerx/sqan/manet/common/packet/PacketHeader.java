@@ -11,18 +11,22 @@ import java.nio.ByteBuffer;
  */
 public class PacketHeader {
     public final static int BROADCAST_ADDRESS = Integer.MIN_VALUE;
-    protected final static int PACKET_TYPE_HEARTBEAT = 0;
-    public final static int PACKET_TYPE_PING = 1;
-    protected final static int PACKET_TYPE_RAW_BYTES = 2;
-    protected final static int PACKET_TYPE_CHANNEL_BYTES = 3;
-    protected final static int PACKET_TYPE_VPN_BYTES = 5;
-    public final static int PACKET_TYPE_DISCONNECTING = 4;
-    private long time; //timestamps are used as a message index as well
-    private byte packetType; //TODO eventually combine packetType and hopCount into one int with some other flags
+    protected final static byte PACKET_TYPE_HEARTBEAT =     0b00000000;
+    public    final static byte PACKET_TYPE_PING =          0b00000001;
+    protected final static byte PACKET_TYPE_RAW_BYTES =     0b00000010;
+    protected final static byte PACKET_TYPE_CHANNEL_BYTES = 0b00000011;
+    protected final static byte PACKET_TYPE_VPN_BYTES =     0b00000100;
+    public final static byte PACKET_TYPE_DISCONNECTING =    0b00000101;
+    private final static byte FLAG_LOSSY_OK =         (byte)0b00001000;
+    final static byte MASK_CHECKSUM =                 (byte)0b11110000;
+    private final static byte MASK_TYPE =             (byte)0b00000111;
+    private long time; //timestamps are used as a message index as well //FIXME switch this to an int and then also add a checksum byte
+    private byte packetType;
     private byte hopCount = 0;
     private int originUUID;
     private int destination = BROADCAST_ADDRESS;
     protected boolean lossyOk = true;
+    private byte checksum = 0;
 
     private PacketHeader() {}
 
@@ -30,6 +34,19 @@ public class PacketHeader {
         this();
         this.originUUID = originUUID;
         time = System.currentTimeMillis();
+    }
+
+    void setChecksum(byte checksum) { this.checksum = checksum; }
+    public byte getChecksum() { return checksum; }
+    public static byte calcChecksum(byte[] data) {
+        byte calcCheck = 0;
+        if (data != null) {
+            for (int i = 0; i < data.length; i++) {
+                calcCheck = (byte) (calcCheck ^ data[i]);
+                calcCheck = (byte) (calcCheck ^ (data[i] << 4));
+            }
+        }
+        return calcCheck;
     }
 
     /**
@@ -50,9 +67,9 @@ public class PacketHeader {
      * Gets the size of the header in bytes
      * @return
      */
-    public final static int getSize() { return 1 + 1 + 4 + 4 + 4 + 8; }
+    public final static int getSize() { return 1 + 1 + 4 + 4 + 8; }
 
-    private final static int MASK_LOSSY_OK = 0b0000000000000001;
+    /*private final static int MASK_LOSSY_OK = 0b0000000000000001;
     private int getFlags() {
         int result = 0;
         if (lossyOk)
@@ -62,7 +79,7 @@ public class PacketHeader {
 
     private void parseFlags(int flags) {
         lossyOk = (flags & MASK_LOSSY_OK) == MASK_LOSSY_OK;
-    }
+    }*/
 
     /**
      * Helper method to overwrite just the hop count and an existing byte[] version for a packet
@@ -84,8 +101,8 @@ public class PacketHeader {
     public void setTime(long time) { this.time = time; }
     public int getOriginUUID() { return originUUID; }
     public void setOriginUUID(int uuid) { this.originUUID = uuid; }
-    public int getType() { return (int)packetType; }
-    public void setType(int packetType) { this.packetType = (byte)packetType; }
+    public byte getType() { return packetType; }
+    public void setType(byte packetType) { this.packetType = packetType; }
     public int getDestination() { return destination; }
 
     /**
@@ -133,9 +150,12 @@ public class PacketHeader {
 
     public byte[] toByteArray() {
         ByteBuffer out = ByteBuffer.allocate(getSize());
-        out.put(packetType);
+        byte flags = (byte)(packetType | (checksum & MASK_CHECKSUM));
+        if (lossyOk)
+            flags = (byte)(flags | FLAG_LOSSY_OK);
+        out.put(flags);
         out.put(hopCount);
-        out.putInt(getFlags());
+        //out.putInt(getFlags());
         out.putInt(originUUID);
         out.putInt(destination);
         out.putLong(time);
@@ -153,9 +173,12 @@ public class PacketHeader {
         }
         PacketHeader packetHeader = new PacketHeader();
         ByteBuffer in = ByteBuffer.wrap(bytes);
-        packetHeader.packetType = in.get();
+        byte typeAndChecksum = in.get();
+        packetHeader.packetType = (byte)(typeAndChecksum & MASK_TYPE);
+        packetHeader.checksum = (byte)(typeAndChecksum & MASK_CHECKSUM);
+        packetHeader.lossyOk = (typeAndChecksum & FLAG_LOSSY_OK) == FLAG_LOSSY_OK;
         packetHeader.hopCount = in.get();
-        packetHeader.parseFlags(in.getInt());
+        //packetHeader.parseFlags(in.getInt());
         packetHeader.originUUID = in.getInt();
         packetHeader.destination = in.getInt();
         packetHeader.time = in.getLong();

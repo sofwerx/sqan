@@ -34,9 +34,13 @@ public class RawBytesPacket extends AbstractPacket {
     }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_RAW_BYTES;
     }
+
+
+    @Override
+    protected byte getChecksum() { return PacketHeader.calcChecksum(data); }
 
     public byte[] getData() { return data; }
     public void setData(byte[] data) { this.data = data; }

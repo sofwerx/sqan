@@ -22,6 +22,9 @@ public class ChannelBytesPacket extends AbstractPacket {
     }
 
     @Override
+    protected byte getChecksum() { return PacketHeader.calcChecksum(data); }
+
+    @Override
     public void parse(byte[] bytes) {
         if (bytes == null) {
             channel = null;
@@ -86,7 +89,7 @@ public class ChannelBytesPacket extends AbstractPacket {
     public boolean isAdminPacket() { return false; }
 
     @Override
-    protected int getType() {
+    protected byte getType() {
         return PacketHeader.PACKET_TYPE_CHANNEL_BYTES;
     }
 

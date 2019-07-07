@@ -24,9 +24,13 @@ import org.sofwerx.sqandr.sdr.AbstractSdr;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
 import org.sofwerx.sqandr.sdr.UsbStorage;
+import org.sofwerx.sqandr.sdr.sar.Segment;
+import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.SerialConnection;
 import org.sofwerx.sqandr.util.PermissionsHelper;
+import org.sofwerx.sqandr.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;

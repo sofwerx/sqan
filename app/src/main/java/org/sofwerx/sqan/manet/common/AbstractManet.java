@@ -202,6 +202,10 @@ public abstract class AbstractManet {
             Log.d(Config.TAG,"Circular reporting detected - dropping packet");
             return;
         }
+        if ((packet instanceof HeartbeatPacket) && !packet.isValid()) {
+            Log.d(Config.TAG,"Invalid heartbeat packet dropped from onReceived");
+            return;
+        }
         setStatus(Status.CONNECTED);
         SqAnDevice device = SqAnDevice.findByUUID(packet.getOrigin());
         if (packet.isDirectFromOrigin()) {
@@ -243,7 +247,7 @@ public abstract class AbstractManet {
                     callsign = hb.getDevice().getCallsign();
             }
             if (callsign == null)
-                callsign = "SqAN ID "+Integer.toString(packet.getOrigin());
+                callsign = "SqAN ID "+packet.getOrigin();
             CommsLog.log(CommsLog.Entry.Category.COMMS,"Connected to device "+callsign);
             if (packet.getOrigin() > 0) {
                 device = new SqAnDevice(packet.getOrigin());
@@ -259,8 +263,6 @@ public abstract class AbstractManet {
                     listener.onDevicesChanged(device);
             }
         } else {
-            if (packet instanceof HeartbeatPacket)
-                device.update(((HeartbeatPacket)packet).getDevice());
             device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Operating normally"));
             if (packet.getCurrentHopCount() == 0)
                 device.setConnected(0,isBluetoothBased(),isWiFiBased());
