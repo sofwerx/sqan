@@ -16,6 +16,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
@@ -63,7 +64,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte[] NO_DATA_HEARTBEAT = {(byte)0b00000001,(byte)0b00000010,(byte)0b00000011,(byte)0b00000100};
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte HEADER_BUSYBOX = (byte)'b';
-    private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
+    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
@@ -178,6 +179,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                    //     write(KEEP_ALIVE_MESSAGE);
                 }
             }
+            //FIXME for testing
+            //burstPacket(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
+            //FIXME for testing
+
             if (handler != null)
                 handler.postDelayed(this,TIME_BETWEEN_KEEP_ALIVE_MESSAGES);
         }
@@ -248,9 +253,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (USE_BIN_USB_IN) {
                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
                     write(segment.toBytes());
-                } else {
+                } else
                     write(toSerialLinkFormat(segment.toBytes()));
-                }
+                //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
                 ArrayList<Segment> segments = Segmenter.wrapIntoSegments(cipherData);
@@ -268,6 +273,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         write(toSerialLinkFormat(Crypto.encrypt(segment.toBytes())));
                     }
                 }
+                //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             }
         } else
             Log.d(TAG,"Dropping "+data.length+"b packet as SqANDR is not yet running on the SDR");
@@ -461,7 +467,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
                     if ((data[0] == (byte)54)) // 6 - like the start of the SqAN header
                         Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                    else
+                    else if ((data[0] != (byte)42)) //ignore echos of sent data
                         Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
                     //else
                     //    Log.d(TAG,"From SDR: +"+StringUtils.toHex(data));

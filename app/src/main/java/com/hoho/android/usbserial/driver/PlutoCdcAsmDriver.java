@@ -239,7 +239,15 @@ public class PlutoCdcAsmDriver implements UsbSerialDriver {
 
         @Override
         public int read(byte[] dest, int timeoutMillis) throws IOException {
-            final UsbRequest request = new UsbRequest();
+            if (dest == null)
+                return -1;
+            int bytesRead = 0;
+            synchronized (mReadBufferLock) {
+                bytesRead = mConnection.bulkTransfer(mReadEndpoint, dest, dest.length, timeoutMillis);
+            }
+            return bytesRead;
+
+            /*final UsbRequest request = new UsbRequest();
             try {
                 request.initialize(mConnection, mReadEndpoint);
                 final ByteBuffer buf = ByteBuffer.wrap(dest);
@@ -261,7 +269,7 @@ public class PlutoCdcAsmDriver implements UsbSerialDriver {
                 }
             } finally {
                 request.close();
-            }
+            }*/
         }
 
         @Override

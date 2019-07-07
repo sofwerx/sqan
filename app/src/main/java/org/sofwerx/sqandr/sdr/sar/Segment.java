@@ -163,11 +163,11 @@ public class Segment {
             byte checksum = buf.get();
             buf.get(data);
             if (checksum != SdrUtils.getChecksum(data)) {
-                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksum(data)+" expected data size "+size+"b)");
+                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksum(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
                 data = null;
                 return;
             }
-            Log.d(TAG,"Segment "+index+" of Packet ID "+((int)packetId)+" successfully parsed");
+            Log.d(TAG,"Segment "+index+" of Packet ID "+((int)packetId)+" successfully parsed"+(isStandAlone()?" stand alone":""));
         } catch (BufferUnderflowException e) {
             Log.w(TAG,"Parsing failed - "+e.getMessage());
         }
