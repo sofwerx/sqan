@@ -38,13 +38,15 @@ public abstract class AbstractDataConnection {
         if (raw == null) {
             Log.w(TAG,"handleRawDatalinkInput received null input, ignoring");
             return;
-        } else
-            Log.w(TAG,"handleRawDatalinkInput received "+raw.length+"b raw input");
-        Log.d(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
+        }
+        else {
+            Log.v(TAG, "handleRawDatalinkInput received " + raw.length + "b raw input");
+        }
+        Log.v(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
         if (dataBuffer == null)
             dataBuffer = new WriteableInputStream();
         dataBuffer.write(raw);
-        Log.d(TAG,raw.length+"b added to dataBuffer");
+        Log.v(TAG,raw.length+"b added to dataBuffer");
         if (readThread == null) {
             readThread = new Thread() {
                 @Override
@@ -122,6 +124,9 @@ public abstract class AbstractDataConnection {
             size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
             return size;
         } else {
+            if (this.listener == null)
+                return 0;
+
             if (listener != null)
                 listener.onPacketDropped();
             int lost = 0;
@@ -129,8 +134,10 @@ public abstract class AbstractDataConnection {
                 byte dig = (byte)dataBuffer.read();
                 lost++;
                 if ((lost % 100) == 0) {
-                    Log.d(TAG, "100b lost as no packet header found");
-                    listener.onPacketDropped();
+                    if (listener != null) {
+                        Log.d(TAG, "100b lost as no packet header found");
+                        listener.onPacketDropped();
+                    }
                 }
                 if (dig == Segment.HEADER_MARKER[0]) {
                     dig = (byte)dataBuffer.read();

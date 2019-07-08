@@ -228,7 +228,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 Segment segment = new Segment();
                 segment.setData(data);
                 segment.setStandAlone();
-                //Log.d(TAG, "Outgoing: " + new String(toSerialLinkFormat(segment.toBytes()), UTF8)); //FIXME for testing only
+                Log.v(TAG, "Outgoing burstPacket: " + new String(toSerialLinkFormat(segment.toBytes()), UTF8)); //FIXME for testing only
                 write(toSerialLinkFormat(segment.toBytes()));
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
@@ -279,7 +279,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 out[i] = StringUtils.toByte(chars[j], chars[j + 1]);
                 j += 2;
             }
-            Log.d(TAG, "parseSerialLinkFormat parsed " + out.length + "b");
+//            Log.v(TAG, "parseSerialLinkFormat parsed " + out.length + "b");
             return out;
         } else
             Log.e(TAG, "Received data is not the right length: " + raw);
@@ -442,7 +442,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void onNewData(byte[] data) {
         if ((data == null) || (data.length < 3))
             return;
-        Log.d(TAG,"onNewData("+data.length+"b): "+new String(data));
+        Log.v(TAG,"onNewData("+data.length+"b): "+new String(data));
         if (status != LoginStatus.LOGGED_IN) {
             if (handler != null)
                 handlerSched.schedule(new LoginHelper(data), DELAY_FOR_LOGIN_WRITE, TimeUnit.MILLISECONDS);
@@ -605,10 +605,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         public void run() {
             if (input != null) {
                 if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                    Log.d(TAG, "From SDR: " + input);
+                    Log.v(TAG, "From SDR: " + input);
                     switch (input.charAt(0)) {
                         case HEADER_DATA_PACKET_INCOMING_CHAR:
-                            Log.d(TAG, "SdrAppHelper - found Data Packet");
+                            Log.v(TAG, "SdrAppHelper - found Data Packet");
                             handleRawDatalinkInput(parseSerialLinkFormat(input));
                             return;
 

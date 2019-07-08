@@ -167,7 +167,7 @@ public class SerialInputOutputManager implements Runnable {
             len = mDriver.getInputBufferBytesCount();
             if (len > 0) {
                 mReadBuffer.put(mDriver.readBytes(len, READ_WAIT_MILLIS), mReadBuffer.position(), len);
-                Log.d(TAG, "Read data len=" + len);
+                Log.v(TAG, "Read data len=" + len);
             }
         }
         catch (Exception e) {
