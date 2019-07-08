@@ -91,7 +91,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
 
     public void open() {
-        Runnable initRunnable = () -> {
+//        Runnable initRunnable = () -> {
             String pattern = Config.USE_TTY_PATTERN;
             if (pattern == null || pattern == "") {
                 switch (System.getProperty("os.name")) {
@@ -141,13 +141,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 }
             }
             writeAttnSeq(port);
-        };
+//        };
 
-        if (handler == null) {
-            initRunnable.run();
-        } else {
-            handler.submit(initRunnable);
-        }
+//        if (handler == null) {
+//            initRunnable.run();
+//        } else {
+//            handler.submit(initRunnable);
+//        }
+
         if (handlerSched != null) {
             handlerSched.schedule(new LoginHelper(null), DELAY_BEFORE_BLIND_LOGIN, TimeUnit.MILLISECONDS);
             handlerSched.schedule(periodicHelper, DELAY_BEFORE_BLIND_LOGIN, TimeUnit.MILLISECONDS);

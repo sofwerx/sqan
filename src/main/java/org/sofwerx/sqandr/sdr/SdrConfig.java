@@ -11,7 +11,7 @@ public class SdrConfig {
 
 
 //    public final static float DEFAULT_FREQ = 2500f; //MHz
-    public final static float DEFAULT_FREQ = 900f; //MHz
+    public final static float DEFAULT_FREQ = 908.65f; //MHz
 
     public static SdrMode mode;
     public static float txFreq = DEFAULT_FREQ;

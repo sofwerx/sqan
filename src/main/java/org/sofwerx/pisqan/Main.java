@@ -10,6 +10,7 @@ import static org.sofwerx.pisqan.Log.*;
 public class Main {
     private final static String TAG = Config.TAG+".Main";
     public static int MAX_INTERVAL = 300000;    // time between sending data, in ms
+    public static LogLevel LOG_LEVEL = LogLevel.WARNING;
 
     public static void main(String[] argv) {
         LOG_LEVEL = LogLevel.VERBOSE;
