@@ -68,7 +68,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static int TX_GAIN = 10; //Magnitude in (0 to 85dB)
+    private final static int TX_GAIN = 50; //Magnitude in (0 to 85dB)
 
     private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //adjust as needed
     private long nextKeepAliveMessage = Long.MIN_VALUE;
@@ -86,6 +86,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
+
+        //FIXME for testing
+        //SDR_START_COMMAND = "cd /sys/bus/iio/devices/iio:device1\ncat out_voltage0_hardwaregain\n".getBytes(StandardCharsets.UTF_8);
+        //FIXME for testing
+
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
@@ -94,8 +99,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +" -nonBlock"
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms\n"
-                ).getBytes(StandardCharsets.UTF_8);
+                +" -minComms"
+                +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
