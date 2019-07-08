@@ -153,6 +153,10 @@ static bool get_lo_chan(struct iio_context *ctx, enum iodev d, struct iio_channe
 	}
 }
 
+static void set_gain(float gain) {
+	iio_channel_attr_write_longlong(iio_device_find_channel(get_ad9361_phy(ctx), "voltage0", true), "hardwaregain", gain);
+}
+
 /* applies streaming configuration through IIO */
 bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, enum iodev type, int chid)
 {
@@ -447,7 +451,7 @@ int main (int argc, char **argv)
 	} else
 		//txcfg.fs_hz = MHZ(30);   // 7.5 MS/s rx sample rate
 		txcfg.fs_hz = MHZ(DEFAULT_SAMPLE_RATE);
-	if (txgain != 0) {
+	/*if (txgain != 0) {
 		strcat(cdcmd, "cd /sys/bus/iio/devices/iio:device1/");
 		system(cdcmd);
 		if (verbose)
@@ -467,7 +471,7 @@ int main (int argc, char **argv)
 	} else {
 		if (verbose)
 			printf("m TX gain = -10 dB\n");
-	}
+	}*/
 	if (txf > 0.1) {
 		if (verbose)
 			printf("mAssigning TX frequency = %f MHz\n", txf);
@@ -480,6 +484,8 @@ int main (int argc, char **argv)
 		printf("d Acquiring IIO context\n");
 	ASSERT((ctx = iio_create_default_context()) && "No context");
 	ASSERT(iio_context_get_devices_count(ctx) > 0 && "No devices");
+	if (txgain != 0)
+		set_gain(txgain);
 
 	if (verbose)
 		printf("d Acquiring AD9361 streaming devices\n");
