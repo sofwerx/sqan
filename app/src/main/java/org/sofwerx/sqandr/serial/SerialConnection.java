@@ -29,6 +29,7 @@ import org.sofwerx.sqandr.util.SqANDRLoaderListener;
 import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private Handler handler;
     private Context context;
     private byte[] SDR_START_COMMAND;
+    private ByteBuffer outgoingBuffer = ByteBuffer.allocate(240);
     private final static char HEADER_DATA_PACKET_OUTGOING_CHAR = '*';
     private final static byte HEADER_DATA_PACKET_OUTGOING = (byte) HEADER_DATA_PACKET_OUTGOING_CHAR;
     private final static char HEADER_DATA_PACKET_INCOMING_CHAR = '+';
@@ -65,10 +67,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte HEADER_BUSYBOX = (byte)'b';
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
-    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
+    private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
-    private final static int TX_GAIN = 50; //Magnitude in (0 to 85dB)
+    public final static int TX_GAIN = 10; //Magnitude in (0 to 85dB)
 
     private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //adjust as needed
     private long nextKeepAliveMessage = Long.MIN_VALUE;
@@ -89,12 +91,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
         //FIXME for testing
         //SDR_START_COMMAND = "cd /sys/bus/iio/devices/iio:device1\ncat out_voltage0_hardwaregain\n".getBytes(StandardCharsets.UTF_8);
+        //SDR_START_COMMAND = "cat /sys/bus/iio/devices/iio:device1/out_voltage0_hardwaregain\n".getBytes(StandardCharsets.UTF_8);
         //FIXME for testing
 
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
-                +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
-                +" -txgain "+TX_GAIN
+                //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
+                //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
+                //FIXME +" -txgain "+TX_GAIN
                 +" -header" //ignore any traffic that doesn't start with the first byte of the SqAN SDR packet
                 +" -nonBlock"
                 +(USE_BIN_USB_IN ?" -binI":"")
@@ -180,13 +183,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (USE_BIN_USB_IN) {
                     //ignore for now
                 } else {
-                   // if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage))
-                   //     write(KEEP_ALIVE_MESSAGE);
+                   if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage)) {
+                       //write(KEEP_ALIVE_MESSAGE);
+                       //FIXME for testing
+                       //burstPacket(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
+                       //FIXME for testing
+                   }
                 }
             }
-            //FIXME for testing
-            //burstPacket(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
-            //FIXME for testing
 
             if (handler != null)
                 handler.postDelayed(this,TIME_BETWEEN_KEEP_ALIVE_MESSAGES);
@@ -248,18 +252,18 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void burstPacket(byte[] data) {
         if (data == null)
             return;
-        final byte[] cipherData = Crypto.encrypt(data);
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
+            final byte[] cipherData = Crypto.encrypt(data);
             if (Segment.isAbleToWrapInSingleSegment(cipherData)) {
                 Segment segment = new Segment();
                 segment.setData(cipherData);
                 segment.setStandAlone();
                 Log.d(TAG,"burstPacket()");
                 if (USE_BIN_USB_IN) {
-                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
-                    write(segment.toBytes());
+                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(cipherData));
+                    write(cipherData);
                 } else
-                    write(toSerialLinkFormat(segment.toBytes()));
+                    write(toSerialLinkFormat(cipherData));
                 //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
@@ -268,16 +272,43 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     Log.e(TAG, "There was an unexpected problem that did not produce any segments from this packet");
                     return;
                 }
+                byte[] currentSegBytes;
                 for (Segment segment : segments) {
+                    currentSegBytes = segment.toBytes();
                     if (USE_BIN_USB_IN) {
-                        Log.d(TAG,"Outgoing: "+StringUtils.toHex(segment.toBytes()));
-                        write(Segment.HEADER_MARKER);
-                        write(Crypto.encrypt(segment.toBytes()));
+                        Log.d(TAG,"Outgoing: "+StringUtils.toHex(currentSegBytes));
+                        write(currentSegBytes);
                     } else {
-                        write(Segment.HEADER_MARKER);
-                        write(toSerialLinkFormat(Crypto.encrypt(segment.toBytes())));
+                        write(toSerialLinkFormat(currentSegBytes));
                     }
                 }
+
+                /*byte[] tempOut;
+                outgoingBuffer.clear();
+                outgoingBuffer.put(Segment.HEADER_MARKER);
+                for (Segment segment : segments) {
+                    currentSegBytes = Crypto.encrypt(segment.toBytes());
+                    if (currentSegBytes.length > outgoingBuffer.remaining()) {
+                        tempOut = new byte[outgoingBuffer.position()];
+                        outgoingBuffer.get(tempOut);
+                        if (USE_BIN_USB_IN) {
+                            Log.d(TAG,"Outgoing: "+StringUtils.toHex(tempOut));
+                            write(tempOut);
+                        } else {
+                            write(toSerialLinkFormat(tempOut));
+                        }
+                        outgoingBuffer.clear();
+                        outgoingBuffer.put(Segment.HEADER_MARKER);
+                    }
+                    tempOut = new byte[outgoingBuffer.position()];
+                    outgoingBuffer.get(tempOut);
+                    if (USE_BIN_USB_IN) {
+                        Log.d(TAG,"Outgoing: "+StringUtils.toHex(tempOut));
+                        write(tempOut);
+                    } else {
+                        write(toSerialLinkFormat(tempOut));
+                    }
+                }*/
                 //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             }
         } else
@@ -706,11 +737,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     if (USE_BIN_USB_IN) {
                         //Bin IO relies on the SqANDR heartbeat to know when it is connected
                     } else {
-                        CommsLog.log(CommsLog.Entry.Category.SDR, "SDR companion app is running");
-                        sdrAppStatus = SdrAppStatus.RUNNING;
-                        if (peripheralStatusListener != null) {
-                            Log.d(TAG, "onPeripheralReady()");
-                            peripheralStatusListener.onPeripheralReady();
+                        if (!USE_BIN_USB_OUT) {
+                            CommsLog.log(CommsLog.Entry.Category.SDR, "SDR companion app is running");
+                            sdrAppStatus = SdrAppStatus.RUNNING;
+                            if (peripheralStatusListener != null) {
+                                Log.d(TAG, "onPeripheralReady()");
+                                peripheralStatusListener.onPeripheralReady();
+                            }
                         }
                     }
                 } else {
@@ -815,6 +848,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         listener.onConnectionError(message);
                     if (peripheralStatusListener != null)
                         peripheralStatusListener.onPeripheralError(message);
+                }
+
+                @Override
+                public void onProgressPercent(int percent) {
+                    Log.d(TAG,"Installing SqANDR: "+percent+"%");
+                    if (peripheralStatusListener != null)
+                        peripheralStatusListener.onPeripheralMessage("Installing SqANDR: "+percent+"%...");
                 }
             });
         }

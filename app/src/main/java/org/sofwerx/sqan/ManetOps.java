@@ -486,7 +486,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     @Override
     public void onAuthenticatedOnNet() {
         if (handler != null)
-            handler.post(() -> sqAnService.requestHeartbeat(true));
+            handler.post(() -> {if (sqAnService != null) sqAnService.requestHeartbeat(true);});
     }
 
     public Status getStatus() {

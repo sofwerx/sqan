@@ -123,6 +123,8 @@ public class SqANDRService implements DataConnectionListener {
                         if (sdrDevice != null) {
                             sdrDevice.setDataConnectionListener(this);
                             sdrDevice.setPeripheralStatusListener(peripheralStatusListener);
+                            if (peripheralStatusListener != null)
+                                peripheralStatusListener.onPeripheralMessage("SDR found");
                         }
                         final UsbDevice device = pair.getValue();
                         post(() -> setUsbDevice(context,manager,device) );

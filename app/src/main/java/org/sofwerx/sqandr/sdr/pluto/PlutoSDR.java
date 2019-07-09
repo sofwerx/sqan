@@ -1,7 +1,10 @@
 package org.sofwerx.sqandr.sdr.pluto;
 
+import android.util.Log;
+
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
+import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
 
 public class PlutoSDR extends AbstractSdr {
@@ -33,7 +36,12 @@ public class PlutoSDR extends AbstractSdr {
 
     @Override
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        Log.d(TAG,"setPeripheralStatusListener("+((listener==null)?"null":"")+")");
         if (dataConnection != null)
             dataConnection.setPeripheralStatusListener(listener);
+        if (serialConnection != null)
+            serialConnection.setPeripheralStatusListener(listener);
+        else
+            CommsLog.log(CommsLog.Entry.Category.SDR,"Unable to set Peripheral Listener as the Serial Connection has not been assigned yet");
     }
 }

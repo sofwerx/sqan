@@ -288,9 +288,9 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onResume() {
         super.onResume();
         updateCallsignText();
+        updatePeripheralStatus(null,true);
         registerListeners();
         updateManetTypeDisplay();
-        updatePeripheralStatus(null,true);
         if (!permissionsNagFired) {
             permissionsNagFired = true;
             openBatteryOptimizationDialogIfNeeded();
@@ -766,6 +766,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     @Override
     public void onPeripheralReady() {
+        Log.d(Config.TAG,"onPeripheralReady()");
         updatePeripheralStatus(null,true);
     }
 

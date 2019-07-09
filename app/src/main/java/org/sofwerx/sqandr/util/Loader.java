@@ -12,6 +12,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqandr.serial.SerialConnection;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -50,6 +51,7 @@ public class Loader {
                 //success = success && write(port, "cd " + SDR_APP_LOCATION + "\n");
                 success = success && write(port, "touch " + SQANDR_VERSION + "\n");
                 success = success && write(port, "chmod +x " + SDR_APP_LOCATION + SQANDR_VERSION + "\n");
+                //write(port,"echo \"-"+ SerialConnection.TX_GAIN+".00 dB\" > /sys/bus/iio/devices/iio:device1/out_voltage0_hardwaregain\n");
 
                 if (!success)
                     throw new IOException("Unable to install SqANDR - could not create " + SQANDR_VERSION + " in " + SDR_APP_LOCATION);
@@ -79,12 +81,13 @@ public class Loader {
                             hexes = StringUtils.toFormattedHex(b, bytesRead);
                             total += bytesRead;
                             command = INSTALL_HEADER + hexes + INSTALL_FOOTER;
-                            //hey dummy! fix endianness of the hex
                             Log.d(TAG, "Chunk " + chunks + " of " + totalChunks + ": " + command);
                             if (!write(port, command))
                                 throw new IOException("Error while installing SqANDR...; unable to write chunk #" + chunks + " (" + bytesRead + "b)");
                             chunks++;
                             lengthRemaining -= bytesRead;
+                            if (listener != null)
+                                listener.onProgressPercent(100*chunks/totalChunks);
                         }
                     }
                 }
