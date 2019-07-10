@@ -72,7 +72,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
     public final static int TX_GAIN = 10; //Magnitude in (0 to 85dB)
 
-    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 50l; //adjust as needed
+    private final static long TIME_BETWEEN_KEEP_ALIVE_MESSAGES = 7l; //adjust as needed
     private long nextKeepAliveMessage = Long.MIN_VALUE;
     private long lastSqandrHeartbeat = Long.MIN_VALUE;
     private final static long SQANDR_HEARTBEAT_STALE_TIME = 1000l * 5l;
@@ -184,9 +184,22 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     //ignore for now
                 } else {
                    if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage)) {
-                       //write(KEEP_ALIVE_MESSAGE);
                        //FIXME for testing
                        //burstPacket(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
+                       /*if (inArow >= 0) {
+                           if (inArow < 4) {
+                               burstPacket(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
+                               inArow++;
+                           } else
+                               inArow = -4;
+                       } else {
+                           if (inArow > -5) {
+                               byte[] TEMP_BYTES = {(byte)0,(byte)0};
+                               burstPacket(TEMP_BYTES);
+                           }
+                           inArow++;
+                       }*/
+                       //write(KEEP_ALIVE_MESSAGE);
                        //FIXME for testing
                    }
                 }
@@ -196,6 +209,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 handler.postDelayed(this,TIME_BETWEEN_KEEP_ALIVE_MESSAGES);
         }
     };
+
+    int inArow = 0;
 
     public void close() {
         Log.d(TAG,"Closing...");
@@ -260,10 +275,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 segment.setStandAlone();
                 Log.d(TAG,"burstPacket()");
                 if (USE_BIN_USB_IN) {
-                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(cipherData));
-                    write(cipherData);
+                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
+                    write(segment.toBytes());
                 } else
-                    write(toSerialLinkFormat(cipherData));
+                    write(toSerialLinkFormat(segment.toBytes()));
                 //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
@@ -488,15 +503,21 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         if (USE_BIN_USB_OUT && ((sdrAppStatus == SdrAppStatus.RUNNING) || (sdrAppStatus == SdrAppStatus.STARTING))) {
             handler.post(() -> {
                 boolean heartbeat = false;
-                if (data.length == NO_DATA_HEARTBEAT.length) {
+                int heartbeatReportedReceived = 0;
+                if ((data.length == NO_DATA_HEARTBEAT.length) || (data.length == NO_DATA_HEARTBEAT.length + 1)) {
                     heartbeat = true;
-                    for (int i=0;i<data.length;i++) {
+                    for (int i=0;i<NO_DATA_HEARTBEAT.length;i++) {
                         if (data[i] != NO_DATA_HEARTBEAT[i])
                             heartbeat = false;
                     }
+                    if (data.length == NO_DATA_HEARTBEAT.length + 1)
+                        heartbeatReportedReceived = data[NO_DATA_HEARTBEAT.length] & 0xFF;
                 }
                 if (heartbeat) {
-                    Log.d(TAG,"Heartbeat received from SqANDR app");
+                    if (heartbeatReportedReceived > 0)
+                        Log.d(TAG, ((heartbeatReportedReceived == (byte)255)?">=255":heartbeatReportedReceived) + "b transmitted by SqANDR app");
+                    else
+                        Log.d(TAG,"Heartbeat received from SqANDR app");
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
                     //TODO temp for testing
