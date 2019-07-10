@@ -250,6 +250,7 @@
             app:layout_constraintBottom_toTopOf="@+id/mainStatusMarquee"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            android:animateLayoutChanges="true"
             android:background="@drawable/bg_item_2_yellow">
 
             <TextView
@@ -268,11 +269,19 @@
                 android:text="Waiting on Connected Device..." />
 
             <ProgressBar
-                android:id="@+id/progressBar"
+                android:id="@+id/mainStatusPeripheralProgress"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:indeterminateOnly="true" />
+
+            <ImageView
+                android:id="@+id/mainStatusPeripheralWarning"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_warning"
+                android:visibility="gone"
+                android:tint="@color/yellow" />
 
         </LinearLayout>
 

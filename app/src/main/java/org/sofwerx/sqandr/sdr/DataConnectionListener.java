@@ -7,4 +7,5 @@ public interface DataConnectionListener {
     void onReceiveCommandData(byte[] data);
     void onConnectionError(String message);
     void onPacketDropped();
+    void onOperational();
 }

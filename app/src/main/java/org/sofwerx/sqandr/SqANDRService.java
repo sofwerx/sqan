@@ -125,6 +125,8 @@ public class SqANDRService implements DataConnectionListener {
                             sdrDevice.setPeripheralStatusListener(peripheralStatusListener);
                             if (peripheralStatusListener != null)
                                 peripheralStatusListener.onPeripheralMessage("SDR found");
+                            else
+                                Log.d("SqAN.oPM","SqANDRService.updateUsbDevices psl is NULL");
                         }
                         final UsbDevice device = pair.getValue();
                         post(() -> setUsbDevice(context,manager,device) );
@@ -210,7 +212,27 @@ public class SqANDRService implements DataConnectionListener {
         return sdrDevice.getSerialConnection();
     }
 
-    public void setListener(SqANDRListener listener) { this.listener = listener; }
+    public void setListener(SqANDRListener listener) {
+        this.listener = listener;
+        if (listener != null) {
+            if (manet != null) {
+                switch (manet.getStatus()) {
+                    case CONNECTED:
+                        listener.onSdrReady(true);
+                        break;
+                    case ERROR:
+                        listener.onSdrError(null);
+                    case OFF:
+                    case ADVERTISING:
+                    case DISCOVERING:
+                    case CHANGING_MEMBERSHIP:
+                    case ADVERTISING_AND_DISCOVERING:
+                        listener.onSdrReady(false);
+                        break;
+                }
+            }
+        }
+    }
 
     @Override
     public void onConnect() {
@@ -259,7 +281,7 @@ public class SqANDRService implements DataConnectionListener {
         peripheralStatusListener = listener;
         if (sdrDevice == null) {
             if (listener != null)
-                listener.onPeripheralMessage("SDR not connected");
+                listener.onPeripheralError("SDR not connected");
         } else
             sdrDevice.setPeripheralStatusListener(listener);
     }
@@ -299,7 +321,7 @@ public class SqANDRService implements DataConnectionListener {
                                 if (listener != null) {
                                     CommsLog.log("SDR is ready");
                                     listener.onSdrMessage(sdrDevice.getInfo(context));
-                                    listener.onSdrReady(true);
+                                    //listener.onSdrReady(true);
                                 }
                             } catch (SdrException e) {
                                 String errorMessage = "Unable to set the SDR connection: " + e.getMessage();
@@ -335,7 +357,7 @@ public class SqANDRService implements DataConnectionListener {
 
             // Fire the request:
             manager.requestPermission(device, mPermissionIntent);
-            Log.d(TAG, "Permission request for device " + device.getDeviceName() + " was send. waiting...");
+            Log.d(TAG, "Permission request for device " + device.getDeviceName() + " was sent. waiting...");
         }
     }
 
@@ -389,5 +411,11 @@ public class SqANDRService implements DataConnectionListener {
                     listener.onPacketDropped();
             });
         }
+    }
+
+    @Override
+    public void onOperational() {
+        if (listener != null)
+            listener.onSdrReady(true);
     }
 }

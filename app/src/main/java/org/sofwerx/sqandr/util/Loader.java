@@ -83,7 +83,7 @@ public class Loader {
                             command = INSTALL_HEADER + hexes + INSTALL_FOOTER;
                             Log.d(TAG, "Chunk " + chunks + " of " + totalChunks + ": " + command);
                             if (!write(port, command))
-                                throw new IOException("Error while installing SqANDR...; unable to write chunk #" + chunks + " (" + bytesRead + "b)");
+                                throw new IOException("Error while installing SqANDR; unable to write chunk #" + chunks + " (" + bytesRead + "b) - you may need to disconnect and reconnect the SDR");
                             chunks++;
                             lengthRemaining -= bytesRead;
                             if (listener != null)
@@ -95,6 +95,7 @@ public class Loader {
                 if (listener != null)
                     listener.onSuccess();
             } catch (Exception e) {
+                write(port, "rm " + SQANDR_VERSION + "\n");
                 final String message;
                 if ((e == null) || (e.getMessage() == null))
                     message = e.getClass().getSimpleName();
@@ -126,7 +127,7 @@ public class Loader {
         Log.d(TAG,"Outgoing: "+data);
         try {
             return (port.write(bytes,PORT_WRITE_TIMEOUT) == bytes.length);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG,e.getMessage());
         }
         return false;

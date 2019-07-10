@@ -69,8 +69,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private TextView statusMarquee, textOverall;
     private TextView roleWiFi, roleBT, roleSDR, roleSDRstale, roleBackhaul, textLocation;
     private TextView statusPerphieral;
-    private View statusPeripheralView;
-    private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing;
+    private View statusPeripheralView, statusPeriphProgress;
+    private ImageView iconSysStatus, iconSysInfo, iconMainTx, iconPing, iconPeriphProblem;
     private View offlineStamp;
     private DevicesList devicesList;
     private long lastTxTotal = 0l;
@@ -133,6 +133,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         roleBackhaul = findViewById(R.id.mainBackhaul);
         statusPeripheralView = findViewById(R.id.mainStatusPeripheral);
         statusPerphieral = findViewById(R.id.mainStatusPeripheralStatus);
+        statusPeriphProgress = findViewById(R.id.mainStatusPeripheralProgress);
+        iconPeriphProblem = findViewById(R.id.mainStatusPeripheralWarning);
         pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
 
         if (statusMarquee != null) {
@@ -288,7 +290,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onResume() {
         super.onResume();
         updateCallsignText();
-        updatePeripheralStatus(null,true);
+        updatePeripheralStatus(null,true,false);
         registerListeners();
         updateManetTypeDisplay();
         if (!permissionsNagFired) {
@@ -586,6 +588,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     private void unregisterListeners() {
+        Log.d(Config.TAG,"MainActivity.unregisterListeners()");
         if (serviceBound && (sqAnService != null)) {
             sqAnService.setListener(null);
             sqAnService.setPeripheralStatusListener(null);
@@ -594,9 +597,11 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     private void registerListeners() {
         if (serviceBound && (sqAnService != null)) {
+            Log.d(Config.TAG,"MainActivity.registerListeners()");
             sqAnService.setListener(this);
             sqAnService.setPeripheralStatusListener(this);
-        }
+        } else
+            Log.d(Config.TAG,"MainActivity.registerListeners() ignored (not bound)");
     }
 
     private void checkForLocationServices() {
@@ -761,21 +766,21 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
 
     @Override
     public void onPeripheralMessage(String message) {
-        updatePeripheralStatus(message,false);
+        updatePeripheralStatus(message,false,false);
     }
 
     @Override
     public void onPeripheralReady() {
         Log.d(Config.TAG,"onPeripheralReady()");
-        updatePeripheralStatus(null,true);
+        updatePeripheralStatus(null,true, false);
     }
 
     @Override
     public void onPeripheralError(String message) {
-        updatePeripheralStatus(message,false);
+        updatePeripheralStatus(message,false, true);
     }
 
-    private void updatePeripheralStatus(final String message, final boolean ready) {
+    private void updatePeripheralStatus(final String message, final boolean ready, final boolean isError) {
         this.runOnUiThread(() -> {
             if (ready) {
                 statusPeripheralView.setVisibility(View.GONE);
@@ -784,6 +789,13 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 if (message != null) {
                     statusPerphieral.setText(message);
                     addMarqueStatus(message);
+                    if (isError) {
+                        iconPeriphProblem.setVisibility(View.VISIBLE);
+                        statusPeriphProgress.setVisibility(View.GONE);
+                    } else {
+                        iconPeriphProblem.setVisibility(View.GONE);
+                        statusPeriphProgress.setVisibility(View.VISIBLE);
+                    }
                 }
                 statusPeripheralView.setVisibility(View.VISIBLE);
             }

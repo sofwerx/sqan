@@ -1,11 +1,15 @@
 package org.sofwerx.sqandr.sdr.pluto;
 
+import android.content.Context;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractSdr;
+import org.sofwerx.sqandr.sdr.SdrException;
 
 public class PlutoSDR extends AbstractSdr {
     private final static String TAG = Config.TAG+".SDR";
@@ -36,7 +40,7 @@ public class PlutoSDR extends AbstractSdr {
 
     @Override
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
-        Log.d(TAG,"setPeripheralStatusListener("+((listener==null)?"null":"")+")");
+        peripheralStatusListener = listener;
         if (dataConnection != null)
             dataConnection.setPeripheralStatusListener(listener);
         if (serialConnection != null)

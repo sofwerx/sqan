@@ -151,4 +151,9 @@ public class Terminal extends LinearLayout implements DataConnectionListener {
     public void onPacketDropped() {
         status("Packet dropped");
     }
+
+    @Override
+    public void onOperational() {
+        status("SDR app is running");
+    }
 }

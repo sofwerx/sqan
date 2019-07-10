@@ -28,7 +28,12 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
-        <service android:name="org.sofwerx.sqan.SqAnService" />
+        <service android:name="org.sofwerx.sqan.SqAnService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.sofwerx.sqan" />
+            </intent-filter>
+        </service>
         <service
             android:name="org.sofwerx.sqan.vpn.SqAnVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE" >
@@ -55,6 +60,7 @@
         <activity
             android:name=".ui.SettingsActivity"
             android:label="@string/settings"
+            android:exported="true"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MANAGE_NETWORK_USAGE" />

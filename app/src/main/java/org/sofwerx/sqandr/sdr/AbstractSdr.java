@@ -19,12 +19,10 @@ import org.sofwerx.sqandr.sdr.hackrf.HackRfSDR;
 import org.sofwerx.sqandr.sdr.lime.LimeSDR;
 import org.sofwerx.sqandr.sdr.pluto.PlutoSDR;
 import org.sofwerx.sqandr.serial.SerialConnection;
-import org.sofwerx.sqandr.util.Loader;
 import org.sofwerx.sqandr.util.SdrUtils;
 
 import java.nio.charset.StandardCharsets;
 
-//public abstract class AbstractSdr implements SerialListener, DataConnectionListener {
 public abstract class AbstractSdr implements DataConnectionListener {
     private final static String TAG = Config.TAG+".SDR";
     protected UsbDevice usbDevice;
@@ -43,6 +41,7 @@ public abstract class AbstractSdr implements DataConnectionListener {
     protected AbstractDataConnection dataConnection;
     protected AbstractDataConnection commandConnection;
     protected DataConnectionListener dataConnectionListener;
+    protected PeripheralStatusListener peripheralStatusListener;
 
     public static AbstractSdr newFromVendor(int vendorId) {
         switch (vendorId) {
@@ -130,6 +129,7 @@ public abstract class AbstractSdr implements DataConnectionListener {
                     serialConnection = new SerialConnection(getTerminalUsername(),getTerminalPassword());
                     serialConnection.open(context, usbDevice);
                     serialConnection.setListener(this);
+                    serialConnection.setPeripheralStatusListener(peripheralStatusListener);
                 }
             }
         }
@@ -295,6 +295,11 @@ public abstract class AbstractSdr implements DataConnectionListener {
         }
 
         return sent;
+    }
+
+    @Override
+    public void onOperational() {
+        //ignore
     }
 
     /*@Override

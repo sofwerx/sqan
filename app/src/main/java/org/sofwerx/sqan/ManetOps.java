@@ -730,6 +730,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
+        Log.d("SqAN.oPM","ManetOps.setPeripheralStatusListener("+((listener==null)?"null":"")+")");
         if (btManet != null)
             btManet.setPeripheralStatusListener(listener);
         if (wifiManet != null)
