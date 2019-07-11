@@ -16,6 +16,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
+import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
@@ -399,8 +400,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
                 //TODO testing
-                //if ((data != null) && (data.length > 40))
-                    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                //if ((data != null) && (data.length > 10))
+                CommsLog.log(CommsLog.Entry.Category.SDR,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                //    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);

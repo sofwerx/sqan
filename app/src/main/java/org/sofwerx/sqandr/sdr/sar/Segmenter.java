@@ -14,13 +14,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Segmenter {
     private final static String TAG = Config.TAG+".Seg";
     public final static int MAX_POSSIBLE_LENGTH = Segment.MAX_LENGTH_BEFORE_SEGMENTING * Segment.MAX_VALID_INDEX;
-    private final static long TIME_TO_STALE_FRAGMENTS = 1000l * 10l; //after this time (ms), this fragment should be abandoned
+    private final static long TIME_TO_STALE_FRAGMENTS = 1000l * 5l; //after this time (ms), this fragment should be abandoned
 
     private ArrayList<Segment> segments;
     private final long staleTime = System.currentTimeMillis() + TIME_TO_STALE_FRAGMENTS;
     private byte packetId;
     private static AtomicInteger packetIdIndex = new AtomicInteger(0);
-    private final static int MAX_UNIQUE_PACKET_ID = 7;
 
     public Segmenter() {
         this(getNextPacketId());
@@ -129,9 +128,9 @@ public class Segmenter {
 
     public static byte getNextPacketId() {
         int overallId = packetIdIndex.getAndIncrement();
-        if (packetIdIndex.get() > MAX_UNIQUE_PACKET_ID)
+        if (packetIdIndex.get() > Segment.MAX_UNIQUE_PACKET_ID)
             packetIdIndex.set(0);
-        return (byte)(overallId << 4);
+        return (byte)(overallId << 5);
     }
 
     private void init() { }

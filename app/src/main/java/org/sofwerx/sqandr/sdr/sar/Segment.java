@@ -21,13 +21,14 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 128; //Not to exceed 250 (Serial line output problem), can't be below 101 (few enough segments to still meet VPN packet size) //TODO tune this number
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 49; //Not to exceed 250 (Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
-    private final static byte OVERALL_ID_MASK = (byte)0b01110000;
-    private final static byte INDEX_IN_SEGMENT_MASK = (byte)0b00001111;
-    public final static int MAX_VALID_INDEX = 15;
+    private final static byte OVERALL_ID_MASK = (byte)0b01100000;
+    private final static byte INDEX_IN_SEGMENT_MASK = (byte)0b00011111;
+    public final static int MAX_VALID_INDEX = 31;
+    public final static int MAX_UNIQUE_PACKET_ID = 3;
 
     private final static int HEADER_SIZE = 5;
 
@@ -38,7 +39,7 @@ public class Segment {
 
     /**
      * See if this is probably a valid packet. If this fails, then you should keep
-     * scanning the bytestream for the next occurance of HEADER_MARKER
+     * scanning the bytestream for the next occurrence of HEADER_MARKER
      * @param data
      * @return
      */
