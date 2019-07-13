@@ -97,6 +97,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
+                +" -useTiming"
+                +" -timingInterval 4"
+                +" -messageRepeat 10"
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")

@@ -220,7 +220,6 @@ int main (int argc, char **argv)
 	0b0000001000000000,0b0000010000000000,0b0000100000000000,0b0001000000000000,0b0010000000000000,0b0100000000000000,0b1000000000000000};
 	
 	const int HEARTBEAT_INTERVAL = 280; //how many cycles between heartbeats;
-	const int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
 	
 	const char COMMAND_EXIT = 0b110101011;
 	
@@ -239,18 +238,19 @@ int main (int argc, char **argv)
 	//const unsigned char LOWER_BITS_MASK = 0b00001111;
 	int16_t SIGNAL_THRESHOLD = 100;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
-	const bool AMPLITUDE_USE_I = false; //true == amplitude is I, false == amplitude is Q
-	const int16_t PERCENT_LAST = 25; //percent of last amplitude to consider as threshold
-	const int16_t TRANSMIT_SIGNAL_POS_I = 20000;
-	const int16_t TRANSMIT_SIGNAL_NEG_I = -20000;
-	const int16_t TRANSMIT_SIGNAL_POS_Q = 20000;
-	const int16_t TRANSMIT_SIGNAL_NEG_Q = -20000;
+	const bool AMPLITUDE_USE_I = true; //true == amplitude is I, false == amplitude is Q
+	const int16_t PERCENT_LAST = 5; //percent of last amplitude to consider as threshold
+	const int16_t TRANSMIT_SIGNAL_POS_I = 30000;
+	const int16_t TRANSMIT_SIGNAL_NEG_I = -30000;
+	const int16_t TRANSMIT_SIGNAL_POS_Q = 30000;
+	const int16_t TRANSMIT_SIGNAL_NEG_Q = -30000;
 	const int MAX_BYTES_PER_LINE = 250;
 	const float DEFAULT_FREQ = 800; //in MHz
 	const float DEFAULT_SAMPLE_RATE = 4.5; //FIXME switch back to 4.5
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
+	int TIMES_TO_SEND_MESSAGE = 5; //trigger sending a packet more than once
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
@@ -259,7 +259,9 @@ int main (int argc, char **argv)
 	int bitTimerCount = 0;
 	int bitIndex = 0;
 	int bitSensor = 0;
+	bool byteTiming = false;
 	int cyclesToHeartbeat = HEARTBEAT_INTERVAL;
+	int timingInterval = 20;
 	//const int BYTES_AFTER_HEADER = 1; //not tested - for sending multiple bytes per header
 	//int bytesAfterHeaderCounter = 0;
 	unsigned short tempHeader = (unsigned short)0;
@@ -286,10 +288,12 @@ int main (int argc, char **argv)
 	float txf = 0.0; //assigned tX freq (if any)
 	float txb = 0.0; //assigned tX bandwidth(if any)
 	float txsr = 0.0; //assigned tX sample rate (if any)
-	float txgain = 0.0; //assigned tX gain (if any)
+	float txgain = 10.0; //assigned tX gain (if any)
 	char cmd[40] = "";
 	char cdcmd[40] = "";
 	char chgain[40] = "";
+	char gaintype1[40] = "";
+	char gaintype2[40] = "";
 	float rxf = 0.0; //assigned rX freq (if any)
 	float rxb = 0.0; //assigned rX bandwidth (if any)
 	float rxsr = 0.0; //assigned rX sample rate (if any)
@@ -317,6 +321,10 @@ int main (int argc, char **argv)
 				pt = 8;
 			} else if (strcmp("-multiSample",argv[j]) == 0) {
 				pt = 9;
+			} else if (strcmp("-messageRepeat",argv[j]) == 0) {
+				pt = 10;
+			} else if (strcmp("-timingInterval",argv[j]) == 0) {
+				pt = 11;
 			} else if (strcmp("-binI",argv[j]) == 0) {
 				binIn = true;
 				inNonBlock = true;
@@ -325,6 +333,8 @@ int main (int argc, char **argv)
 				verbose = false;
 			} else if (strcmp("-block",argv[j]) == 0) {
 				inNonBlock = false;
+			} else if (strcmp("-useTiming",argv[j]) == 0) {
+				byteTiming = true;
 			} else if (strcmp("-minComms",argv[j]) == 0) {
 				printf("m Starting in min verbosity mode\n");
 				verbose = false;
@@ -363,6 +373,9 @@ int main (int argc, char **argv)
 				printf(" -listen = runs in a continous listen only mode\n");
 				printf(" -superVerbose = povides detailed I & Q values\n");
 				printf(" -noHeader = reports all data, not just samples that include the SqAN header\n");
+				printf(" -useTiming = checks for headers on predefined intervals after SQaN header is found\n");
+				printf(" -timingInterval = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
+				printf(" -messageRepeat = Designates number of times to repeat packet. Default: 5\n");
 				printf(" -binI [NOT YET SUPPORTED] = switches SqANDR to binary input across the USB connection; -nonBlock is also invoked automatically\n");
 				printf(" -binO = switches SqANDR to binary output across the USB connection; -minComms is also invoked automatically\n");
 				printf(" -block = switches input to blocking mode\n");
@@ -403,6 +416,12 @@ int main (int argc, char **argv)
 							
 						case 8:
 							txgain = val;
+							break;
+						case 10:
+							TIMES_TO_SEND_MESSAGE = val;
+							break;
+						case 11:
+							timingInterval = val;
 							break;
 					}
 					pt = 0;
@@ -459,7 +478,7 @@ int main (int argc, char **argv)
 	} else
 		//txcfg.fs_hz = MHZ(30);   // 7.5 MS/s rx sample rate
 		txcfg.fs_hz = MHZ(DEFAULT_SAMPLE_RATE);
-	/*if (txgain != 0) {
+	if (txgain != 10) {
 		strcat(cdcmd, "cd /sys/bus/iio/devices/iio:device1/");
 		system(cdcmd);
 		if (verbose)
@@ -479,7 +498,7 @@ int main (int argc, char **argv)
 	} else {
 		if (verbose)
 			printf("m TX gain = -10 dB\n");
-	}*/
+	}
 	if (txf > 0.1) {
 		if (verbose)
 			printf("mAssigning TX frequency = %f MHz\n", txf);
@@ -488,6 +507,11 @@ int main (int argc, char **argv)
 		txcfg.lo_hz = MHZ(DEFAULT_FREQ); // Tx freq
 	txcfg.rfport = "A"; // port A (select for rf freq.)
 
+		strcat(gaintype1, "echo hybrid > in_voltage0_gain_control_mode");
+		system(gaintype1);
+		strcat(gaintype2, "echo hybrid > in_voltage1_gain_control_mode");
+		system(gaintype2);
+		
 	if (verbose)
 		printf("d Acquiring IIO context\n");
 	ASSERT((ctx = iio_create_default_context()) && "No context");
@@ -587,6 +611,8 @@ int main (int argc, char **argv)
 	int tempCounter = 0;
 	//int helperShowIQindex = 0; //only show the I and Q readings for the first 200 samples
 	bool sqanHeaderFound = false;
+	bool ignoreHeaders = false;
+	int headerCounter = 0;
 	int sqanHeaderMatchIndex = 0;
 	bool waitingOnHeader = true;
 	int samplesToShow = 0;
@@ -620,6 +646,8 @@ int main (int argc, char **argv)
 		noiseBits = 0;
 		tempCounter = 0;
 		sqanHeaderFound = false;
+		headerCounter = 0;
+		ignoreHeaders = false;
 		sqanHeaderMatchIndex = 0;
 		waitingOnHeader = true;
 		samplesToShow = 0;
@@ -627,7 +655,7 @@ int main (int argc, char **argv)
 		//int iLast = 0;
 		//int qLast = 0;
 		
-		//bufferCycleCount = 0;
+		bufferCycleCount = 0;
 		//while (bufferCycleCount < 1) {
 			// Refill RX buffer
 			nbytes_rx = iio_buffer_refill(rxbuf);
@@ -703,37 +731,57 @@ int main (int argc, char **argv)
 								bit = 0;
 						}
 					
-						if (sqanHeaderFound && !binOut && verbose)
-							printf("\tBit: %d, I: %d, Q: %d, A: %d\n", bit, i, q, amplitude);
+						//if (sqanHeaderFound && !binOut && verbose)
+						//	printf("\tBit: %d, I: %d, Q: %d, A: %d\n", bit, i, q, amplitude);
 
 						if (bitIndex > 7) {
+							if ((dataoutIndex < SIZE_OF_DATAOUT) && !ignoreHeaders) {
+								dataout[dataoutIndex] = tempByte;
+								dataoutIndex++;
+								bitIndex = 0;
+							}
 							if (!sqanHeaderFound) {
 								if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
 									sqanHeaderMatchIndex++;
 									if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
 										sqanHeaderFound = true;
+										bitIndex = 0;
 											//FIXME testing ------------------------------------
-											if (!binOut && sqanHeaderFound)
-												printf("\nSQAN packet:");
+											//if (!binOut && sqanHeaderFound)
+											//	printf("\nSQAN packet: 6699");
 											//FIXME testing ------------------------------------
 									}
 								} else
 									sqanHeaderMatchIndex = 0;
 							}
 						
-							if (dataoutIndex < SIZE_OF_DATAOUT) {
-								dataout[dataoutIndex] = tempByte;
-								dataoutIndex++;
-							}
-						
 							//FIXME testing --------------------------
-							if (!binOut && sqanHeaderFound) {
-								char *a = "0123456789abcdef"[tempByte >> 4];
-								char *b = "0123456789abcdef"[tempByte & 0x0F];
-								printf("HEX: %c%c\n",a,b);
-							}
+							//if (!binOut && sqanHeaderFound) {
+							//	char *a = "0123456789abcdef"[tempByte >> 4];
+							//	char *b = "0123456789abcdef"[tempByte & 0x0F];
+							//	printf("HEX: %c%c\n",a,b);
+							//}
 							//FIXME testing --------------------------
+							if (sqanHeaderFound && byteTiming) {
+								ignoreHeaders = true;
+							}
+							if (ignoreHeaders) {
+								if (bitIndex == 20) {
+									if ((dataoutIndex < SIZE_OF_DATAOUT)) {
+										dataout[dataoutIndex] = tempByte;
+										dataoutIndex++;
+									}
+									bitIndex = 0;
+									headerCounter++;
+								}
+								if (headerCounter == timingInterval) {
+									headerCounter = 0;
+									isReadingHeader = true;
+									ignoreHeaders = false;
+								}
+							} else {
 							isReadingHeader = true; //go back to reading the header
+							}
 						}
 					}
 				//}
@@ -941,7 +989,7 @@ int main (int argc, char **argv)
 
 			//Send leading "no signal" bytes
 			//for (int i=0;i<510;i++) {
-			for (int i=0;i<200;i++) { //current testing indicates that this needs to stay above 21
+			for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
 				if (p_tx_dat > p_tx_end) {
 					if (verbose)
 						printf("m Error - header was larger than remaining buffer size (this should not happen)");
@@ -953,38 +1001,6 @@ int main (int argc, char **argv)
 				((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
 				p_tx_dat += p_tx_inc;
 			}
-			
-			//send 30x 0 bytes
-			/*for (int i=0;i<20;i++) {
-				for (int i=11;i>=0;i--) { //send header 12 bits
-					if (p_tx_dat > p_tx_end) {
-						if (verbose)
-							printf("m Error - header was larger than remaining buffer size (this should not happen)");
-						break;
-					}
-					if ((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) {
-						((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-						((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-					} else {
-						((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-						((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-					}
-					p_tx_dat += p_tx_inc;
-				}
-				
-				for (int bitPlace=7;bitPlace>=0;bitPlace--) {
-					if (p_tx_dat > p_tx_end) {
-						if (verbose)
-							printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
-						break;
-					}
-					((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-					((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-					p_tx_dat += p_tx_inc;
-				}
-			}*/
-			
-			
 			while (bufferCycleCount < TIMES_TO_SEND_MESSAGE) {
 				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
 					if (verbose)
@@ -1046,6 +1062,19 @@ int main (int argc, char **argv)
 					fflush(stdout);
 				}
 
+				for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
+					if (p_tx_dat > p_tx_end) {
+						if (verbose)
+							printf("m Error - header was larger than remaining buffer size (this should not happen)");
+						break;
+					}
+					//((int16_t*)p_tx_dat)[0] = 25000; // Real (I)
+					//((int16_t*)p_tx_dat)[1] = 25000; // Imag (Q)
+					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
+					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
+					p_tx_dat += p_tx_inc;	
+				}
+				
 				bufferCycleCount++;
 			}
 
@@ -1061,9 +1090,11 @@ int main (int argc, char **argv)
 			//FIXME testing
 			//countToClose--;
 			//FIXME testing
-
+			// Schedule TX buffer
+			nbytes_tx = iio_buffer_push(txbuf);
+			if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
 		} else {
-			//if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
+			if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
 				//FIXME testing
 				//countToClose--;
 				//FIXME testing
@@ -1074,12 +1105,10 @@ int main (int argc, char **argv)
 					p_tx_dat += p_tx_inc;
 				}
 				emptyBuffer = true;
-			//}
+			}
 		}
 		
-		// Schedule TX buffer
-		nbytes_tx = iio_buffer_push(txbuf);
-		if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
+
 		
 		//FIXME for texting
 		//if (countToClose == 0) {
