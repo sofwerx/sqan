@@ -16,7 +16,6 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
-import org.sofwerx.sqan.manet.common.packet.HeartbeatPacket;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
@@ -97,9 +96,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
-                +" -useTiming"
-                +" -timingInterval 4"
-                +" -messageRepeat 10"
+                +" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
@@ -230,6 +227,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
     public void close() {
         Log.d(TAG,"Closing...");
+        if (handlerThread != null) {
+            handlerThread.quitSafely();
+            handlerThread = null;
+            handler = null;
+        }
         if (ioManager != null) {
             ioManager.setListener(null);
             ioManager.stop();
@@ -517,6 +519,18 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void onNewData(byte[] data) {
         if ((data == null) || (data.length < Segment.HEADER_MARKER.length))
             return;
+        if (sdrAppStatus == SdrAppStatus.STARTING) {
+            String message = new String(data,StandardCharsets.UTF_8);
+            if (message.contains(" not found")) {
+                Log.d(TAG,"From SDR during app start: "+message);
+                sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
+                launchSdrApp();
+                return;
+            } else if (message.contains("Acquiring IIO context")) {
+                reportAppAsRunning();
+                return;
+            }
+        }
         if (USE_BIN_USB_OUT && ((sdrAppStatus == SdrAppStatus.RUNNING) || (sdrAppStatus == SdrAppStatus.STARTING))) {
             handler.post(() -> {
                 boolean heartbeat = false;
@@ -535,15 +549,17 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         Log.d(TAG, ((heartbeatReportedReceived == (byte)255)?">=255":heartbeatReportedReceived) + "b transmitted by SqANDR app");
                     else
                         Log.d(TAG,"Heartbeat received from SqANDR app");
-                    checkForAppRunning();
+                    reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
                     //TODO temp for testing
-                    //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
-                    if ((data[0] == (byte)54)) // 6 - like the start of the SqAN header
-                        Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                    else if ((data[0] != (byte)42)) //ignore echos of sent data
-                        Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
+                    if (sdrAppStatus == SdrAppStatus.RUNNING) {
+                        //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
+                        if ((data[0] == (byte) 54)) // 6 - like the start of the SqAN header
+                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
+                        else if ((data[0] != (byte) 42)) //ignore echos of sent data
+                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
+                    }
                     //else
                     //    Log.d(TAG,"From SDR: +"+StringUtils.toHex(data));
                     //TODO temp for testing
@@ -572,7 +588,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         } else {
             if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE) {
                 String message = new String(data,StandardCharsets.UTF_8);
-                if (message.contains("messages")) { //messages also occurs in the /var/tmp folder
+                /*if (message.contains("messages")) { //messages also occurs in the /var/tmp folder
                     Log.d(TAG,"Reply \""+message+"\" from the SDR should contain the contents of the "+Loader.SDR_APP_LOCATION+" directory");
                     if (message.contains(Loader.SQANDR_VERSION)) {
                         Log.d(TAG,Loader.SQANDR_VERSION+" found, start needed");
@@ -586,7 +602,23 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
                     }
                     launchSdrApp();
-                }
+                }*/
+                Log.d(TAG,"From SDR during app check: "+message);
+                //if (!message.contains("\"INSTALLED\"") && !message.contains("\"FAILED\"")) {
+                /*    if (message.contains("INSTALLED\n")) { //messages also occurs in the /var/tmp folder
+                        Log.d(TAG, Loader.SQANDR_VERSION + " found, start needed");
+                        if (peripheralStatusListener != null)
+                            peripheralStatusListener.onPeripheralMessage("Current version of SqANDR found, starting...");
+                        sdrAppStatus = SdrAppStatus.NEED_START;
+                        launchSdrApp();
+                    } else if (message.contains("FAILED\n")) {
+                        Log.d(TAG, Loader.SQANDR_VERSION + " not found, update needed");
+                        if (peripheralStatusListener != null)
+                            peripheralStatusListener.onPeripheralMessage("SqANDR update needed...");
+                        sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
+                        launchSdrApp();
+                    }*/
+                //}
             }
             if (data[0] == HEADER_DEBUG_MESSAGE)
                 return;
@@ -749,11 +781,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                                 input = "Unknown command: "+input+"\n";
                     }
                 } else if (sdrAppStatus == SdrAppStatus.INSTALLING) {
-                    /*Log.d(TAG,"From SDR (app installing): "+input);
-                    switch (input.charAt(0)) {
-                        case HEADER_BUSYBOX: //ignore calls to busybox
-                            return;
-                    }*/
                     return; //ignore all messages during install
                 }
             }
@@ -778,14 +805,15 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     } else {
                         if (!USE_BIN_USB_OUT) {
                             CommsLog.log(CommsLog.Entry.Category.SDR, "SDR companion app is running");
-                            checkForAppRunning();
+                            reportAppAsRunning();
                         }
                     }
                 } else {
                     if (USE_BIN_USB_IN) {
                         //ignore
                     } else {
-                        CommsLog.log(CommsLog.Entry.Category.SDR, "SDR input: " + input);
+                        if (sdrAppStatus == SdrAppStatus.RUNNING)
+                            CommsLog.log(CommsLog.Entry.Category.SDR, "SDR input: " + input);
                         if (listener != null)
                             listener.onReceiveCommandData(input.getBytes(StandardCharsets.UTF_8));
                     }
@@ -824,7 +852,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     }
 
         private void startSdrApp() {
-        if (sdrAppStatus == SdrAppStatus.NEED_START) {
+        if ((sdrAppStatus == SdrAppStatus.NEED_START) || (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)) {
             sdrAppStatus = SdrAppStatus.STARTING;
             final String message = "Starting SDR companion app";
             Log.d(TAG,message);
@@ -836,8 +864,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
     }
 
-    private void checkForAppRunning() {
+    private void reportAppAsRunning() {
         if (sdrAppStatus != SdrAppStatus.RUNNING) {
+            Log.d(TAG,"Reporting SDR app is now running");
             sdrAppStatus = SdrAppStatus.RUNNING;
             if (listener != null)
                 listener.onOperational();
@@ -859,7 +888,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             sdrAppStatus = SdrAppStatus.CHECKING_FOR_UPDATE;
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage("Checking if current version of SqANDR is installed...");
-            Loader.queryIsCurrentSqANDRInstalled(port);
+            //Loader.queryIsCurrentSqANDRInstalled(port);
+            startSdrApp();
         } else if (sdrAppStatus == SdrAppStatus.NEED_START) {
             startSdrApp();
         } else {
@@ -867,7 +897,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 return; //already installing, ignore
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage("Updating SqANDR...");
-            sdrAppStatus = SdrAppStatus.INSTALLING;
             if (context == null) {
                 final String errorMessage = "Cannot push the SqANDR app onto the SDR with a null context - this should never happen";
                 Log.e(TAG,errorMessage);
@@ -878,6 +907,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     peripheralStatusListener.onPeripheralError(errorMessage);
                 return;
             }
+            sdrAppStatus = SdrAppStatus.INSTALLING;
             Loader.pushAppToSdr(context, port, new SqANDRLoaderListener() {
                 @Override
                 public void onSuccess() {

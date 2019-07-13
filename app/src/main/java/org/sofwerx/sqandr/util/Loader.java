@@ -48,7 +48,7 @@ public class Loader {
                 Log.d(TAG, "sqandr found on Android");
 
                 boolean success = true;
-                //success = success && write(port, "cd " + SDR_APP_LOCATION + "\n");
+                success = success && write(port, "cd " + SDR_APP_LOCATION + "\n");
                 success = success && write(port, "touch " + SQANDR_VERSION + "\n");
                 success = success && write(port, "chmod +x " + SDR_APP_LOCATION + SQANDR_VERSION + "\n");
                 //write(port,"echo \"-"+ SerialConnection.TX_GAIN+".00 dB\" > /sys/bus/iio/devices/iio:device1/out_voltage0_hardwaregain\n");
@@ -133,9 +133,17 @@ public class Loader {
         return false;
     }
 
-    public static void queryIsCurrentSqANDRInstalled(@NonNull UsbSerialPort port) {
+    /*public static void queryIsCurrentSqANDRInstalled(@NonNull UsbSerialPort port) {
         //write(port,"if [ -f "+SDR_APP_LOCATION+SQANDR_VERSION+" ] ; then echo \"SqANDR update needed: FALSE\" ; else echo \"SqANDR update needed: TRUE\" ; fi");
-        write(port,"cd "+SDR_APP_LOCATION+"\n");
-        write(port,"ls\n");
-    }
+        final String check  ="#!/bin/bash\n" +
+                "if [ -e "+SDR_APP_LOCATION+SQANDR_VERSION+" ]\n" +
+                "then\n" +
+                "    echo \"INSTALLED\"\n" +
+                "else\n" +
+                "    echo \"FAILED\"\n" +
+                "fi\n";
+        write(port,check);
+        //write(port,"cd "+SDR_APP_LOCATION+"\n");
+        //write(port,"ls\n");
+    }*/
 }
