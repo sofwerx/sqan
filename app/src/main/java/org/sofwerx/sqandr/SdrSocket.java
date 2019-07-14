@@ -110,7 +110,7 @@ public class SdrSocket {
             //Log.d(TAG,getLogHeader()+" readPacketData() looking for "+size+"b payload");
             inStream.read(data);
             byte checksum = (byte)inStream.read();
-            byte calculatedChecksum = SdrUtils.getChecksum(data);
+            byte calculatedChecksum = SdrUtils.getChecksumV2(data);
             if (checksum != calculatedChecksum) {
                 if (sqANDRService != null)
                     sqANDRService.onPacketDropped();
@@ -182,7 +182,7 @@ public class SdrSocket {
                 //outStream.write(ALIGNMENT_BYTE_D);
                 outStream.write(length);
                 outStream.write(data);
-                byte checksum = SdrUtils.getChecksum(data);
+                byte checksum = SdrUtils.getChecksumV2(data);
                 outStream.write(checksum);
                 lastConnectOutbound = System.currentTimeMillis();
             } catch (IOException e) {

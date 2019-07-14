@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 49; //Not to exceed 250 (Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 128; //Not to exceed 250 (Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
@@ -119,7 +119,7 @@ public class Segment {
         out.put(HEADER_MARKER);
         out.put((byte)data.length);
         out.put(getFlags());
-        out.put(SdrUtils.getChecksum(data));
+        out.put(SdrUtils.getChecksumV2(data));
         out.put(data);
         return out.array();
     }
@@ -163,8 +163,8 @@ public class Segment {
             data = new byte[size];
             byte checksum = buf.get();
             buf.get(data);
-            if (checksum != SdrUtils.getChecksum(data)) {
-                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksum(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
+            if (checksum != SdrUtils.getChecksumV2(data)) {
+                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksumV2(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
                 data = null;
                 return;
             }

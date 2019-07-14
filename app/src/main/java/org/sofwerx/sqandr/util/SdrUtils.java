@@ -48,11 +48,12 @@ public class SdrUtils {
     }
 
     /**
-     * Provides a checksum byte for a given byte array
+     * Provides a checksum byte for a given byte array. Weak as it provides high collision
      * @param bytes
      * @return
      */
-    public static byte getChecksum(byte[] bytes) { //FIXME improve checksum as collision is frequent
+    @Deprecated
+    public static byte getChecksum(byte[] bytes) {
         byte checksum = 0b111000;
         if (bytes != null) {
             for (byte b:bytes) {
@@ -60,6 +61,27 @@ public class SdrUtils {
             }
         }
         return checksum;
+
+    }
+
+    private final static int FNV_OFFSET_BASIS = 0b10000001000111001001110111000101; //binary representation of FNV prime 2166136261 but formatted to be a cast from an unsigned int
+    private final static int FNV_PRIME = 16777619;
+    /**
+     * Provides a checksum byte for a given byte array. Modified version of FNV-1a
+     * algorithm (https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) with
+     * the output truncated to a byte.
+     * @param bytes
+     * @return
+     */
+    public static byte getChecksumV2(byte[] bytes) {
+        int checksum = FNV_OFFSET_BASIS;
+        if (bytes != null) {
+            for (byte b:bytes) {
+                checksum = checksum ^ b;
+                checksum = checksum * FNV_PRIME;
+            }
+        }
+        return (byte)checksum;
 
     }
 

@@ -101,7 +101,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms"
+                //+" -minComms"
+                +" -verbose"
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override
