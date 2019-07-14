@@ -96,7 +96,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
-                +" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
+                //+" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
@@ -521,7 +521,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             return;
         if (sdrAppStatus == SdrAppStatus.STARTING) {
             String message = new String(data,StandardCharsets.UTF_8);
-            if (message.contains(" not found")) {
+            if (message.contains(Loader.SQANDR_VERSION+": not found")) {
                 Log.d(TAG,"From SDR during app start: "+message);
                 sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
                 launchSdrApp();
