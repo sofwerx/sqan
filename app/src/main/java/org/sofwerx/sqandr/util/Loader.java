@@ -12,7 +12,6 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
-import org.sofwerx.sqandr.serial.SerialConnection;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;

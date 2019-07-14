@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <getopt.h>
+#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +15,17 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <ad9361.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+#ifdef _MSC_BUILD
+#define snprintf sprintf_s
+#endif
 
 #ifdef __APPLE__
 #include <iio/iio.h>
@@ -30,7 +43,33 @@
 		(void) abort(); \
 	} \
 }
+#define FIR_BUF_SIZE 8192
+	
+static int16_t fir_128_4[] = {
+	-15,-27,-23,-6,17,33,31,9,-23,-47,-45,-13,34,69,67,21,-49,-102,-99,-32,69,146,143,48,-96,-204,-200,-69,129,278,275,97,-170,
+	-372,-371,-135,222,494,497,187,-288,-654,-665,-258,376,875,902,363,-500,-1201,-1265,-530,699,1748,1906,845,-1089,-2922,-3424,
+	-1697,2326,7714,12821,15921,15921,12821,7714,2326,-1697,-3424,-2922,-1089,845,1906,1748,699,-530,-1265,-1201,-500,363,902,875,
+	376,-258,-665,-654,-288,187,497,494,222,-135,-371,-372,-170,97,275,278,129,-69,-200,-204,-96,48,143,146,69,-32,-99,-102,-49,21,
+	67,69,34,-13,-45,-47,-23,9,31,33,17,-6,-23,-27,-15};
 
+static int16_t fir_128_2[] = {
+	-0,0,1,-0,-2,0,3,-0,-5,0,8,-0,-11,0,17,-0,-24,0,33,-0,-45,0,61,-0,-80,0,104,-0,-134,0,169,-0,
+	-213,0,264,-0,-327,0,401,-0,-489,0,595,-0,-724,0,880,-0,-1075,0,1323,-0,-1652,0,2114,-0,-2819,0,4056,-0,-6883,0,20837,32767,
+	20837,0,-6883,-0,4056,0,-2819,-0,2114,0,-1652,-0,1323,0,-1075,-0,880,0,-724,-0,595,0,-489,-0,401,0,-327,-0,264,0,-213,-0,
+	169,0,-134,-0,104,0,-80,-0,61,0,-45,-0,33,0,-24,-0,17,0,-11,-0,8,0,-5,-0,3,0,-2,-0,1,0,-0, 0 };
+
+static int16_t fir_96_2[] = {
+	-4,0,8,-0,-14,0,23,-0,-36,0,52,-0,-75,0,104,-0,-140,0,186,-0,-243,0,314,-0,-400,0,505,-0,-634,0,793,-0,
+	-993,0,1247,-0,-1585,0,2056,-0,-2773,0,4022,-0,-6862,0,20830,32767,20830,0,-6862,-0,4022,0,-2773,-0,2056,0,-1585,-0,1247,0,-993,-0,
+	793,0,-634,-0,505,0,-400,-0,314,0,-243,-0,186,0,-140,-0,104,0,-75,-0,52,0,-36,-0,23,0,-14,-0,8,0,-4,0};
+
+static int16_t fir_64_2[] = {
+	-58,0,83,-0,-127,0,185,-0,-262,0,361,-0,-488,0,648,-0,-853,0,1117,-0,-1466,0,1954,-0,-2689,0,3960,-0,-6825,0,20818,32767,
+	20818,0,-6825,-0,3960,0,-2689,-0,1954,0,-1466,-0,1117,0,-853,-0,648,0,-488,-0,361,0,-262,-0,185,0,-127,-0,83,0,-58,0};
+
+
+	
+	
 /* RX is input, TX is output */
 enum iodev { RX, TX };
 
@@ -189,6 +228,137 @@ unsigned char hexToBin (char hex[]) {
 	return result | HexChar(hex[1]);
 }
 
+int ad9361_set_trx_fir_enable(struct iio_device *dev, int enable)
+{
+	int ret = iio_device_attr_write_bool(dev,
+					 "in_out_voltage_filter_fir_en", !!enable);
+	if (ret < 0)
+		ret = iio_channel_attr_write_bool(iio_device_find_channel(dev, "out", false),
+					    "voltage_filter_fir_en", !!enable);
+	return ret;
+}
+
+int ad9361_get_trx_fir_enable(struct iio_device *dev, int *enable)
+{
+	bool value;
+
+	int ret = iio_device_attr_read_bool(dev, "in_out_voltage_filter_fir_en", &value);
+
+	if (ret < 0)
+		ret = iio_channel_attr_read_bool(iio_device_find_channel(dev, "out", false),
+						 "voltage_filter_fir_en", &value);
+
+	if (!ret)
+		*enable	= value;
+
+	return ret;
+}
+
+int ad9361_set_bb_rate(struct iio_device *dev, unsigned long rate)
+{
+	struct iio_channel *chan;
+	long long current_rate;
+	int dec;
+	int taps;
+	int ret;
+	int i;
+	int enable;
+	int len = 0;
+	int16_t *fir;
+	char *buf;
+
+	if (rate <= 20000000UL) {
+		dec = 4;
+		taps = 128;
+		fir = fir_128_4;
+	} else if (rate <= 40000000UL) {
+		dec = 2;
+		fir = fir_128_2;
+		taps = 128;
+	} else if (rate <= 53333333UL) {
+		dec = 2;
+		fir = fir_96_2;
+		taps = 96;
+	} else {
+		dec = 2;
+		fir = fir_64_2;
+		taps = 64;
+	}
+
+	chan = iio_device_find_channel(dev, "voltage0", true);
+	if (chan == NULL)
+		return -ENODEV;
+	
+	ret = iio_channel_attr_read_longlong(chan, "sampling_frequency", &current_rate);
+	if (ret < 0)
+		return ret;
+	
+	ad9361_get_trx_fir_enable(dev, &enable);
+	if (ret < 0)
+		return ret;
+	
+	if (enable) {
+		if (current_rate <= (25000000 / 12))
+			iio_channel_attr_write_longlong(chan, "sampling_frequency", 3000000);
+
+		ret = ad9361_set_trx_fir_enable(dev, false);
+		if (ret < 0)
+			return ret;
+	}
+
+	buf = malloc(FIR_BUF_SIZE);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, FIR_BUF_SIZE - len, "RX 3 GAIN -6 DEC %d\n", dec);
+	len += snprintf(buf + len, FIR_BUF_SIZE - len, "TX 3 GAIN 0 INT %d\n", dec);
+
+	for (i = 0; i < taps; i++)
+		len += snprintf(buf + len, FIR_BUF_SIZE - len, "%d,%d\n", fir[i], fir[i]);
+
+	len += snprintf(buf + len, FIR_BUF_SIZE - len, "\n");
+
+	ret = iio_device_attr_write_raw(dev, "filter_fir_config", buf, len);
+	free (buf);
+
+	if (ret < 0)
+		return ret;
+
+	if (rate <= (25000000 / 12))  {
+		int dacrate, txrate, max;
+		char readbuf[100];
+
+		ret = iio_device_attr_read(dev, "tx_path_rates", readbuf, sizeof(readbuf));
+		if (ret < 0)
+			return ret;
+		ret = sscanf(readbuf, "BBPLL:%*d DAC:%d T2:%*d T1:%*d TF:%*d TXSAMP:%d", &dacrate, &txrate);
+		if (ret != 2)
+			return -EFAULT;
+
+		if (txrate == 0)
+			return -EINVAL;
+
+		max = (dacrate / txrate) * 16;
+		if (max < taps)
+			iio_channel_attr_write_longlong(chan, "sampling_frequency", 3000000);
+		
+		ret = ad9361_set_trx_fir_enable(dev, true);
+		if (ret < 0)
+			return ret;
+		ret = iio_channel_attr_write_longlong(chan, "sampling_frequency", rate);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = iio_channel_attr_write_longlong(chan, "sampling_frequency", rate);
+		if (ret < 0)
+			return ret;
+		ret = ad9361_set_trx_fir_enable(dev, true);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
+
 /* simple configuration and streaming */
 int main (int argc, char **argv)
 {
@@ -202,20 +372,14 @@ int main (int argc, char **argv)
 	//const char TEST_CHARS[] = {'6','6','9','9','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f','0','0','1','1','2','2','3','3','4','4','5','5','6','6','7','7','8','8','9','9','a','a','b','b','c','c','d','d','e','e','f','f'};
 
 	const char BYTE_FLAG[] = {0b00000001,0b00000010,0b00000100,0b00001000,0b00010000,0b00100000,0b01000000,0b10000000};
-	const unsigned short HEADER                = 0b0000101101010011; //this is the 11 bit header that signals coming data
-	//const unsigned short PART_HEADER           = 0b0000101101011100; //this is the 9 bit header that 
-	//const unsigned short PART_HEADER_2         = 0b0000101101000011; //this is the 9 bit header that 
-	//const unsigned short PART_HEADER_3         = 0b0000100101010011; //this is the 9 bit header that 
-	//const unsigned short PART_HEADER_4         = 0b0000101101011011; //this is the 9 bit header that 
-	const unsigned short HEADER_MASK           = 0b0000111111111111;
-	//const unsigned short LONG_HEADER_MASK      = 0b0111111111111111;
+	const unsigned short HEADER                  = 0b0000101101010011; //this is the 12 bit header that signals coming data
+	const unsigned short SHORT_HEADER            = 0b0000000101010011; //this is the 9 bit header that signals coming data
+	const unsigned short HEADER_MASK             = 0b0000111111111111;
+	const unsigned short SHORT_HEADER_MASK       = 0b0000000111111111;
 	const unsigned short LEAST_SIG_BIT_HEADER  = 0b0000000000000001;
 	const unsigned short MOST_SIG_BIT_HEADER   = 0b1000000000000000;
 	const unsigned short INVERSE_HEADER        = 0b0000010010101100;
-	//const unsigned short INVERSE_PART_HEADER   = 0b0000010010100111; 
-	//const unsigned short INVERSE_PART_HEADER_2 = 0b0000010010111100;
-	//const unsigned short INVERSE_PART_HEADER_3 = 0b0000100101010011; //this is the 9 bit header that
-	//const unsigned short INVERSE_PART_HEADER_4 = 0b0000101101011011; //this is the 9 bit header that 
+	const unsigned short INVERSE_SHORT_HEADER  = 0b0000000010101100;
 	const unsigned short SHORT_FLAG[] =         {0b0000000000000001,0b0000000000000010,0b0000000000000100,0b0000000000001000,0b0000000000010000,0b0000000000100000,0b0000000001000000,0b0000000010000000,0b0000000100000000,
 	0b0000001000000000,0b0000010000000000,0b0000100000000000,0b0001000000000000,0b0010000000000000,0b0100000000000000,0b1000000000000000};
 	
@@ -247,21 +411,25 @@ int main (int argc, char **argv)
 	const int MAX_BYTES_PER_LINE = 250;
 	const float DEFAULT_FREQ = 800; //in MHz
 	const float DEFAULT_SAMPLE_RATE = 4.5; //FIXME switch back to 4.5
+	const float DEFAULT_BANDWIDTH = 18; //in MHz
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
-	int TIMES_TO_SEND_MESSAGE = 5; //trigger sending a packet more than once
+	int TIMES_TO_SEND_MESSAGE = 7; //trigger sending a packet more than once
+	int TIMES_TO_COPY_MESSAGE = 5;
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
 	unsigned char bytein[MAX_DATA_IN]; //the data received from OTA
 	const int SIZE_OF_DATAOUT = (int)(sizeof(dataout)/sizeof(dataout[0]));
+	bool shortHeader = false;
 	int bitTimerCount = 0;
 	int bitIndex = 0;
 	int bitSensor = 0;
 	bool byteTiming = false;
 	int cyclesToHeartbeat = HEARTBEAT_INTERVAL;
 	int timingInterval = 20;
+	int headerLength = 11;
 	//const int BYTES_AFTER_HEADER = 1; //not tested - for sending multiple bytes per header
 	//int bytesAfterHeaderCounter = 0;
 	unsigned short tempHeader = (unsigned short)0;
@@ -277,6 +445,7 @@ int main (int argc, char **argv)
 	bool binIn = false;
 	bool inNonBlock = true;
 	bool binOut = false;
+	bool firFilter = false;
 	
 	//int emptyBuffersSent = 0;
 	//const int MAX_EMPTY_BUFFERS_SENT = 4;
@@ -288,8 +457,9 @@ int main (int argc, char **argv)
 	float txf = 0.0; //assigned tX freq (if any)
 	float txb = 0.0; //assigned tX bandwidth(if any)
 	float txsr = 0.0; //assigned tX sample rate (if any)
-	float txgain = 10.0; //assigned tX gain (if any)
-	char cmd[40] = "";
+	float txgain = 0.0; //assigned tX gain (if any)
+	char cmd1[40] = "";
+	char cmd2[40] = "";
 	char cdcmd[40] = "";
 	char chgain[40] = "";
 	char gaintype1[40] = "";
@@ -323,8 +493,10 @@ int main (int argc, char **argv)
 				pt = 9;
 			} else if (strcmp("-messageRepeat",argv[j]) == 0) {
 				pt = 10;
-			} else if (strcmp("-timingInterval",argv[j]) == 0) {
+			} else if (strcmp("-transmitRepeat",argv[j]) == 0) {
 				pt = 11;
+			} else if (strcmp("-timingInterval",argv[j]) == 0) {
+				pt = 12;
 			} else if (strcmp("-binI",argv[j]) == 0) {
 				binIn = true;
 				inNonBlock = true;
@@ -333,6 +505,10 @@ int main (int argc, char **argv)
 				verbose = false;
 			} else if (strcmp("-block",argv[j]) == 0) {
 				inNonBlock = false;
+			} else if (strcmp("-fir",argv[j]) == 0) {
+				firFilter = true;
+			} else if (strcmp("-shortHeader",argv[j]) == 0) {
+				shortHeader = true;
 			} else if (strcmp("-useTiming",argv[j]) == 0) {
 				byteTiming = true;
 			} else if (strcmp("-minComms",argv[j]) == 0) {
@@ -372,13 +548,16 @@ int main (int argc, char **argv)
 				printf(" -test01 = runs in diagnostic mode with a simple repeated pattern\n");
 				printf(" -listen = runs in a continous listen only mode\n");
 				printf(" -superVerbose = povides detailed I & Q values\n");
+				printf(" -fir = runs with FIR filtering and possible lower sample rates\n");
 				printf(" -noHeader = reports all data, not just samples that include the SqAN header\n");
 				printf(" -useTiming = checks for headers on predefined intervals after SQaN header is found\n");
 				printf(" -timingInterval = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
-				printf(" -messageRepeat = Designates number of times to repeat packet. Default: 5\n");
+				printf(" -messageRepeat = Designates number of times to repeat packet and concatenate. Default: 5\n");
+				printf(" -transmitRepeat = Designates number of times to repeat packet transmission. Default: 7\n");
 				printf(" -binI [NOT YET SUPPORTED] = switches SqANDR to binary input across the USB connection; -nonBlock is also invoked automatically\n");
 				printf(" -binO = switches SqANDR to binary output across the USB connection; -minComms is also invoked automatically\n");
 				printf(" -block = switches input to blocking mode\n");
+				printf(" -shortHeader = Use short byte header\n");
 				printf(" -verbose = force verbose mode (usually used to check -binO messages)\n");
 				exit(0);
 			} else if (pt > 0) {
@@ -418,9 +597,12 @@ int main (int argc, char **argv)
 							txgain = val;
 							break;
 						case 10:
-							TIMES_TO_SEND_MESSAGE = val;
+							TIMES_TO_COPY_MESSAGE = val;
 							break;
 						case 11:
+							TIMES_TO_SEND_MESSAGE = val;
+							break;
+						case 12:
 							timingInterval = val;
 							break;
 					}
@@ -437,7 +619,12 @@ int main (int argc, char **argv)
 	// Stream configurations
 	struct stream_cfg rxcfg;
 	struct stream_cfg txcfg;
-
+	
+	if (verbose)
+		printf("d Acquiring IIO context\n");
+	ASSERT((ctx = iio_create_default_context()) && "No context");
+	ASSERT(iio_context_get_devices_count(ctx) > 0 && "No devices");
+	
 	if (!binIn)
 		signal(SIGINT, handle_sig); // Listen to ctrl+c and ASSERT when not in binary mode
 
@@ -447,10 +634,14 @@ int main (int argc, char **argv)
 			printf("m Assigning RX bandwidth = %f MHz\n", rxb);
 		rxcfg.bw_hz = MHZ(rxb);
 	} else
-		rxcfg.bw_hz = MHZ(18);   // 6 MHz rf bandwidth
+		rxcfg.bw_hz = MHZ(DEFAULT_BANDWIDTH);   // 6 MHz rf bandwidth
 	if (rxsr > 0.1) {
 		if (verbose)
-			printf("m Assigning RX Sample Rate = %f MHz\n", rxsr);
+			printf("m Attempting to assigning RX Sample Rate = %f MHz\n", rxsr);
+		if (firFilter) {
+			unsigned long rate = MHZ(rxsr);
+			ad9361_set_bb_rate(&rx, rate);
+		}
 		rxcfg.fs_hz = MHZ(rxsr);
 	} else
 		//rxcfg.fs_hz = MHZ(30);   // 7.5 MS/s rx sample rate
@@ -467,34 +658,36 @@ int main (int argc, char **argv)
 	
 	if (txb > 0.1) {
 		if (verbose)
-			printf("m Assigning TX bandwidth = %f MHz\n", txb);
+			printf("m Attempting to assigning TX bandwidth = %f MHz\n", txb);
 		txcfg.bw_hz = MHZ(txb);
 	} else
-		txcfg.bw_hz = MHZ(18);   // 6 MHz rf bandwidth
+		txcfg.bw_hz = MHZ(DEFAULT_BANDWIDTH);   // 6 MHz rf bandwidth
 	if (txsr > 0.1) {
 		if (verbose)
 			printf("m Assigning TX Sample Rate = %f MHz\n", txsr);
+		if (firFilter) {
+			unsigned long rate = MHZ(txsr);
+			ad9361_set_bb_rate(&tx, rate);
+		}
 		txcfg.fs_hz = MHZ(txsr);
-	} else
-		//txcfg.fs_hz = MHZ(30);   // 7.5 MS/s rx sample rate
+	} else			   
 		txcfg.fs_hz = MHZ(DEFAULT_SAMPLE_RATE);
-	if (txgain != 10) {
+	if (txgain != 0) {
 		strcat(cdcmd, "cd /sys/bus/iio/devices/iio:device1/");
 		system(cdcmd);
 		if (verbose)
 			printf("m Assigning TX gain = -%.0f dB\n", txgain);
 		txgain = abs(txgain);
 		sprintf(chgain, "-%.0f", txgain);
-		strcat(cmd, "echo ");
-		strcat(cmd,	chgain);
-		strcat(cmd, " >  out_voltage0_hardwaregain");
-		system(cmd);
-		//cmd[40] = "";
-		//sprintf(chgain, "-%.0f", txgain);
-		//strcat(cmd, "echo ");
-		//strcat(cmd,	chgain);
-		//strcat(cmd, " >  out_voltage1_hardwaregain");
-		//system(cmd);
+		strcat(cmd1, "echo ");
+		strcat(cmd1,	chgain);
+		strcat(cmd1, " >  out_voltage0_hardwaregain");
+		system(cmd1);
+		sprintf(chgain, "-%.0f", txgain);
+		strcat(cmd2, "echo ");
+		strcat(cmd2,	chgain);
+		strcat(cmd2, " >  out_voltage1_hardwaregain");
+		system(cmd2);
 	} else {
 		if (verbose)
 			printf("m TX gain = -10 dB\n");
@@ -507,18 +700,11 @@ int main (int argc, char **argv)
 		txcfg.lo_hz = MHZ(DEFAULT_FREQ); // Tx freq
 	txcfg.rfport = "A"; // port A (select for rf freq.)
 
-		strcat(gaintype1, "echo hybrid > in_voltage0_gain_control_mode");
-		system(gaintype1);
-		strcat(gaintype2, "echo hybrid > in_voltage1_gain_control_mode");
-		system(gaintype2);
+	strcat(gaintype1, "echo hybrid > in_voltage0_gain_control_mode");
+	system(gaintype1);
+	strcat(gaintype2, "echo hybrid > in_voltage1_gain_control_mode");
+	system(gaintype2);
 		
-	if (verbose)
-		printf("d Acquiring IIO context\n");
-	ASSERT((ctx = iio_create_default_context()) && "No context");
-	ASSERT(iio_context_get_devices_count(ctx) > 0 && "No devices");
-	//if (txgain != 0)
-	//	set_gain(txgain);
-
 	if (verbose)
 		printf("d Acquiring AD9361 streaming devices\n");
 	ASSERT(get_ad9361_stream_dev(ctx, TX, &tx) && "No tx dev found");
@@ -537,19 +723,12 @@ int main (int argc, char **argv)
 	ASSERT(get_ad9361_stream_ch(ctx, TX, tx, 1, &tx0_q) && "TX chan q not found");
 
 	if (verbose)
-		printf("d Setting channel gain\n");
-
-	//if (iio_channel_attr_write_longlong(iio_device_find_channel(tx, "voltage0", true), "hardwaregain", txgain) < 0)
-	//	printf("d WARNING: Unable to set tx channel gain\n");
-	//if (iio_channel_attr_write_longlong(iio_device_find_channel(rx, "voltage0", true), "hardwaregain", RX_GAIN) < 0)
-	//	printf("d WARNING: Unable to set rx channel gain\n");
-
-	if (verbose)
 		printf("d Enabling IIO streaming channels\n");
 	iio_channel_enable(rx0_i);
 	iio_channel_enable(rx0_q);
 	iio_channel_enable(tx0_i);
 	iio_channel_enable(tx0_q);
+
 
 	if (verbose)
 		printf("d* Creating non-cyclic IIO buffers with 1 MiS\n");
@@ -594,27 +773,17 @@ int main (int argc, char **argv)
 		printf("Waiting for SqAN header....\n");
 
 	//moving all assignments outside the while to reduce allocation time in the loop
-	//const int MAX_SAMPLES_IN_A_ROW = multisampleFactor * 17; //not used
-	//const int MAX_SAMPLES_IN_A_ROW = 19; //not used
-	//bool multiline = false;
 	bool countReset = false;
 	int bitsSearchedForHeader = 0;
 	int samplesWithNoSignal = 0;
 	int noiseBits = 0;
-	//int totalSamples = 0;
-	//int aNoisePosU = 0; //used to record the noise range
-	//int aNoisePosL = 0;
-	//int aNoiseNegU = 0;
-	//int aNoiseNegL = 0;
 	int16_t amplitudeLast = 0;
-	//int amplitudeLastCorrected = 0;
 	int tempCounter = 0;
-	//int helperShowIQindex = 0; //only show the I and Q readings for the first 200 samples
 	bool sqanHeaderFound = false;
-	bool ignoreHeaders = false;
-	int headerCounter = 0;
 	int sqanHeaderMatchIndex = 0;
 	bool waitingOnHeader = true;
+	bool ignoreHeaders = false;
+	int headerCounter = 0;
 	int samplesToShow = 0;
 	int bytesInput = 0;
 	int  bit = 0;
@@ -626,9 +795,14 @@ int main (int argc, char **argv)
 	int count = 0; // a counter just used in the binary test pattern
 	int bestMatch = 0; //a counter used to keep track of the best match returned during a test pattern
 	
+	if (shortHeader)
+		headerLength = 7;
+	
 	if (inNonBlock) {
 		fcntl(0, F_SETFL, O_NONBLOCK); //switch stdin to non-blocking
 		//setvbuf(stdin, NULL, _IONBF, 0); //sets stdin to no buffer mode
+	} else {
+		fcntl(0, F_SETFL, !O_NONBLOCK); //switch stdin to blocking
 	}
 	if (binIn) {
 		freopen("", "rb", stdin); //open stdin in "read binary" mode
@@ -638,24 +812,20 @@ int main (int argc, char **argv)
 	
 	while (!stop) {
 		startTime = clock();
-		
-		//multiline = false;
 		countReset = false;
 		bitsSearchedForHeader = 0;
 		samplesWithNoSignal = 0;
 		noiseBits = 0;
 		tempCounter = 0;
 		sqanHeaderFound = false;
-		headerCounter = 0;
-		ignoreHeaders = false;
 		sqanHeaderMatchIndex = 0;
 		waitingOnHeader = true;
+		headerCounter = 0;
+		ignoreHeaders = false;
 		samplesToShow = 0;
 		bytesInput = 0;
-		//int iLast = 0;
-		//int qLast = 0;
-		
-		bufferCycleCount = 0;
+
+		//bufferCycleCount = 0;
 		//while (bufferCycleCount < 1) {
 			// Refill RX buffer
 			nbytes_rx = iio_buffer_refill(rxbuf);
@@ -697,12 +867,15 @@ int main (int argc, char **argv)
 						} else {
 							bit = 0;
 						}
-						tempHeader = tempHeader & HEADER_MASK;
+						if (shortHeader)
+							tempHeader = tempHeader & SHORT_HEADER_MASK;
+						else
+							tempHeader = tempHeader & HEADER_MASK;
 
-						if (tempHeader == HEADER/* || tempHeader == PART_HEADER || tempHeader == PART_HEADER_2 || tempHeader == PART_HEADER_3*/) {
+						if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
 							headerComplete = true;
 							isSignalInverted = false;
-						} else if (tempHeader == INVERSE_HEADER/* || tempHeader == INVERSE_PART_HEADER || tempHeader == INVERSE_PART_HEADER_2*/) {
+						} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
 							headerComplete = true;
 							isSignalInverted = true;
 						}
@@ -730,12 +903,9 @@ int main (int argc, char **argv)
 							} else
 								bit = 0;
 						}
-					
-						//if (sqanHeaderFound && !binOut && verbose)
-						//	printf("\tBit: %d, I: %d, Q: %d, A: %d\n", bit, i, q, amplitude);
 
-						if (bitIndex > 7) {
-							if ((dataoutIndex < SIZE_OF_DATAOUT) && !ignoreHeaders) {
+						if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+							if (dataoutIndex < SIZE_OF_DATAOUT) {
 								dataout[dataoutIndex] = tempByte;
 								dataoutIndex++;
 								bitIndex = 0;
@@ -745,7 +915,6 @@ int main (int argc, char **argv)
 									sqanHeaderMatchIndex++;
 									if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
 										sqanHeaderFound = true;
-										bitIndex = 0;
 											//FIXME testing ------------------------------------
 											//if (!binOut && sqanHeaderFound)
 											//	printf("\nSQAN packet: 6699");
@@ -757,23 +926,18 @@ int main (int argc, char **argv)
 						
 							//FIXME testing --------------------------
 							//if (!binOut && sqanHeaderFound) {
-							//	char *a = "0123456789abcdef"[tempByte >> 4];
-							//	char *b = "0123456789abcdef"[tempByte & 0x0F];
-							//	printf("HEX: %c%c\n",a,b);
+								if (superVerbose) {
+								char *a = "0123456789abcdef"[tempByte >> 4];
+								char *b = "0123456789abcdef"[tempByte & 0x0F];
+								printf("HEX: %c%c\n",a,b);
+								}
 							//}
 							//FIXME testing --------------------------
 							if (sqanHeaderFound && byteTiming) {
 								ignoreHeaders = true;
 							}
 							if (ignoreHeaders) {
-								if (bitIndex == 20) {
-									if ((dataoutIndex < SIZE_OF_DATAOUT)) {
-										dataout[dataoutIndex] = tempByte;
-										dataoutIndex++;
-									}
-									bitIndex = 0;
-									headerCounter++;
-								}
+								headerCounter++;
 								if (headerCounter == timingInterval) {
 									headerCounter = 0;
 									isReadingHeader = true;
@@ -782,9 +946,12 @@ int main (int argc, char **argv)
 							} else {
 							isReadingHeader = true; //go back to reading the header
 							}
+							tempHeader = 0;
 						}
 					}
 				//}
+				if (superVerbose)
+					printf("\tBit: %d, I: %d, Q: %d, A: %d\n", bit, i, q, amplitude);
 				amplitudeLast = amplitude*PERCENT_LAST/100;
 			}
 			
@@ -978,127 +1145,124 @@ int main (int argc, char **argv)
 		 * Sending the INPUT to the Tx Buffer
 		 */
 		//bytesAfterHeaderCounter = 0;
-		p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
-		p_tx_inc = iio_buffer_step(txbuf);
-		p_tx_end = iio_buffer_end(txbuf);
 		if (bytesInput > 0) { //ignore if there's nothing to send
-			activityThisCycle = true;
-			bufferCycleCount = 0;
-			//if (verbose)
-			//	printf("dAdding %ib to Tx buffer:\n",bytesInput);
-
-			//Send leading "no signal" bytes
-			//for (int i=0;i<510;i++) {
-			for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
-				if (p_tx_dat > p_tx_end) {
-					if (verbose)
-						printf("m Error - header was larger than remaining buffer size (this should not happen)");
-					break;
-				}
-				//((int16_t*)p_tx_dat)[0] = 25000; // Real (I)
-				//((int16_t*)p_tx_dat)[1] = 25000; // Imag (Q)
-				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
-				((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
-				p_tx_dat += p_tx_inc;
-			}
-			while (bufferCycleCount < TIMES_TO_SEND_MESSAGE) {
-				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
-					if (verbose)
-						printf("d Sending byte data with 12 bit header to the buffer\n");
-
-					for (int i=11;i>=0;i--) { //send header 12 bits
-						if (p_tx_dat > p_tx_end) {
-							if (verbose)
-								printf("m Error - header was larger than remaining buffer size (this should not happen)");
-							break;
-						}
-						if ((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) {
-							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-							//if (verbose)
-							//	printf("1");
-						} else {
-							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-							//if (verbose)
-							//	printf("0");
-						}
-						//bytesAfterHeaderCounter++;
-						p_tx_dat += p_tx_inc;
-					}
-					//} else {
-						//if (verbose)
-						//	printf(" ");
-
-						//send actual byte
-					for (int bitPlace=7;bitPlace>=0;bitPlace--) {
-						if (p_tx_dat > p_tx_end) {
-							if (verbose)
-								printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
-							break;
-						}
-
-						if ((bytein[bytePayloadIndex] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
-							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-							//if (verbose)
-							//	printf("1");
-						} else {
-							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-							//if (verbose)
-							//	printf("0");
-						}
-						p_tx_dat += p_tx_inc;
-					}
-				}
-				
-				if (binOut) {
-					if (bytesInput < 255)
-						SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
-					else
-						SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
-					fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
-					fflush(stdout);
-				}
-
+			for (int i=0;i<TIMES_TO_SEND_MESSAGE;i++) {
+				p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
+				p_tx_inc = iio_buffer_step(txbuf);
+				p_tx_end = iio_buffer_end(txbuf);
+				activityThisCycle = true;
+				bufferCycleCount = 0;
+				//if (verbose)
+				//	printf("dAdding %ib to Tx buffer:\n",bytesInput);
+				//Send leading "no signal" bytes
+				//for (int i=0;i<510;i++) {
 				for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
 					if (p_tx_dat > p_tx_end) {
 						if (verbose)
 							printf("m Error - header was larger than remaining buffer size (this should not happen)");
 						break;
 					}
-					//((int16_t*)p_tx_dat)[0] = 25000; // Real (I)
-					//((int16_t*)p_tx_dat)[1] = 25000; // Imag (Q)
 					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
 					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
-					p_tx_dat += p_tx_inc;	
+					p_tx_dat += p_tx_inc;
 				}
+				while (bufferCycleCount < TIMES_TO_COPY_MESSAGE) {
+					for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
+						if (verbose)
+							//printf("d Sending byte data with 12 bit header to the buffer\n");
+						for (int i=headerLength;i>=0;i--) { //send header 12 bits
+							if (p_tx_dat > p_tx_end) {
+								if (verbose)
+									printf("m Error - header was larger than remaining buffer size (this should not happen)");
+								break;
+							}
+							if (((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) && !shortHeader) {
+								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+							} else {
+								if (((SHORT_HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) && shortHeader) {
+									((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+									((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+								} else {
+									((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+									((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+								}
+							}
+							//bytesAfterHeaderCounter++;
+							p_tx_dat += p_tx_inc;
+						}
+						//} else {
+							//if (verbose)
+							//	printf(" ");
+
+						//send actual byte
+						for (int bitPlace=7;bitPlace>=0;bitPlace--) {
+							if (p_tx_dat > p_tx_end) {
+								if (verbose)
+									printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
+								break;
+							}
+
+							if ((bytein[bytePayloadIndex] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
+								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+								//if (verbose)
+								//	printf("1");
+							} else {
+								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+								//if (verbose)
+								//	printf("0");
+							}
+							p_tx_dat += p_tx_inc;
+						}
+					}
 				
-				bufferCycleCount++;
-			}
+					if (binOut) {
+						if (bytesInput < 255)
+							SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
+						else
+							SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
+						fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
+						fflush(stdout);
+					}
 
-			while (p_tx_dat < p_tx_end) {
-				//((int16_t*)p_tx_dat)[0] = -25000; // Real (I)
-				//((int16_t*)p_tx_dat)[1] = -25000; // Imag (Q)
-				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
-				((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
-				p_tx_dat += p_tx_inc;
-			}
-			emptyBuffer = false;
+					for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
+						if (p_tx_dat > p_tx_end) {
+							if (verbose)
+								printf("m Error - header was larger than remaining buffer size (this should not happen)");
+							break;
+						}
+						((int16_t*)p_tx_dat)[0] = 0; // Real (I)
+						((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
+						p_tx_dat += p_tx_inc;	
+					}
+					bufferCycleCount++;
+				}
 
-			//FIXME testing
-			//countToClose--;
-			//FIXME testing
-			// Schedule TX buffer
-			nbytes_tx = iio_buffer_push(txbuf);
-			if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
-		} else {
-			if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
+				while (p_tx_dat < p_tx_end) {
+					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
+					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
+					p_tx_dat += p_tx_inc;
+				}
+				emptyBuffer = false;
+
 				//FIXME testing
 				//countToClose--;
 				//FIXME testing
-				
+				// Schedule TX buffer
+				nbytes_tx = iio_buffer_push(txbuf);
+				if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
+				printf("Cycle time: %.3f ms, rx pointer end %p, tx pointer end %p\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,p_rx_end,p_tx_end);
+			}
+		} else {
+			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
+			p_tx_inc = iio_buffer_step(txbuf);
+			p_tx_end = iio_buffer_end(txbuf);
+			if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
+				//FIXME testing
+				//countToClose--;
+				//FIXME testing	
 				while (p_tx_dat < p_tx_end) {
 					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
 					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
@@ -1107,9 +1271,6 @@ int main (int argc, char **argv)
 				emptyBuffer = true;
 			}
 		}
-		
-
-		
 		//FIXME for texting
 		//if (countToClose == 0) {
 		//	shutdown();
