@@ -349,7 +349,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     }
 
     //private final static String PADDING_BYTE = "00112233445566778899";
-    private final static String PADDING_BYTE = "";
+    private final static String PADDING_BYTE = "00000000000000000000";
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
