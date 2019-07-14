@@ -81,7 +81,7 @@ public class SdrUtils {
                 checksum = checksum * FNV_PRIME;
             }
         }
-        return (byte)checksum;
+        return (byte)(checksum & 0xFF);
 
     }
 
