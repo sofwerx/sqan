@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 
 public class SerialConnection extends AbstractDataConnection implements SerialInputOutputManager.Listener {
     private final static String TAG = Config.TAG+".serial";
+    private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
     private final static long DELAY_BEFORE_BLIND_LOGIN = 1000l * 5l;
@@ -50,7 +51,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private Handler handler;
     private Context context;
     private byte[] SDR_START_COMMAND;
-    private ByteBuffer outgoingBuffer = ByteBuffer.allocate(240);
     private final static char HEADER_DATA_PACKET_OUTGOING_CHAR = '*';
     private final static byte HEADER_DATA_PACKET_OUTGOING = (byte) HEADER_DATA_PACKET_OUTGOING_CHAR;
     private final static char HEADER_DATA_PACKET_INCOMING_CHAR = '+';
@@ -67,6 +67,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
+
+    private final static boolean CONCAT_SEGMENT_BURSTS = true; //true == try to send as many segments as possible to the SDR on each write
 
     public final static int TX_GAIN = 10; //Magnitude in (0 to 85dB)
 
@@ -87,11 +89,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         this.username = username;
         this.password = password;
 
-        //FIXME for testing
-        //SDR_START_COMMAND = "cd /sys/bus/iio/devices/iio:device1\ncat out_voltage0_hardwaregain\n".getBytes(StandardCharsets.UTF_8);
-        //SDR_START_COMMAND = "cat /sys/bus/iio/devices/iio:device1/out_voltage0_hardwaregain\n".getBytes(StandardCharsets.UTF_8);
-        //FIXME for testing
-
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
@@ -101,8 +98,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                //+" -minComms"
-                +" -verbose"
+                +" -minComms"
+                //+" -verbose"
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override
@@ -113,6 +110,32 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }
         };
         handlerThread.start();
+    }
+
+    /**
+     * Just used for testing segmenter
+     */
+    public static void testSerialConnection() {
+        SerialConnection conn = new SerialConnection(null,null);
+        conn.runTests();
+    }
+
+    /**
+     * Run tests t check raw data through to digest pathway
+     */
+    private final void runTests() {
+        //byte[] raw1 = StringUtils.toByteArray("085e55121b1520c42d5555574a55555466992cc1583ea69a9ec5555d0d782734989d374ca3d9d55555555555543ea69a59237a4e993194081214205454545414fe545424485454545454545454545454545454545454545454545454545454545454545d0d7827342c75636500000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c121b1520c42d5555555515fed04a55555466992cc1583ea69a9e55555555555555555555555555555555555555555555555d0d7827342474636500314054d9d4545454545454f41414237a319408121420255555555515fed04a55555466992cc1583e5555555555555555555555555555555555555555555555555555555555555d0d7827342c75636500000000000066993140989d54374ca3d9d45454545554543ea69a88f5151459237a4e993195083c5e6255121b155515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555579a88f5151459237a4e9931");
+        byte[] raw2 = StringUtils.toByteArray("000000000000000000000066993140989d553755543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d782736240000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
+        //byte[] raw2 = StringUtils.toByteArray("66993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
+
+
+        //byte[] raw1 = StringUtils.toByteArray("66993160bf9d55374ca3d9d55555555555543ea7a640521514592df67cb37895083c5ff673b440152195d6d5555555147ed04a555554");
+        //byte[] raw2 = StringUtils.toByteArray("66992ce17e3ea7a6515d5555555555555555555555555555555555555555555555555555555555555d0d7827342c756365");
+        //byte[] raw3 = StringUtils.toByteArray("66993100d6ad5508dffe8ad55555555555543ea6c78ae71514592d57ce5ab395083c5ffe21b6021520dd1b55555555151887a755555466992e817a3ea6c7b4855555555555555555555555555555555555555555555555555555555555555f023d3c263e302c756c64");
+
+        //handleRawDatalinkInput(raw1);
+        handleRawDatalinkInput(raw2);
+        //handleRawDatalinkInput(raw3);
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
@@ -193,31 +216,15 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     }
                 }
             }
+            /*ignore for now
             if (sdrAppStatus == SdrAppStatus.RUNNING) {
                 if (USE_BIN_USB_IN) {
                     //ignore for now
                 } else {
                    if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage)) {
-                       //FIXME for testing
-                       //burstPacket(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
-                       /*if (inArow >= 0) {
-                           if (inArow < 4) {
-                               burstPacket(new HeartbeatPacket(Config.getThisDevice(), HeartbeatPacket.DetailLevel.MEDIUM).toByteArray());
-                               inArow++;
-                           } else
-                               inArow = -4;
-                       } else {
-                           if (inArow > -5) {
-                               byte[] TEMP_BYTES = {(byte)0,(byte)0};
-                               burstPacket(TEMP_BYTES);
-                           }
-                           inArow++;
-                       }*/
-                       //write(KEEP_ALIVE_MESSAGE);
-                       //FIXME for testing
                    }
                 }
-            }
+            }*/
 
             if (handler != null)
                 handler.postDelayed(this,TIME_BETWEEN_KEEP_ALIVE_MESSAGES);
@@ -298,7 +305,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     write(segment.toBytes());
                 } else
                     write(toSerialLinkFormat(segment.toBytes()));
-                //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             } else {
                 Log.d(TAG, "This packet is larger than the SerialConnection output, segmenting...");
                 ArrayList<Segment> segments = Segmenter.wrapIntoSegments(cipherData);
@@ -307,13 +313,50 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     return;
                 }
                 byte[] currentSegBytes;
+                ByteBuffer concatted = null;
+                if (CONCAT_SEGMENT_BURSTS) {
+                    concatted = ByteBuffer.allocate(2000);
+                    concatted.clear();
+                }
                 for (Segment segment : segments) {
                     currentSegBytes = segment.toBytes();
-                    if (USE_BIN_USB_IN) {
-                        Log.d(TAG,"Outgoing: "+StringUtils.toHex(currentSegBytes));
-                        write(currentSegBytes);
+                    if (CONCAT_SEGMENT_BURSTS) {
+                        if (concatted.position() + currentSegBytes.length < MAX_BYTES_PER_SEND)
+                            concatted.put(currentSegBytes);
+                        else {
+                            if (concatted.position() > 0) {
+                                currentSegBytes = new byte[concatted.position()];
+                                concatted.flip();
+                                concatted.get(currentSegBytes);
+                                if (USE_BIN_USB_IN) {
+                                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(currentSegBytes));
+                                    write(currentSegBytes);
+                                } else
+                                    write(toSerialLinkFormat(currentSegBytes));
+                                concatted.clear();
+                            }
+                        }
                     } else {
-                        write(toSerialLinkFormat(currentSegBytes));
+                        if (USE_BIN_USB_IN) {
+                            Log.d(TAG, "Outgoing: " + StringUtils.toHex(currentSegBytes));
+                            write(currentSegBytes);
+                        } else {
+                            write(toSerialLinkFormat(currentSegBytes));
+                        }
+                    }
+                }
+                if (CONCAT_SEGMENT_BURSTS) {
+                    //send the last part of the segment
+                    if (concatted.position() > 0) {
+                        currentSegBytes = new byte[concatted.position()];
+                        concatted.flip();
+                        concatted.get(currentSegBytes);
+                        if (USE_BIN_USB_IN) {
+                            Log.d(TAG,"Outgoing: *"+StringUtils.toHex(currentSegBytes));
+                            write(currentSegBytes);
+                        } else
+                            write(toSerialLinkFormat(currentSegBytes));
+                        concatted.clear();
                     }
                 }
 
@@ -855,7 +898,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         private void startSdrApp() {
         if ((sdrAppStatus == SdrAppStatus.NEED_START) || (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)) {
             sdrAppStatus = SdrAppStatus.STARTING;
-            final String message = "Starting SDR companion app";
+            final String message = "Starting SDR companion app (SqANDR)";
             Log.d(TAG,message);
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage(message);

@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 128; //Not to exceed 250 (Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 49; //Not to exceed 250 (Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
@@ -168,7 +168,6 @@ public class Segment {
                 data = null;
                 return;
             }
-            Log.d(TAG,"Segment "+index+" of Packet ID "+((int)packetId)+" successfully parsed"+(isStandAlone()?" stand alone":""));
         } catch (BufferUnderflowException e) {
             Log.w(TAG,"Parsing failed - "+e.getMessage());
         }
@@ -201,14 +200,6 @@ public class Segment {
 
     public boolean isValid() { return (data != null); }
     public boolean isFinalSegment() { return isFinalSegment; }
-
-    /*public static Segment newFinalSegment(byte packetId, int index) {
-        Segment segment = new Segment();
-        segment.packetId = packetId;
-        segment.index = index;
-        segment.isFinalSegment = true;
-        return segment;
-    }*/
 
     public static boolean isAbleToWrapInSingleSegment(byte[] data) {
         if (data == null)

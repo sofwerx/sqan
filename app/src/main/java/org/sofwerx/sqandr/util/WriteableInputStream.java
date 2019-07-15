@@ -24,6 +24,9 @@ public class WriteableInputStream extends InputStream {
         }
     }
 
+    public int getReadPosition() { return readIndex; }
+    public void rewindReadPosition(int position) { readIndex = position; }
+
     public void blockTillData() {
         while (!hasData()) {
             synchronized (blockingSync) {

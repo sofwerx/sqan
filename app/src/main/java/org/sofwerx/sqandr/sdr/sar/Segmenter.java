@@ -21,9 +21,7 @@ public class Segmenter {
     private byte packetId;
     private static AtomicInteger packetIdIndex = new AtomicInteger(0);
 
-    public Segmenter() {
-        this(getNextPacketId());
-    }
+    /*public Segmenter() { this(getNextPacketId()); }*/
 
     public Segmenter(byte packetId) {
         this.packetId = packetId;
@@ -48,11 +46,13 @@ public class Segmenter {
         if (segments == null) {
             segments = new ArrayList<>();
             segments.add(segment);
+            Log.d(TAG,"Added Seg "+segment.getIndex()+" to Packet ID "+packetId+" (first segment)");
         } else {
             Segment other = find(segment.getIndex());
-            if (other == null)
+            if (other == null) {
+                Log.d(TAG,"Added Seg "+segment.getIndex()+" to Packet ID "+packetId);
                 segments.add(segment);
-            else
+            } else
                 Log.d(TAG,"This segment already exists; dropping");
         }
     }

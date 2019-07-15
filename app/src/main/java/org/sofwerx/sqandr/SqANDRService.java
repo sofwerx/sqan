@@ -30,6 +30,7 @@ import org.sofwerx.sqandr.serial.SerialConnection;
 import org.sofwerx.sqandr.util.PermissionsHelper;
 import org.sofwerx.sqandr.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -75,6 +76,11 @@ public class SqANDRService implements DataConnectionListener {
             }
         };
         sdrThread.start();
+
+
+        //FIXME testing
+        //SerialConnection.testSerialConnection();
+        //FIXME testing
     }
 
     public boolean isSdrConnectionRecentlyCongested() {

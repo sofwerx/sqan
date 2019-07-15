@@ -8,6 +8,7 @@ import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.SdrUtils;
+import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
@@ -29,6 +30,7 @@ public abstract class AbstractDataConnection {
     private long nextStaleCheck = Long.MIN_VALUE;
     private ArrayList<Segmenter> segmenters;
     protected long sdrConnectionCongestedUntil = Long.MIN_VALUE;
+    private int lastHeaderBufferIndex = 0; //used to rewind the buffer a bit when a header turns out to produce an invalid packet
     private final static long TIME_CONGESTION_IS_RECENT = 1000l * 5l; //time in ms to consider any congestion marker as recent
 
     //TODO implement the below
@@ -63,16 +65,18 @@ public abstract class AbstractDataConnection {
                     Log.d(TAG,"starting read thread");
                     while(keepGoing.get()) {
                         byte[] out = readPacketData();
-                        if ((out != null) && (listener != null))
-                            listener.onReceiveDataLinkData(out);
-                        else if (listener == null)
-                            Log.d(TAG,"...but ignored as DataConnectionListener in AbstractDataConnection is null");
+                        if (out != null) {
+                            if (listener == null)
+                                Log.d(TAG, "...but ignored as DataConnectionListener in AbstractDataConnection is null");
+                            else
+                                listener.onReceiveDataLinkData(out);
+                        }
                         if (System.currentTimeMillis() > nextStaleCheck) {
                             if ((segmenters != null) && !segmenters.isEmpty()) {
                                 int i=0;
                                 while (i<segmenters.size()) {
                                     if ((segmenters.get(i) == null) || segmenters.get(i).isStale()) {
-                                        Log.d(TAG,"Segment #"+i+" (id "+((int)segmenters.get(i).getPacketId())+") stale, dropping (Segments: "+segmenters.get(i).getParts()+")");
+                                        Log.d(TAG,"Segmenter #"+i+" (Packet ID "+((int)segmenters.get(i).getPacketId())+") stale, dropping (Segments: "+segmenters.get(i).getParts()+")");
                                         segmenters.remove(i);
                                         if (listener != null)
                                             listener.onPacketDropped();
@@ -125,12 +129,42 @@ public abstract class AbstractDataConnection {
     }
 
     private PartialHeaderData readPartialHeader() throws IOException {
-        Log.d(TAG,"readPartialHeader()");
+        //Log.d(TAG,"readPartialHeader()");
         byte[] header = new byte[3];
-        dataBuffer.read(header);
+        header[1] = (byte)0;
+        header[2] = (byte)0;
+
+        int size;
+        int lost = 0;
+        while (keepGoing.get()) {
+            header[0] = header[1];
+            header[1] = header[2];
+            header[2] = (byte)dataBuffer.read();
+            if (Segment.isQuickValidCheck(header)) {
+                //Log.d(TAG,"readPartialHeader() validity test passed");
+                size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
+                lastHeaderBufferIndex = dataBuffer.getReadPosition();
+                return new PartialHeaderData(size,false);
+            } else if (Segment.isQuickInversionValidCheck(header)) {
+                Log.d(TAG,"readPartialHeader() validity test passed, but inverted");
+                size = ~header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
+                lastHeaderBufferIndex = dataBuffer.getReadPosition();
+                return new PartialHeaderData(size,false);
+            } else {
+                lost++;
+                if ((lost % 100) == 0) {
+                    Log.d(TAG, "100b lost with no packet header found");
+                    if (listener != null)
+                        listener.onPacketDropped();
+                }
+            }
+        }
+        return new PartialHeaderData(-1,false);
+
+        /*dataBuffer.read(header);
         int size;
         if (Segment.isQuickValidCheck(header)) {
-            Log.d(TAG,"readPartialHeader() validity test passed");
+            //Log.d(TAG,"readPartialHeader() validity test passed");
             size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
             return new PartialHeaderData(size,false);
         } else if (Segment.isQuickInversionValidCheck(header)) {
@@ -147,7 +181,8 @@ public abstract class AbstractDataConnection {
                 lost++;
                 if ((lost % 100) == 0) {
                     Log.d(TAG, "100b lost as no packet header found");
-                    listener.onPacketDropped();
+                    if (listener != null)
+                        listener.onPacketDropped();
                 }
                 if (dig == Segment.HEADER_MARKER[0]) {
                     dig = (byte)dataBuffer.read();
@@ -155,7 +190,7 @@ public abstract class AbstractDataConnection {
                     if (dig == Segment.HEADER_MARKER[1]) {
                         size = dataBuffer.read() & 0xFF;
                         lost++;
-                        if ((size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
+                        if ((size <= Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
                             Log.d(TAG,lost+"b lost, but new header found");
                             return new PartialHeaderData(size,false);
                         }
@@ -166,7 +201,7 @@ public abstract class AbstractDataConnection {
                     if (dig == Segment.INVERSE_HEADER_MARKER[1]) {
                         size = ~dataBuffer.read() & 0xFF;
                         lost++;
-                        if ((size < Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
+                        if ((size <= Segment.MAX_LENGTH_BEFORE_SEGMENTING) && (size > 0)) {
                             Log.d(TAG,lost+"b lost, but new header found");
                             return new PartialHeaderData(size,true);
                         }
@@ -174,7 +209,7 @@ public abstract class AbstractDataConnection {
                 }
             }
             return new PartialHeaderData(-1,false);
-        }
+        }*/
     }
 
     private Segmenter findSegmenter(byte packetId) {
@@ -200,7 +235,6 @@ public abstract class AbstractDataConnection {
                 segmenters = new ArrayList<>();
             segmenters.add(segmenter);
         } else {
-            Log.d(TAG,"Adding segment "+segment.getIndex()+" to Packet ID "+packetId);
             segmenter.add(segment);
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
@@ -212,33 +246,35 @@ public abstract class AbstractDataConnection {
     }
 
     private byte[] readPacketData() {
-        Log.d(TAG,"readPacketData()");
+        //Log.d(TAG,"readPacketData()");
         if (dataBuffer == null) {
             Log.w(TAG,"dataBuffer is null, ignoring readPacketData()");
             return null;
         }
         try {
             PartialHeaderData headerData = readPartialHeader();
-            if ((headerData.size < 0) || (headerData.size > Segment.MAX_LENGTH_BEFORE_SEGMENTING))
-                throw new IOException("Unable to read packet - invalid size "+headerData.size+"b - this condition should never happen unless the link is shutting down");
-            Log.d(TAG,"packet size "+headerData.size+"b");
+            if ((headerData.size < 0) || (headerData.size > Segment.MAX_LENGTH_BEFORE_SEGMENTING)) {
+                dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
+                throw new IOException("Unable to read packet - invalid size " + headerData.size + "b - this condition should never happen unless the link is shutting down");
+            }
             byte[] rest = new byte[headerData.size+2]; //2 added to get the rest of the header
             dataBuffer.read(rest);
-            Log.d(TAG,"Rest of packet read");
+            //Log.d(TAG,"Rest of packet read");
             if (headerData.inverted) {
-                Log.d(TAG,"..but header was inverted, inverting data...");
+                Log.d(TAG,"Packet header was inverted, inverting data...");
                 rest = SdrUtils.invert(rest);
             }
             Segment segment = new Segment();
             segment.parseRemainder(rest);
             if (segment.isValid()) {
                 if (segment.isStandAlone()) {
-                    Log.d(TAG,"Standalone packet recovered");
+                    Log.d(TAG,"Standalone packet recovered ("+headerData.size+"b)");
                     return Crypto.decrypt(segment.getData());
                 } else
                     handleSegment(segment);
             } else {
-                Log.d(TAG,"readPacketData produced invalid Segment (data was null); dropping");
+                dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
+                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped");
                 if (listener != null)
                     listener.onPacketDropped();
             }
