@@ -84,6 +84,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
     private final static boolean USE_BIN_USB_IN = false; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
+    private final static boolean USE_PLUTO_ONBOARD_FILTER = true;
 
     public SerialConnection(String username, String password) {
         this.username = username;
@@ -95,6 +96,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -txgain "+TX_GAIN
                 +" -transmitRepeat 1"
                 +" -messageRepeat 5"
+                +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
+                //+" -txsrate 4"
+                //+" -rxsrate 4"
+                //+" -rxSize 600"
+                //+" -txSize 600"
                 //+" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
@@ -314,7 +320,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     Log.e(TAG, "There was an unexpected problem that did not produce any segments from this packet");
                     return;
                 } else
-                    Log.d(TAG,"Segmenting "+cipherData+"b into "+segments.size()+" segments");
+                    Log.d(TAG,"Segmenting "+cipherData.length+"b packet into "+segments.size()+" segments");
                 byte[] currentSegBytes;
                 ByteBuffer concatted = null;
                 if (CONCAT_SEGMENT_BURSTS) {
