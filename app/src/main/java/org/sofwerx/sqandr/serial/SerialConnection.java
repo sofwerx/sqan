@@ -93,6 +93,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
+                +" -transmitRepeat 1"
+                +" -messageRepeat 5"
                 //+" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
@@ -311,7 +313,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if ((segments == null) || segments.isEmpty()) {
                     Log.e(TAG, "There was an unexpected problem that did not produce any segments from this packet");
                     return;
-                }
+                } else
+                    Log.d(TAG,"Segmenting "+cipherData+"b into "+segments.size()+" segments");
                 byte[] currentSegBytes;
                 ByteBuffer concatted = null;
                 if (CONCAT_SEGMENT_BURSTS) {
@@ -445,6 +448,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
         handler.post(() -> {
             try {
+                if (port == null)
+                    return;
                 //    ioManager.writeAsync(data);
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
