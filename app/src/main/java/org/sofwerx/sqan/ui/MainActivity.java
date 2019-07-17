@@ -477,7 +477,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
                 manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(this).getString(Config.PREFS_MANET_ENGINE,"4"));
             } catch (NumberFormatException e) {
             }
-            textNetType.setText("Core: "+getResources().getStringArray(R.array.listManetTypes)[manetType-1]);
+            textNetType.setText(" Core: "+getResources().getStringArray(R.array.listManetTypes)[manetType-1]);
         }
     }
 
@@ -727,8 +727,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
             updateManetTypeDisplay();
             updateActiveIndicator();
             updateMainStatus(status);
-            updateOverallMeshHealth();
             updateStatusMarquee();
+            onNodesChanged(null);
         });
     }
 

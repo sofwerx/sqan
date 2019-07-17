@@ -100,8 +100,8 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                         CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct NSD was null, this should never happen. Initializing again...");
                         nsd = new WiFiDirectNSD(WiFiDirectManet.this);
                     }
-                    nsd.startDiscovery(manager,channel);
-                    nsd.startAdvertising(manager, channel,false);
+                    nsd.restartDiscovery(manager,channel);
+                    nsd.restartAdvertising(manager, channel);
                 }
             } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
                 WifiP2pDevice reportedDevice = intent.getParcelableExtra(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE);
@@ -185,7 +185,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     nsd = new WiFiDirectNSD(this);
                 else
                     nsd.stopDiscovery(manager,channel,null);
-                nsd.startAdvertising(manager,channel,true); //TODO trying to test forcing advertising again after connection
+                //nsd.startAdvertising(manager,channel,true); //FIXME testing: trying to test forcing advertising again after connection
             }
             if (socketClient != null) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct switching from Client mode to Server mode...");
@@ -350,6 +350,19 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             socketServer.close(announce);
             CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct socketServer closing...");
             socketServer = null;
+            ArrayList<SqAnDevice> devices = SqAnDevice.getDevices();
+            if (devices != null) {
+                synchronized (devices) {
+                    for (SqAnDevice device:devices) {
+                        if (device.isDirectWiFi() && (device.getRoleWiFi() == SqAnDevice.NodeRole.SPOKE)) {
+                            if (!device.isDirectBt() && (device.getRoleBT() == SqAnDevice.NodeRole.OFF) && (device.getRoleSDR() == SqAnDevice.NodeRole.OFF)) {
+                                device.setRoleWiFi(SqAnDevice.NodeRole.OFF);
+                                CommsLog.log(CommsLog.Entry.Category.CONNECTION,device.getLabel()+" assumed to have lost WiFi connectivity since this device was acting as the WiFi group owner");
+                            }
+                        }
+                    }
+                }
+            }
         }
         Config.getThisDevice().setRoleWiFi(SqAnDevice.NodeRole.OFF);
     }
@@ -412,34 +425,17 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                                         else
                                             CommsLog.log(CommsLog.Entry.Category.COMMS, "Device matching saved teammate " + callsign + " found");
 
-                                        if ((socketClient == null) && (socketServer == null)) {
-                                            if (peer.isGroupOwner())
-                                                connectToDevice(peer);
-                                            else {
-                                                if (thisDevice != null) {
-                                                    if (Util.isHigherPriorityMac(thisDevice.deviceAddress,peer.deviceAddress)) {
-                                                        if (!thisDevice.isGroupOwner())
-                                                            connectToDevice(peer);
-                                                    } else {
-                                                        Log.d(TAG,"The other peer teammate has a higher priority MAC so waiting a bit before attempting connection");
-                                                        if (handler != null) {
-                                                            handler.postDelayed(() -> {
-                                                                if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
-                                                                    connectToDevice(peer);
-                                                            }, DELAY_BEFORE_CONNECTING);
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        if ((socketClient == null) && (socketServer == null))
+                                            connectToDeviceIfAppropriate(peer);
                                         break;
-                                    }
+                                    } else
+                                        CommsLog.log(CommsLog.Entry.Category.CONNECTION,peer.deviceName+" not recognized as a saved teammate");
                                 }
                             } catch (NumberFormatException ignore) {
                             }
                         }
                     }
-                    CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFI Direct found "+peers.size()+" peers");
+                    CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WiFi Direct found "+peers.size()+" peers");
                 }
             }
         } else
@@ -448,6 +444,29 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         if (peers.size() == 0) {
             Log.d(TAG, "No devices found");
             return;
+        }
+    }
+
+    private void connectToDeviceIfAppropriate(WifiP2pDevice device) {
+        if (device == null)
+            return;
+        if (device.isGroupOwner())
+            connectToDevice(device);
+        else {
+            if (thisDevice != null) {
+                if (Util.isHigherPriorityMac(thisDevice.deviceAddress,device.deviceAddress)) {
+                    if (!thisDevice.isGroupOwner())
+                        connectToDevice(device);
+                } else {
+                    Log.d(TAG,"The other peer teammate has a higher priority MAC so waiting a bit before attempting connection");
+                    if (handler != null) {
+                        handler.postDelayed(() -> {
+                            if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
+                                connectToDevice(device);
+                        }, DELAY_BEFORE_CONNECTING);
+                    }
+                }
+            }
         }
     }
 
@@ -528,8 +547,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onDeviceDiscovered(WifiP2pDevice wifiP2pDevice) {
         if (addTeammateIfNeeded(wifiP2pDevice)) {
-            CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+wifiP2pDevice.deviceName+" discovered");
-            connectToDevice(wifiP2pDevice);
+            CommsLog.log(CommsLog.Entry.Category.COMMS,"New teammate "+wifiP2pDevice.deviceName+" discovered");
+            connectToDeviceIfAppropriate(wifiP2pDevice);
+        } else {
+            if (wifiP2pDevice.status == WifiP2pDevice.AVAILABLE) {
+                CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+wifiP2pDevice.deviceName+" discovered and trying to connect...");
+                connectToDeviceIfAppropriate(wifiP2pDevice);
+            }
         }
     }
     @Override
@@ -573,7 +597,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
             if (!teammates.contains(wifiP2pDevice)) {
                 teammates.add(wifiP2pDevice);
                 added = true;
-                CommsLog.log(CommsLog.Entry.Category.STATUS, "teammate "+wifiP2pDevice.deviceName + " discovered ("+((teammates.size()>1)?(teammates.size()+" total teammates)"):"only teammate at this time)"));
+                CommsLog.log(CommsLog.Entry.Category.STATUS, "Teammate "+wifiP2pDevice.deviceName + " discovered and added to current list of teammates ("+((teammates.size()>1)?(teammates.size()+" total teammates)"):"only teammate at this time)"));
             }
         }
         return added;
@@ -626,13 +650,14 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     @Override
     public void onConnectionInfoAvailable(WifiP2pInfo info) {
         if (info != null) {
-            CommsLog.log(CommsLog.Entry.Category.CONNECTION, "WiFi direct group formed " + info.groupFormed + ", Is owner " + info.isGroupOwner);
-            if (info.groupFormed == false) {
+            if (info.groupFormed)
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION, "WiFi direct group formed " + info.groupFormed + ", Is owner " + info.isGroupOwner);
+            else {
                 CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct group formation not yet complete. Waiting a bit before checking again...");
                 handler.postDelayed(() -> {
-                    if ((socketClient == null) && (socketServer == null) && (manager != null) && (channel != null))
-                        manager.requestConnectionInfo(channel,WiFiDirectManet.this);
-                    else
+                    if ((socketClient == null) && (socketServer == null) && (manager != null) && (channel != null)) {
+                        manager.requestConnectionInfo(channel, WiFiDirectManet.this);
+                    } else
                         Log.d(TAG,"Looks like the WiFi group information was resolved, so taking no additional action.");
                 }, DELAY_BEFORE_REQUESTING_CONNECTION_INFO_AGAIN);
             }

@@ -3,6 +3,7 @@ package org.sofwerx.sqandr.sdr.sar;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqandr.util.SdrUtils;
 
 import java.nio.BufferUnderflowException;
@@ -119,7 +120,7 @@ public class Segment {
         out.put(HEADER_MARKER);
         out.put((byte)data.length);
         out.put(getFlags());
-        out.put(SdrUtils.getChecksumV2(data));
+        out.put(NetUtil.getChecksum(data));
         out.put(data);
         return out.array();
     }
@@ -163,8 +164,8 @@ public class Segment {
             data = new byte[size];
             byte checksum = buf.get();
             buf.get(data);
-            if (checksum != SdrUtils.getChecksumV2(data)) {
-                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+SdrUtils.getChecksumV2(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
+            if (checksum != NetUtil.getChecksum(data)) {
+                Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+NetUtil.getChecksum(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
                 data = null;
                 return;
             }

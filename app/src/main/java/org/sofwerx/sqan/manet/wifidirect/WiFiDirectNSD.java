@@ -34,6 +34,7 @@ class WiFiDirectNSD {
      * @param channel
      * @param force restart advertising mode even if it is already running (attempting to address issue with advertising stopping after connections
      */
+
     void startAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, boolean force) {
         if (!isAdvertisingMode || force) {
             Log.d(TAG,"startAdvertising called");
@@ -101,6 +102,22 @@ class WiFiDirectNSD {
         }
     }
 
+    void restartAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel) {
+        if (isAdvertisingMode) {
+            stopAdvertising(manager, channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() { startAdvertising(manager,channel,false); }
+
+                @Override
+                public void onFailure(int reason) {
+                    Log.w(TAG,"Error "+reason+" stopping Advertising, but trying to force Advertising start anyway");
+                    startAdvertising(manager,channel,true);
+                }
+            });
+        } else
+            startAdvertising(manager,channel,false);
+    }
+
     void stopAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
         Log.d(TAG,"stopAdvertising called");
         if (isAdvertisingMode) {
@@ -123,6 +140,23 @@ class WiFiDirectNSD {
                 manager.clearLocalServices(channel,listener);
             CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct Advertising stopped");
         }
+    }
+
+    void restartDiscovery(WifiP2pManager manager, WifiP2pManager.Channel channel) {
+        Log.d(TAG,"Restarting discovery mode...");
+        if (isDiscoveryMode) {
+            stopDiscovery(manager, channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() { startDiscovery(manager,channel); }
+
+                @Override
+                public void onFailure(int reason) {
+                    Log.d(TAG,"Error "+reason+" stopping discovery");
+                    startDiscovery(manager,channel);
+                }
+            });
+        } else
+            startDiscovery(manager,channel);
     }
 
     void stopDiscovery(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
@@ -165,7 +199,7 @@ class WiFiDirectNSD {
                             Config.saveTeammate(uuid, device.deviceAddress, null,null);
                             CommsLog.log(CommsLog.Entry.Category.COMMS,"New teammate discovered");
                         } else
-                            CommsLog.log(CommsLog.Entry.Category.COMMS,"Teammate "+teammate.getLabel()+" discovered");
+                            CommsLog.log(CommsLog.Entry.Category.COMMS, "Teammate " + teammate.getLabel() + " discovered via DNS-SD");
                         /*if ((record.containsKey(FIELD_GROUP_SSID) && record.containsKey(FIELD_GROUP_PASSWORD))) {
                             try {
                                 WiFiGroup group = new WiFiGroup((String) record.get(FIELD_GROUP_SSID), (String) record.get(FIELD_GROUP_PASSWORD));
@@ -178,7 +212,7 @@ class WiFiDirectNSD {
                     } catch (Exception ignore) {
                     }
                 }
-                Log.d(TAG, "SQAN: DnsSdTxtRecord available on " + fullDomain + " : " + record.toString() + ", device " + device.deviceName);
+                Log.d(TAG, "SQAN: DnsSdTxtRecord available on "+fullDomain+" : "+record.toString() + ", device " + device.deviceName);
                 if (listener != null)
                     listener.onDeviceDiscovered(device);
             } else
@@ -187,7 +221,7 @@ class WiFiDirectNSD {
     };
 
     private WifiP2pManager.DnsSdServiceResponseListener servListener = (instanceName, registrationType, device) -> {
-        //TODO
+        //ignoring for now since a DnsSdTxtRecord should also be delivered and will provide the device SqAN UUID needed to connect
         Log.d(TAG, "Service Available " + instanceName+": "+device.deviceName+", but no action taken in WifiP2pManager.DnsSdServiceResponseListener");
     };
 }

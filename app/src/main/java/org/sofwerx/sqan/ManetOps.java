@@ -471,9 +471,11 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         if (handler != null)
             handler.post(() -> {
                 evaluateMeshStatus();
-                if (sqAnService.listener != null)
-                    sqAnService.listener.onNodesChanged(device);
-                sqAnService.notifyStatusChange(null);
+                if (sqAnService != null) {
+                    if (sqAnService.listener != null)
+                        sqAnService.listener.onNodesChanged(device);
+                    sqAnService.notifyStatusChange(null);
+                }
             });
     }
 

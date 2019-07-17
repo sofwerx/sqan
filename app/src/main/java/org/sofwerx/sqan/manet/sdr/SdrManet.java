@@ -195,10 +195,13 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
 
     @Override
     public void onSdrReady(boolean isReady) {
-        if (isReady)
+        if (isReady) {
             setStatus(Status.CONNECTED);
-        else
+            Config.getThisDevice().setRoleSDR(SqAnDevice.NodeRole.BOTH);
+        } else {
             setStatus(Status.OFF);
+            Config.getThisDevice().setRoleSDR(SqAnDevice.NodeRole.OFF);
+        }
     }
 
     @Override

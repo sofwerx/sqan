@@ -8,6 +8,8 @@ import org.sofwerx.sqan.SavedTeammate;
 import org.sofwerx.sqan.ipc.BftDevice;
 import org.sofwerx.sqan.manet.common.issues.AbstractCommsIssue;
 import org.sofwerx.sqan.manet.common.issues.PacketDropIssue;
+import org.sofwerx.sqan.manet.common.issues.WiFiConnectivityIssue;
+import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SqAnDevice {
     private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static long TIME_TO_STALE = 1000l * 60l;
-    private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
+    //private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
     private final static int MAX_LATENCY_HISTORY = 100; //the max number of latency records to keep
     public final static int UNASSIGNED_UUID = Integer.MIN_VALUE;
     public final static int BROADCAST_IP = AddressUtil.getSqAnVpnIpv4Address(PacketHeader.BROADCAST_ADDRESS);
@@ -53,6 +55,7 @@ public class SqAnDevice {
     private DeviceSummary uiSummary = null;
     private NodeRole roleWiFi = NodeRole.OFF;
     private NodeRole roleBT = NodeRole.OFF;
+    private NodeRole roleSDR = NodeRole.OFF;
     private int hopsAway = 0;
     private boolean directBt = false;
     private boolean directWiFi = false;
@@ -1514,6 +1517,12 @@ public class SqAnDevice {
         if (this.roleWiFi != roleWiFi) {
             CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi role now "+roleWiFi.name());
             this.roleWiFi = roleWiFi;
+            if (roleWiFi == NodeRole.OFF) {
+                addIssue(new WiFiConnectivityIssue());
+                staleRolesCheck();
+                if (uiSummary != null)
+                    uiSummary.update(this);
+            }
         }
     }
 
@@ -1531,7 +1540,25 @@ public class SqAnDevice {
         if (this.roleBT != roleBT) {
             CommsLog.log(CommsLog.Entry.Category.STATUS,"Bluetooth role now "+roleBT.name());
             this.roleBT = roleBT;
+            if (roleBT == NodeRole.OFF)
+                staleRolesCheck();
         }
+    }
+
+    public NodeRole getRoleSDR() { return roleSDR; }
+
+    public void setRoleSDR(NodeRole roleSDR) {
+        if (this.roleSDR != roleSDR) {
+            CommsLog.log(CommsLog.Entry.Category.STATUS,"SDR role now "+roleSDR.name());
+            this.roleSDR = roleSDR;
+            if (roleSDR == NodeRole.OFF)
+                staleRolesCheck();
+        }
+    }
+
+    private void staleRolesCheck() {
+        if ((roleWiFi == NodeRole.OFF) && (roleBT == NodeRole.OFF) && (roleSDR == NodeRole.OFF))
+            setStatus(Status.STALE);
     }
 
     /**

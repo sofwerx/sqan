@@ -19,6 +19,7 @@ import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.Crypto;
@@ -94,20 +95,20 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
-                +" -transmitRepeat 1"
-                +" -messageRepeat 5"
-                +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
+                //+" -transmitRepeat 1"
+                //+" -messageRepeat 5"
+                //FIXME +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
                 //+" -txsrate 4"
                 //+" -rxsrate 4"
                 //+" -rxSize 600"
                 //+" -txSize 600"
-                //+" -shortHeader -useTiming -timingInterval 4 -messageRepeat 10" //TODO for testing
                 //+" -header" //this flag is now implemented by default in SqANDR
                 //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
                 //+" -verbose"
+                +" -txsrate 1 -rxsrate 1 -fir" //TODO for testing
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override

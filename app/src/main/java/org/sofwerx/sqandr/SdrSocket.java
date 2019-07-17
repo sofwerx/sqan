@@ -5,6 +5,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqandr.util.SdrUtils;
 
 import java.io.IOException;
@@ -110,7 +111,7 @@ public class SdrSocket {
             //Log.d(TAG,getLogHeader()+" readPacketData() looking for "+size+"b payload");
             inStream.read(data);
             byte checksum = (byte)inStream.read();
-            byte calculatedChecksum = SdrUtils.getChecksumV2(data);
+            byte calculatedChecksum = NetUtil.getChecksum(data);
             if (checksum != calculatedChecksum) {
                 if (sqANDRService != null)
                     sqANDRService.onPacketDropped();
@@ -182,7 +183,7 @@ public class SdrSocket {
                 //outStream.write(ALIGNMENT_BYTE_D);
                 outStream.write(length);
                 outStream.write(data);
-                byte checksum = SdrUtils.getChecksumV2(data);
+                byte checksum = NetUtil.getChecksum(data);
                 outStream.write(checksum);
                 lastConnectOutbound = System.currentTimeMillis();
             } catch (IOException e) {
