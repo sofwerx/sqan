@@ -343,6 +343,20 @@ public class Config {
         return null;
     }
 
+    public static SavedTeammate getTeammateByWiFiMac(MacAddress mac) {
+        if (mac != null) {
+            if (savedTeammates != null) {
+                synchronized (savedTeammates) {
+                    for (SavedTeammate teammate : savedTeammates) {
+                        if (mac.isEqual(teammate.getWiFiDirectMac()))
+                            return teammate;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     public static SavedTeammate getTeammate(String netID) {
         if (netID == null)
             return null;

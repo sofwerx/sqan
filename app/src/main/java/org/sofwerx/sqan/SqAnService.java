@@ -638,6 +638,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         if (StatusHelper.isNotificationWarranted(lastNotifiedStatus, status)) {
             lastNotifiedStatus = status;
             notifyStatusChange(message);
+            if (listener != null)
+                listener.onStatus(status);
         }
     }
 

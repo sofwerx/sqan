@@ -34,6 +34,9 @@ public class Util {
 
             case WifiP2pDevice.CONNECTED:
                 return "Connected";
+
+            case WifiP2pDevice.UNAVAILABLE:
+                return "Unavailable";
         }
         return "unknown";
     }

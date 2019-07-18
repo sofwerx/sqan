@@ -92,11 +92,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         this.password = password;
 
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                //FIXME +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
-                //FIXME +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
+                +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
+                +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
-                //+" -transmitRepeat 1"
-                //+" -messageRepeat 5"
+                +" -transmitRepeat 3"
+                +" -messageRepeat 5"
                 //FIXME +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
                 //+" -txsrate 4"
                 //+" -rxsrate 4"
@@ -108,7 +108,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
                 //+" -verbose"
-                +" -txsrate 1 -rxsrate 1 -fir" //TODO for testing
+                //+" -txsrate 1 -rxsrate 1 -fir" //TODO for testing
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override

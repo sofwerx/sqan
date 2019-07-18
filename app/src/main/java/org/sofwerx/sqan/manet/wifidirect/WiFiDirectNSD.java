@@ -199,7 +199,8 @@ class WiFiDirectNSD {
                             Config.saveTeammate(uuid, device.deviceAddress, null,null);
                             CommsLog.log(CommsLog.Entry.Category.COMMS,"New teammate discovered");
                         } else
-                            CommsLog.log(CommsLog.Entry.Category.COMMS, "Teammate " + teammate.getLabel() + " discovered via DNS-SD");
+                            CommsLog.log(CommsLog.Entry.Category.COMMS, "Teammate " + teammate.getLabel() + "(" + device.deviceAddress + ") discovered via DNS-SD");
+                        teammate.setWiFiDirectMac(device.deviceAddress);
                         /*if ((record.containsKey(FIELD_GROUP_SSID) && record.containsKey(FIELD_GROUP_PASSWORD))) {
                             try {
                                 WiFiGroup group = new WiFiGroup((String) record.get(FIELD_GROUP_SSID), (String) record.get(FIELD_GROUP_PASSWORD));
@@ -212,7 +213,7 @@ class WiFiDirectNSD {
                     } catch (Exception ignore) {
                     }
                 }
-                Log.d(TAG, "SQAN: DnsSdTxtRecord available on "+fullDomain+" : "+record.toString() + ", device " + device.deviceName);
+                Log.d(TAG, "SQAN: DnsSdTxtRecord available on "+fullDomain+" : "+record.toString() + ", device " + ((device.deviceName==null)?device.deviceAddress:device.deviceName));
                 if (listener != null)
                     listener.onDeviceDiscovered(device);
             } else

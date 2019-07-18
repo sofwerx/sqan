@@ -12,6 +12,7 @@ public class SavedTeammate {
     private String netID; //network ID is transient and should not be persisted
     private long lastContact;
     private MacAddress bluetoothMac;
+    private MacAddress wifiDirectMac; //do not persist as this is a local ID and may be different with different channels
     private String btName;
     private PairingStatus btPaired = PairingStatus.UNKNOWN;
     private boolean enabled = true;
@@ -79,6 +80,11 @@ public class SavedTeammate {
             return netID;
         return "unknown";
     }
+
+    public MacAddress getWiFiDirectMac() { return wifiDirectMac; }
+
+    public void setWiFiDirectMac(MacAddress wifiDirectMac) { this.wifiDirectMac = wifiDirectMac; }
+    public void setWiFiDirectMac(String mac) { wifiDirectMac = MacAddress.build(mac); }
 
     private enum PairingStatus {PAIRED,NOT_PAIRED,UNKNOWN}
 
