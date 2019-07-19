@@ -5,7 +5,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import java.net.InetAddress;
 
 public interface ServerStatusListener {
-    void onServerBacklistClient(InetAddress address);
+    void onServerBlacklistClient(InetAddress address);
 
     /**
      * A recovereable error was encountered

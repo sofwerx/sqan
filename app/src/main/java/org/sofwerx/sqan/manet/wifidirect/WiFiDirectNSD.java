@@ -102,22 +102,6 @@ class WiFiDirectNSD {
         }
     }
 
-    void restartAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel) {
-        if (isAdvertisingMode) {
-            stopAdvertising(manager, channel, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() { startAdvertising(manager,channel,false); }
-
-                @Override
-                public void onFailure(int reason) {
-                    Log.w(TAG,"Error "+reason+" stopping Advertising, but trying to force Advertising start anyway");
-                    startAdvertising(manager,channel,true);
-                }
-            });
-        } else
-            startAdvertising(manager,channel,false);
-    }
-
     void stopAdvertising(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
         Log.d(TAG,"stopAdvertising called");
         if (isAdvertisingMode) {
@@ -139,24 +123,8 @@ class WiFiDirectNSD {
             } else
                 manager.clearLocalServices(channel,listener);
             CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFi Direct Advertising stopped");
-        }
-    }
-
-    void restartDiscovery(WifiP2pManager manager, WifiP2pManager.Channel channel) {
-        Log.d(TAG,"Restarting discovery mode...");
-        if (isDiscoveryMode) {
-            stopDiscovery(manager, channel, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() { startDiscovery(manager,channel); }
-
-                @Override
-                public void onFailure(int reason) {
-                    Log.d(TAG,"Error "+reason+" stopping discovery");
-                    startDiscovery(manager,channel);
-                }
-            });
-        } else
-            startDiscovery(manager,channel);
+        } else if (listener != null)
+            listener.onSuccess();
     }
 
     void stopDiscovery(WifiP2pManager manager, WifiP2pManager.Channel channel, WifiP2pManager.ActionListener listener) {
@@ -179,7 +147,8 @@ class WiFiDirectNSD {
                         });
             else
                 manager.clearServiceRequests(channel, listener);
-        }
+        } else if (listener != null)
+            listener.onSuccess();
     }
 
     private WifiP2pManager.DnsSdTxtRecordListener txtListener = new WifiP2pManager.DnsSdTxtRecordListener() {

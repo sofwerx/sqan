@@ -70,6 +70,7 @@ public class SqAnDevice {
     private final static int MAX_ISSUES_LOG = 20;
     private ArrayList<AbstractCommsIssue> issues;
     private int packetsDropped = 0;
+    private MacAddress directMac;
     private MacAddress awareMac;
     private Inet6Address awareServerIp;
     //private boolean awareServer = false;
@@ -556,6 +557,8 @@ public class SqAnDevice {
     public Inet6Address getAwareServerIp() { return awareServerIp; }
 
     public void clearAwareServerIp() { awareServerIp = null; }
+
+    public void setWiFiDirectMac(MacAddress mac) { directMac = mac; }
 
     public enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
@@ -1314,6 +1317,30 @@ public class SqAnDevice {
             synchronized (devices) {
                 for (SqAnDevice device : devices) {
                     if ((device != null) && (mac.isEqual(device.bluetoothMac)))
+                        return device;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Finds a device in the list of devices based on WiFi Direct MAC
+     * @param mac WiFi Direct MAC
+     * @return the device (or null if not found)
+     */
+    public static SqAnDevice findByWiFiDirectMac(String mac) { return findByWiFiDirectMac(MacAddress.build(mac)); }
+
+    /**
+     * Finds a device in the list of devices based on WiFi Direct MAC
+     * @param mac WiFi Direct MAC
+     * @return the device (or null if not found)
+     */
+    public static SqAnDevice findByWiFiDirectMac(MacAddress mac) {
+        if ((mac != null) && (devices != null) && !devices.isEmpty()) {
+            synchronized (devices) {
+                for (SqAnDevice device : devices) {
+                    if ((device != null) && (mac.isEqual(device.directMac)))
                         return device;
                 }
             }

@@ -724,7 +724,7 @@ public class WiFiAwareManet extends AbstractManet implements ServerStatusListene
     /*******************/
 
     @Override
-    public void onServerBacklistClient(InetAddress address) {
+    public void onServerBlacklistClient(InetAddress address) {
         if (address != null) {
             CommsLog.log(CommsLog.Entry.Category.PROBLEM,"WiFi Direct Server blacklisted "+address.toString());
         }

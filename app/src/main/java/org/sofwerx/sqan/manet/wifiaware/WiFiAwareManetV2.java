@@ -495,7 +495,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     }
 
     @Override
-    public void onServerBacklistClient(InetAddress address) {
+    public void onServerBlacklistClient(InetAddress address) {
         //TODO
     }
 

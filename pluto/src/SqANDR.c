@@ -435,6 +435,7 @@ int main (int argc, char **argv){
 	int cyclesToHeartbeat = HEARTBEAT_INTERVAL;
 	int timingInterval = 20;
 	int headerLength = 11;
+	int bufferSendCount = 0;
 	//const int BYTES_AFTER_HEADER = 1; //not tested - for sending multiple bytes per header
 	//int bytesAfterHeaderCounter = 0;
 	unsigned short tempHeader = (unsigned short)0;
@@ -443,6 +444,7 @@ int main (int argc, char **argv){
 	bool isSignalInverted = false;
 	bool timingFound = false;
 	int bytesSentThisLine = 0;
+	int gainTypeVal = 2;
 	//struct timespec start, end; //used to measure elapsed time
 	bool testDataSent = false;
 	bool superVerbose = false;
@@ -450,6 +452,7 @@ int main (int argc, char **argv){
 	bool binIn = false;
 	bool inNonBlock = true;
 	bool binOut = false;
+	bool firstCycle = true;
 
 	
 	//int emptyBuffersSent = 0;
@@ -467,8 +470,8 @@ int main (int argc, char **argv){
 	char cmd2[40] = "";
 	char cdcmd[40] = "";
 	char chgain[40] = "";
-	char gaintype1[40] = "";
-	char gaintype2[40] = "";
+	char gaintype1[60] = "";
+	char gaintype2[60] = "";
 	float rxf = 0.0; //assigned rX freq (if any)
 	float rxb = 0.0; //assigned rX bandwidth (if any)
 	float rxsr = 0.0; //assigned rX sample rate (if any)
@@ -494,7 +497,7 @@ int main (int argc, char **argv){
 				pt = 7;
 			} else if (strcmp("-txgain",argv[j]) == 0) {
 				pt = 8;
-			} else if (strcmp("-multiSample",argv[j]) == 0) {
+			} else if (strcmp("-rxtype",argv[j]) == 0) {
 				pt = 9;
 			} else if (strcmp("-messageRepeat",argv[j]) == 0) {
 				pt = 10;
@@ -560,6 +563,7 @@ int main (int argc, char **argv){
 				printf(" -fir = runs with FIR filtering and possible lower sample rates\n");
 				printf(" -noHeader = reports all data, not just samples that include the SqAN header\n");
 				printf(" -useTiming = checks for headers on predefined intervals after SQaN header is found\n");
+				printf(" -rxtype = Sets rx gain type. 1 = Slow Attack, 2 = Hybrid, 3 = Fast Attack. Default: 2\n");
 				printf(" -timingInterval = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
 				printf(" -messageRepeat = Designates number of times to repeat packet and concatenate. Default: 5\n");
 				printf(" -transmitRepeat = Designates number of times to repeat packet transmission. Default: 7\n");
@@ -593,7 +597,6 @@ int main (int argc, char **argv){
 						case 5:
 							rxsr = val;
 							break;
-							
 						case 6:
 							txb = val;
 							break;
@@ -604,6 +607,9 @@ int main (int argc, char **argv){
 							
 						case 8:
 							txgain = val;
+							break;
+						case 9:
+							gainTypeVal = val;
 							break;
 						case 10:
 							TIMES_TO_COPY_MESSAGE = val;
@@ -713,11 +719,23 @@ int main (int argc, char **argv){
 	} else
 		txcfg.lo_hz = MHZ(DEFAULT_FREQ); // Tx freq
 	txcfg.rfport = "A"; // port A (select for rf freq.)
-
-	strcat(gaintype1, "echo hybrid > in_voltage0_gain_control_mode");
-	system(gaintype1);
-	strcat(gaintype2, "echo hybrid > in_voltage1_gain_control_mode");
-	system(gaintype2);
+	
+	if (gainTypeVal == 1) {
+		strcat(gaintype1, "echo slow_attack > in_voltage0_gain_control_mode");
+		strcat(gaintype2, "echo slow_attack > in_voltage1_gain_control_mode");
+		system(gaintype1);
+		system(gaintype2);
+	} else if (gainTypeVal == 2) {
+		strcat(gaintype1, "echo hybrid > in_voltage0_gain_control_mode");
+		strcat(gaintype2, "echo hybrid > in_voltage1_gain_control_mode");
+		system(gaintype1);
+		system(gaintype2);
+	} else if (gainTypeVal == 3) {
+		strcat(gaintype1, "echo fast_attack > in_voltage0_gain_control_mode");
+		strcat(gaintype2, "echo fast_attack > in_voltage1_gain_control_mode");
+		system(gaintype1);
+		system(gaintype2);
+	}
 		
 	if (verbose)
 		printf("d Acquiring AD9361 streaming devices\n");
@@ -762,7 +780,7 @@ int main (int argc, char **argv){
 	char* membuf[20*1200];
 
 		
-	iio_buffer_set_blocking_mode(txbuf,true);
+	iio_buffer_set_blocking_mode(txbuf,false);
 
 	p_tx_inc = iio_buffer_step(txbuf);
 	p_tx_end = iio_buffer_end(txbuf);
@@ -1068,40 +1086,6 @@ int main (int argc, char **argv){
 			/**
 			 * Blocking hex input
 			 */
-			/*if (diagnostics) {
-				if (testCounter < 16) {
-					if (testCounter == 3) {
-						hexin[0] = '*';
-						int i=1;
-						int size = (int)(sizeof(TEST_CHARS)/sizeof(TEST_CHARS[0]));
-						while (i<=size) {
-							hexin[i]=TEST_CHARS[i-1];
-							i++;
-						}
-						hexin[i] = '\n';
-						i++;
-						hexin[i] = '\0';
-						printf("Diagnostic test is sending Test Message for transmission: %s\nd Enter key to continue\n",hexin);
-						testDataSent = true;
-					} else {
-						if (testDataSent)
-							printf("Diagnostic test is listening for last transmission\n");
-						else
-							printf("Diagnostic test is just listening for noise on the line\n");
-						hexin[0] = '\n';
-						hexin[1] = '\0';
-					}
-				} else {
-					hexin[0] = 'e';
-					hexin[1] = '\n';
-					hexin[2] = '\0';
-				}
-				if (binaryTestPattern)
-					printf("Input: 0100 repeating\n");
-				else
-					printf("Input: %s",hexin);
-				testCounter++;
-			} else { */
 				if (listenOnlyMode) {
 					hexin[0] = '\n';
 					hexin[1] = '\0';
@@ -1131,21 +1115,6 @@ int main (int argc, char **argv){
 						hexchar[0] = hexin[hex];
 						hexchar[1] = hexin[hex + 1];
 						bytein[cl] = hexToBin(hexchar);
-						/*if (verbose && diagnostics && !binaryTestPattern) {
-							printf("Current hex: %c%c = ",hexchar[0],hexchar[1]);
-
-							unsigned char asBytes = hexToBin(hexchar);
-							for (int i=0;i<8;i++) {
-								if ((asBytes & MOST_SIG_BIT) == MOST_SIG_BIT)
-									printf("1");
-								else
-									printf("0");
-								asBytes = asBytes << 1;
-							}
-
-							printf(" = %d",(unsigned int)bytein[cl]);
-							printf("\n");
-						}*/
 						cl++;
 						hex += 2;
 					}
@@ -1157,13 +1126,13 @@ int main (int argc, char **argv){
 		/**
 		 * Sending the INPUT to the Tx Buffer
 		 */
-		//bytesAfterHeaderCounter = 0;
 		if (bytesInput > 0) { //ignore if there's nothing to send
 			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 			p_tx_inc = iio_buffer_step(txbuf);
 			p_tx_end = iio_buffer_end(txbuf);
 			activityThisCycle = true;
 			bufferCycleCount = 0;
+			bufferSendCount = 0;
 			//if (verbose)
 			//	printf("dAdding %ib to Tx buffer:\n",bytesInput);
 			//Send leading "no signal" bytes
@@ -1257,16 +1226,16 @@ int main (int argc, char **argv){
 			}
 			emptyBuffer = false;
 
-			//FIXME testing
-			//countToClose--;
-			//FIXME testing
 			// Schedule TX buffer
 			memcpy(membuf, txbuf, 1200*20);
-			for (int i=0;i<TIMES_TO_SEND_MESSAGE;i++) {
+			nbytes_tx = iio_buffer_push(txbuf);
+			bufferSendCount++;
+			firstCycle = false;
+		} else if ((bufferSendCount < (TIMES_TO_SEND_MESSAGE)) && (!firstCycle)) {
 				memcpy(txbuf, membuf, 1200*20);
 				nbytes_tx = iio_buffer_push(txbuf);
 				if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
-			}
+				bufferSendCount++;
 		} else {
 			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 			p_tx_inc = iio_buffer_step(txbuf);

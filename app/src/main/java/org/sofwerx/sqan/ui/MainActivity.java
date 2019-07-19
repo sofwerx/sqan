@@ -316,6 +316,8 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     private void checkForTeammateIssues() {
         if (nagAboutIncompleteSetup && Config.isWarnIncompleteEnabled()) {
             nagAboutIncompleteSetup = false;
+            if ((sqAnService != null) && (sqAnService.isOnlySdr()))
+                return;
 
             //check for missing teammate info
             ArrayList<SavedTeammate> teammates = Config.getSavedTeammates();

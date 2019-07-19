@@ -339,7 +339,7 @@ public class ClientHandler {
 
             BLACKLIST_MAP.put(address.getAddress(), System.currentTimeMillis());
             if (listener != null)
-                listener.onServerBacklistClient(address.getAddress());
+                listener.onServerBlacklistClient(address.getAddress());
             closeClient();
             throw new BlacklistException();
         } catch (BlacklistException ex) {

@@ -95,11 +95,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 //FIXME +" -txgain "+TX_GAIN
-                +" -transmitRepeat 3"
-                +" -messageRepeat 5"
-                //FIXME +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
-                //+" -txsrate 4"
-                //+" -rxsrate 4"
+                //+" -transmitRepeat 1"
+                //+" -messageRepeat 8"
+                +(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
+                //+" -txsrate 1"
+                //+" -rxsrate 1"
                 //+" -rxSize 600"
                 //+" -txSize 600"
                 //+" -header" //this flag is now implemented by default in SqANDR

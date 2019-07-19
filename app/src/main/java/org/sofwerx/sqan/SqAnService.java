@@ -185,7 +185,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
             requestHeartbeat();
             if (System.currentTimeMillis() > nextDevicesCleanup) {
                 nextDevicesCleanup = System.currentTimeMillis() + INTERVAL_BETWEEN_DEVICES_CLEANUP;
-                SqAnDevice mergedDevice = SqAnDevice.dedup();
+                SqAnDevice.dedup();
                 checkForStaleDevices();
             }
             if (System.currentTimeMillis() > nextHealthCheck)
@@ -684,6 +684,18 @@ public class SqAnService extends Service implements LocationService.LocationUpda
 
     public void setVpnService(SqAnVpnService sqAnVpnService) {
         vpnService = sqAnVpnService;
+    }
+
+    /**
+     * Does this MANET only use SDRs
+     * @return
+     */
+    public boolean isOnlySdr() {
+        if (manetOps != null) {
+            if (manetOps.isSdrManetSelected())
+                return !manetOps.isBtManetSelected() && !manetOps.isWiFiDirectManetSelected() && !manetOps.isWiFiAwareManetSelected();
+        }
+        return false;
     }
 
     public class SqAnServiceBinder extends Binder {

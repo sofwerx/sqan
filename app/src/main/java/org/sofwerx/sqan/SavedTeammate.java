@@ -12,7 +12,7 @@ public class SavedTeammate {
     private String netID; //network ID is transient and should not be persisted
     private long lastContact;
     private MacAddress bluetoothMac;
-    private MacAddress wifiDirectMac; //do not persist as this is a local ID and may be different with different channels
+    private MacAddress wifiDirectMac;
     private String btName;
     private PairingStatus btPaired = PairingStatus.UNKNOWN;
     private boolean enabled = true;
@@ -47,6 +47,11 @@ public class SavedTeammate {
             sb.append("UNKNOWN");
         else
             sb.append(bluetoothMac.toString());
+        sb.append(", WiFi Direct MAC: ");
+        if ((wifiDirectMac == null) || !wifiDirectMac.isValid())
+            sb.append("UNKNOWN");
+        else
+            sb.append(wifiDirectMac.toString());
         if (btPaired != null) {
             sb.append(",BT pairing ");
             sb.append(btPaired.name());
@@ -74,6 +79,8 @@ public class SavedTeammate {
             return btName;
         if (sqAnAddress > 0)
             return Integer.toString(sqAnAddress);
+        if ((wifiDirectMac != null) && wifiDirectMac.isValid())
+            return wifiDirectMac.toString();
         if ((bluetoothMac != null) && bluetoothMac.isValid())
             return bluetoothMac.toString();
         if ((netID != null) && (netID.length() > 1))
@@ -106,6 +113,8 @@ public class SavedTeammate {
             netID = other.netID;
         if (other.bluetoothMac != null)
             bluetoothMac = other.bluetoothMac;
+        if (other.wifiDirectMac != null)
+            wifiDirectMac = other.wifiDirectMac;
         enabled = other.enabled;
         if (other.btName != null)
             btName = other.btName;
@@ -131,6 +140,8 @@ public class SavedTeammate {
             obj.putOpt("btname",btName);
             if (bluetoothMac != null)
                 obj.put("btMac",bluetoothMac.toString());
+            if (wifiDirectMac != null)
+                obj.put("wifiMac",wifiDirectMac.toString());
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -143,8 +154,8 @@ public class SavedTeammate {
             netID = obj.optString("netID");
             sqAnAddress = obj.optInt("sqAnAddress", PacketHeader.BROADCAST_ADDRESS);
             lastContact = obj.optLong("lastContact",Long.MIN_VALUE);
-            String bluetoothMacString = obj.optString("btMac",null);
-            bluetoothMac = MacAddress.build(bluetoothMacString);
+            bluetoothMac = MacAddress.build(obj.optString("btMac",null));
+            wifiDirectMac = MacAddress.build(obj.optString("wifiMac",null));
             btName = obj.optString("btname",null);
             enabled = obj.optBoolean("enabled");
             if ((callsign != null) && (callsign.length() == 0))
@@ -182,6 +193,8 @@ public class SavedTeammate {
             same = (other.sqAnAddress == sqAnAddress);
         if ((other.bluetoothMac != null) && (bluetoothMac != null))
             same = same || other.bluetoothMac.isEqual(bluetoothMac);
+        if ((other.wifiDirectMac != null) && (wifiDirectMac != null))
+            same = same || other.wifiDirectMac.isEqual(wifiDirectMac);
         if ((other.netID != null) && (other.netID.length() > 1) && (netID != null) && (netID.length() > 1))
             same = same || other.netID.equalsIgnoreCase(netID);
         return same;
