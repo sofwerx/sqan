@@ -16,10 +16,8 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
-import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.Crypto;
@@ -34,7 +32,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-public class SerialConnection extends AbstractDataConnection implements SerialInputOutputManager.Listener {
+/**
+ * Test version of the SerialConnection class for configuration testing of SQANDR
+ */
+public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener {
     private final static String TAG = Config.TAG+".Serial";
     private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
@@ -44,8 +45,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private UsbSerialPort port;
     private SerialInputOutputManager ioManager;
     //private SerialListener listener;
-    private String username;
-    private String password;
+    private final String username = "root";
+    private final String password = "analog";
     private LoginStatus status = LoginStatus.NEED_CHECK_LOGIN_STATUS;
     private SdrAppStatus sdrAppStatus = SdrAppStatus.OFF;
     private HandlerThread handlerThread;
@@ -84,29 +85,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
     private final static boolean USE_BIN_USB_IN = false; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
-    private final static boolean USE_PLUTO_ONBOARD_FILTER = true;
 
-    public SerialConnection(String username, String password) {
-        this.username = username;
-        this.password = password;
-
+    public SerialConnectionTest(String commands) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
-                +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
-                //FIXME +" -txgain "+TX_GAIN
-                //+" -transmitRepeat 1"
-                //+" -messageRepeat 8"
-                //+(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
-                //+" -txsrate 1"
-                //+" -rxsrate 1"
-                //+" -rxSize 600"
-                //+" -txSize 600"
-                //+" -header" //this flag is now implemented by default in SqANDR
-                //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
-                +" -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 2500 -rxSize 5200 -rxtype 3" //TODO for testing
+                +((commands==null)?"":commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override
@@ -117,32 +102,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }
         };
         handlerThread.start();
-    }
-
-    /**
-     * Just used for testing segmenter
-     */
-    public static void testSerialConnection() {
-        SerialConnection conn = new SerialConnection(null,null);
-        conn.runTests();
-    }
-
-    /**
-     * Run tests t check raw data through to digest pathway
-     */
-    private final void runTests() {
-        //byte[] raw1 = StringUtils.toByteArray("085e55121b1520c42d5555574a55555466992cc1583ea69a9ec5555d0d782734989d374ca3d9d55555555555543ea69a59237a4e993194081214205454545414fe545424485454545454545454545454545454545454545454545454545454545454545d0d7827342c75636500000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c121b1520c42d5555555515fed04a55555466992cc1583ea69a9e55555555555555555555555555555555555555555555555d0d7827342474636500314054d9d4545454545454f41414237a319408121420255555555515fed04a55555466992cc1583e5555555555555555555555555555555555555555555555555555555555555d0d7827342c75636500000000000066993140989d54374ca3d9d45454545554543ea69a88f5151459237a4e993195083c5e6255121b155515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555579a88f5151459237a4e9931");
-        byte[] raw2 = StringUtils.toByteArray("000000000000000000000066993140989d553755543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d782736240000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
-        //byte[] raw2 = StringUtils.toByteArray("66993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
-
-
-        //byte[] raw1 = StringUtils.toByteArray("66993160bf9d55374ca3d9d55555555555543ea7a640521514592df67cb37895083c5ff673b440152195d6d5555555147ed04a555554");
-        //byte[] raw2 = StringUtils.toByteArray("66992ce17e3ea7a6515d5555555555555555555555555555555555555555555555555555555555555d0d7827342c756365");
-        //byte[] raw3 = StringUtils.toByteArray("66993100d6ad5508dffe8ad55555555555543ea6c78ae71514592d57ce5ab395083c5ffe21b6021520dd1b55555555151887a755555466992e817a3ea6c7b4855555555555555555555555555555555555555555555555555555555555555f023d3c263e302c756c64");
-
-        //handleRawDatalinkInput(raw1);
-        handleRawDatalinkInput(raw2);
-        //handleRawDatalinkInput(raw3);
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
@@ -168,7 +127,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
                 port.setDTR(true);
                 port.setRTS(true);
-                ioManager = new SerialInputOutputManager(port, SerialConnection.this);
+                ioManager = new SerialInputOutputManager(port, SerialConnectionTest.this);
                 Executors.newSingleThreadExecutor().submit(ioManager);
                 Log.d(TAG,"Serial Connection thread started");
             } catch (IOException e) {
@@ -460,7 +419,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
                 //TODO testing
                 //if ((data != null) && (data.length > 10))
-                CommsLog.log(CommsLog.Entry.Category.SDR,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
                 //TODO testing
 
@@ -510,6 +469,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             } else {
                 if (message.length() < 3) //ignore short echo back messages
                     return;
+                Log.d(TAG,"From SDR: "+message);
                 if (status == LoginStatus.CHECKING_LOGGED_IN) {
                     if (isLoggedInAlready(message)) {
                         Log.d(TAG, "Already logged-in");
@@ -517,7 +477,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         launchSdrApp();
                         if (listener != null)
                             listener.onConnect();
-                            //listener.onSerialConnect();
+                        //listener.onSerialConnect();
                         return;
                     } else {
                         if (isLoginPasswordRequested(message)) {
@@ -535,7 +495,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             status = LoginStatus.ERROR;
                             if (listener != null)
                                 listener.onConnectionError("Unable to login; unknown message received: "+message);
-                                //listener.onSerialError(new Exception("Unable to login; unknown message received: "+message));
+                            //listener.onSerialError(new Exception("Unable to login; unknown message received: "+message));
                         }
                     }
                 }
@@ -555,7 +515,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     launchSdrApp();
                     if (listener != null)
                         listener.onConnect();
-                        //listener.onSerialConnect();
+                    //listener.onSerialConnect();
                 } else if (isLoginPasswordError(message)) {
                     status = LoginStatus.WAITING_USERNAME;
                     handler.post(new LoginHelper(null));
@@ -563,7 +523,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     status = LoginStatus.ERROR;
                     if (listener != null)
                         listener.onConnectionError(message);
-                        //listener.onSerialError(new Exception(message));
+                    //listener.onSerialError(new Exception(message));
                 }
             }
         }
@@ -631,48 +591,15 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             });
             return;
         }
-        //Log.d(TAG,"onNewData("+data.length+"b): "+new String(data));
         if (status != LoginStatus.LOGGED_IN) {
             if (handler != null)
                 handler.postDelayed(new LoginHelper(data), DELAY_FOR_LOGIN_WRITE);
             if (listener != null)
                 listener.onReceiveCommandData(data);
-                //listener.onConnectionError(new String(data,StandardCharsets.UTF_8));
-                //listener.onSerialRead(data);
         } else {
             if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE) {
                 String message = new String(data,StandardCharsets.UTF_8);
-                /*if (message.contains("messages")) { //messages also occurs in the /var/tmp folder
-                    Log.d(TAG,"Reply \""+message+"\" from the SDR should contain the contents of the "+Loader.SDR_APP_LOCATION+" directory");
-                    if (message.contains(Loader.SQANDR_VERSION)) {
-                        Log.d(TAG,Loader.SQANDR_VERSION+" found, start needed");
-                        if (peripheralStatusListener != null)
-                            peripheralStatusListener.onPeripheralMessage("Current version of SqANDR found, starting...");
-                        sdrAppStatus = SdrAppStatus.NEED_START;
-                    } else {
-                        Log.d(TAG,Loader.SQANDR_VERSION+" not found, update needed");
-                        if (peripheralStatusListener != null)
-                            peripheralStatusListener.onPeripheralMessage("SqANDR update needed...");
-                        sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
-                    }
-                    launchSdrApp();
-                }*/
                 Log.d(TAG,"From SDR during app check: "+message);
-                //if (!message.contains("\"INSTALLED\"") && !message.contains("\"FAILED\"")) {
-                /*    if (message.contains("INSTALLED\n")) { //messages also occurs in the /var/tmp folder
-                        Log.d(TAG, Loader.SQANDR_VERSION + " found, start needed");
-                        if (peripheralStatusListener != null)
-                            peripheralStatusListener.onPeripheralMessage("Current version of SqANDR found, starting...");
-                        sdrAppStatus = SdrAppStatus.NEED_START;
-                        launchSdrApp();
-                    } else if (message.contains("FAILED\n")) {
-                        Log.d(TAG, Loader.SQANDR_VERSION + " not found, update needed");
-                        if (peripheralStatusListener != null)
-                            peripheralStatusListener.onPeripheralMessage("SqANDR update needed...");
-                        sdrAppStatus = SdrAppStatus.INSTALL_NEEDED;
-                        launchSdrApp();
-                    }*/
-                //}
             }
             if (data[0] == HEADER_DEBUG_MESSAGE)
                 return;
@@ -680,28 +607,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 return;
             if (handler != null) {
                 String value = new String(data,StandardCharsets.UTF_8);
-                /*if (value.indexOf('\n') >= 0) {
-                    String[] values = value.split("\\n");
-                    if (values != null) {
-                        Log.d(TAG,"multi-line input detected: split into "+values.length+" inputs");
-                        for (String part:values) {
-                            if (part.charAt(0) != HEADER_DEBUG_MESSAGE)
-                                handler.post(new SdrAppHelper(part));
-                        }
-                    }
-                } else {*/
-                    if (data[0] != HEADER_DEBUG_MESSAGE)
-                        handler.post(new SdrAppHelper(value));
-                //}
+                if (data[0] != HEADER_DEBUG_MESSAGE)
+                    handler.post(new SdrAppHelper(value));
             }
         }
     }
-
-    /*private boolean isDatalinkData(byte[] data) {
-        if ((data == null) || (data.length < 3))
-            return false;
-        return data[0] == HEADER_DATA_PACKET_INCOMING;
-    }*/
 
     public boolean isTerminalLoggedIn() { return status == LoginStatus.LOGGED_IN; }
 
@@ -858,7 +768,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         //Bin IO relies on the SqANDR heartbeat to know when it is connected
                     } else {
                         if (!USE_BIN_USB_OUT) {
-                            CommsLog.log(CommsLog.Entry.Category.SDR, "SDR companion app is running");
+                            Log.d(TAG, "SDR companion app is running");
                             reportAppAsRunning();
                         }
                     }
@@ -867,7 +777,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         //ignore
                     } else {
                         if (sdrAppStatus == SdrAppStatus.RUNNING)
-                            CommsLog.log(CommsLog.Entry.Category.SDR, "SDR input: " + input);
+                            Log.d(TAG, "SDR input: " + input);
                         if (listener != null)
                             listener.onReceiveCommandData(input.getBytes(StandardCharsets.UTF_8));
                     }
@@ -905,7 +815,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
     }
 
-        private void startSdrApp() {
+    private void startSdrApp() {
         if ((sdrAppStatus == SdrAppStatus.NEED_START) || (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)) {
             sdrAppStatus = SdrAppStatus.STARTING;
             final String message = "Starting SDR companion app (SqANDR)";
@@ -913,7 +823,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onPeripheralMessage(message);
             attempts = 0;
-            CommsLog.log(CommsLog.Entry.Category.SDR,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
+            Log.d(TAG,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             write(SDR_START_COMMAND);
         }
     }
@@ -925,7 +835,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             if (listener != null)
                 listener.onOperational();
             if (peripheralStatusListener != null) {
-                Log.d(TAG, "onPeripheralReady()");
+                //Log.d(TAG, "onPeripheralReady()");
                 peripheralStatusListener.onPeripheralReady();
             }
         }

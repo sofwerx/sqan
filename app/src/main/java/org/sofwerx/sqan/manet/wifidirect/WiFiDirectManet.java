@@ -37,9 +37,8 @@ import org.sofwerx.sqan.util.CommsLog;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
-
-import javax.crypto.Mac;
 
 /**
  * MANET built over Android's WiFi P2P framework which complies with WiFi Direct™
@@ -51,7 +50,9 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     private final static long TIME_BETWEEN_REPAIR_ATTEMPTS = 1000l * 60l;
     private final static long SERVER_MAX_IDLE_TIME = 1000l * 60l * 2l;
     private final static long DELAY_BEFORE_REQUESTING_CONNECTION_INFO_AGAIN = 1000l * 10l;
-    private final static long DELAY_BEFORE_CONNECTING = 1000l * 15l; //delay to prevent two devices from trying to connect at the same time
+    private final static long DELAY_BEFORE_CONNECTING_CHECK = 1000l;
+    private final static long DELAY_BEFORE_CONNECTING = DELAY_BEFORE_CONNECTING_CHECK * 5l; //delay to prevent two devices from trying to connect at the same time
+    private HashMap<WifiP2pDevice,Long> waitingMap = new HashMap<>();
     private WifiP2pManager.Channel channel;
     private WifiP2pManager manager;
     private WifiManager wifiManager;
@@ -124,6 +125,45 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         }
     };
 
+    private long cancelConnectTimeout = Long.MIN_VALUE;
+    private final static long TIMEOUT_CANCEL_CONNECT = 1000l * 15l;
+
+    private void cancelConnect() {
+        //FIXME this forces any wifi network to close, which would not support other WiFi attached devices (like a camera)
+        //WifiManager wiFiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        //wiFiManager.disconnect();
+
+        if (manager != null) {
+            manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
+                @Override
+                public void onSuccess() {
+                    Log.d(TAG, "WiFiDirectManager cancelled connection");
+                    try {
+                        if (Build.VERSION.SDK_INT >= 27)
+                            channel.close();
+                    } catch (Exception e) {
+                        Log.w(TAG, "Unable to close WiFi Channel: " + e.getMessage());
+                    }
+                    channel = null;
+                    CommsLog.log(CommsLog.Entry.Category.STATUS, "WiFI Direct channel successfully closed");
+                    startChannel();
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    //if (System.currentTimeMillis() < cancelConnectTimeout) {
+                    //    CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFiDirectManager failed to cancel connection: " + Util.getFailureStatusString(reason) + " - trying to cancel again");
+                    //    cancelConnect();
+                    //} else {
+                        CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFiDirectManager failed to cancel connection: " + Util.getFailureStatusString(reason) + ", but trying new to restart connection anyway");
+                        setStatus(Status.ERROR);
+                        startChannel();
+                    //}
+                }
+            });
+        }
+    }
+
     private void restart() {
         Log.d(TAG,"Restarting WiFi Direct connection...");
         stopSocketConnections(false);
@@ -135,27 +175,8 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     @Override
                     public void onSuccess() {
                         CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFI NSD Discovery stopped successfully");
-                        manager.cancelConnect(channel, new WifiP2pManager.ActionListener() {
-                            @Override
-                            public void onSuccess() {
-                                Log.d(TAG, "WiFiDirectManager cancelled connection");
-                                try {
-                                    if (Build.VERSION.SDK_INT >= 27)
-                                        channel.close();
-                                } catch (Exception e) {
-                                    Log.w(TAG,"Unable to close WiFi Channel: "+e.getMessage());
-                                }
-                                channel = null;
-                                CommsLog.log(CommsLog.Entry.Category.STATUS,"WiFI Direct channel successfully closed");
-                                startChannel();
-                            }
-                            @Override
-                            public void onFailure(int reason) {
-                                CommsLog.log(CommsLog.Entry.Category.PROBLEM, "WiFiDirectManager failed to cancel connection: " + Util.getFailureStatusString(reason)+", but trying new to restart connection anyway");
-                                setStatus(Status.ERROR);
-                                startChannel();
-                            }
-                        });
+                        cancelConnectTimeout = System.currentTimeMillis() + TIMEOUT_CANCEL_CONNECT;
+                        cancelConnect();
                     }
 
                     @Override
@@ -539,22 +560,45 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     }
 
     private void connectToDeviceIfAppropriate(WifiP2pDevice device) {
-        if (device == null)
+        if ((device == null) || (device.status != WifiP2pDevice.AVAILABLE))
             return;
         if (device.isGroupOwner())
             connectToDevice(device);
         else {
             if (thisDevice != null) {
                 if (Util.isHigherPriorityMac(thisDevice.deviceAddress,device.deviceAddress)) {
-                    if (!thisDevice.isGroupOwner())
+                    //if (!thisDevice.isGroupOwner()) //FIXME? commented out for testing
                         connectToDevice(device);
                 } else {
-                    Log.d(TAG,"The other peer teammate has a higher priority MAC so waiting a bit before attempting connection");
-                    if (handler != null) {
-                        handler.postDelayed(() -> {
-                            if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
+                    if (waitingMap.containsKey(device) && (waitingMap.get(device) > System.currentTimeMillis())) {
+                        waitingMap.remove(device);
+                        if (device.status == WifiP2pDevice.AVAILABLE) {
+                            if ((socketClient != null) && (socketServer != null))
                                 connectToDevice(device);
-                        }, DELAY_BEFORE_CONNECTING);
+                            else
+                                Log.d(TAG, device.deviceName + " (" + device.deviceAddress + ") already connected, ignoring scheduled connection request");
+                        } else if (device.status == WifiP2pDevice.INVITED)
+                            Log.d(TAG, device.deviceName + " (" + device.deviceAddress + ") already invited, ignoring scheduled connection request");
+                        else {
+                            Log.d(TAG, device.deviceName + " (" + device.deviceAddress + ") is "+Util.getDeviceStatusString(device.status)+" scheduling a connection attempt");
+                            waitingMap.put(device,System.currentTimeMillis() + DELAY_BEFORE_CONNECTING);
+                            if (handler != null) {
+                                handler.postDelayed(() -> {
+                                    if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
+                                        connectToDeviceIfAppropriate(device);
+                                }, DELAY_BEFORE_CONNECTING_CHECK);
+                            }
+                        }
+                    } else {
+                        if (!waitingMap.containsKey(device))
+                            waitingMap.put(device,System.currentTimeMillis() + DELAY_BEFORE_CONNECTING);
+                        Log.d(TAG, "The other peer teammate has a higher priority MAC so waiting a bit before attempting connection");
+                        if (handler != null) {
+                            handler.postDelayed(() -> {
+                                if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
+                                    connectToDeviceIfAppropriate(device);
+                            }, DELAY_BEFORE_CONNECTING_CHECK);
+                        }
                     }
                 }
             }
@@ -586,6 +630,15 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = device.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
+        if (thisDevice != null) {
+            if (Util.isHigherPriorityMac(thisDevice.deviceAddress, device.deviceAddress)) {
+                config.groupOwnerIntent = 15; //try to be group owner
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Trying to connect to "+device.deviceName+" ("+device.deviceAddress+") while requesting group ownership");
+            } else {
+                config.groupOwnerIntent = 0; //defer group owner to other device
+                CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Trying to connect to "+device.deviceName+" ("+device.deviceAddress+") while deferring group ownership");
+            }
+        }
 
         String callsign = null;
         MacAddress mac = MacAddress.build(device.deviceAddress);
