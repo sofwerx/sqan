@@ -1,7 +1,5 @@
 package org.sofwerx.sqan.manet.nearbycon;
 
-import android.content.Context;
-import android.os.Handler;
 import androidx.annotation.NonNull;
 import android.util.Log;
 
@@ -48,7 +46,7 @@ import static com.google.android.gms.nearby.connection.Strategy.P2P_CLUSTER;
  */
 public class NearbyConnectionsManet extends AbstractManet {
     private static final String SERVICE_ID = "sqan";
-    public NearbyConnectionsManet(Handler handler, Context context, ManetListener listener) { super(handler,context,listener); }
+    public NearbyConnectionsManet(android.os.Handler handler, android.content.Context context, ManetListener listener) { super(handler,context,listener); }
 
     private HashMap<String,Long> connectionQueue = new HashMap<>(); //attempted work-around for problems Nearby Connections seems to have in connecting
 
@@ -137,7 +135,7 @@ public class NearbyConnectionsManet extends AbstractManet {
         }
 
             //This will broadcast to all active devices
-            Nearby.getConnectionsClient(context).sendPayload(devices, Payload.fromBytes(bytes))
+            Nearby.getConnectionsClient(context.toAndroid()).sendPayload(devices, Payload.fromBytes(bytes))
                     .addOnSuccessListener(aVoid -> {
                         CommsLog.log(CommsLog.Entry.Category.COMMS, StringUtil.toDataSize(bytesSent) + " sent to " + devices.size() + ((devices.size() == 1) ? " device" : " devices"));
                         setStatus(Status.CONNECTED);
@@ -200,9 +198,9 @@ public class NearbyConnectionsManet extends AbstractManet {
 
     @Override
     public void disconnect() throws ManetException {
-        Nearby.getConnectionsClient(context).stopAdvertising();
-        Nearby.getConnectionsClient(context).stopDiscovery();
-        Nearby.getConnectionsClient(context).stopAllEndpoints();
+        Nearby.getConnectionsClient(context.toAndroid()).stopAdvertising();
+        Nearby.getConnectionsClient(context.toAndroid()).stopDiscovery();
+        Nearby.getConnectionsClient(context.toAndroid()).stopAllEndpoints();
         CommsLog.log(CommsLog.Entry.Category.STATUS, "MANET disconnected");
         setStatus(Status.OFF);
         isRunning.set(false);
@@ -235,7 +233,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             it.remove();
                         else {
                             CommsLog.log(CommsLog.Entry.Category.STATUS, "Attempting to connect to " + deviceId + " again");
-                            Nearby.getConnectionsClient(context)
+                            Nearby.getConnectionsClient(context.toAndroid())
                                     .requestConnection(Integer.toString(Config.getThisDevice().getUUID()), deviceId, connectionLifecycleCallback);
                             connectionQueue.put(deviceId, System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                         }
@@ -246,7 +244,7 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     private void startAdvertising() {
-        Nearby.getConnectionsClient(context)
+        Nearby.getConnectionsClient(context.toAndroid())
                 .startAdvertising(Integer.toString(Config.getThisDevice().getUUID()), SERVICE_ID, connectionLifecycleCallback, ADVERTISING_OPTIONS)
                 .addOnSuccessListener(
                         (Void unused) -> {
@@ -270,7 +268,7 @@ public class NearbyConnectionsManet extends AbstractManet {
     }
 
     private void startDiscovery() {
-        Nearby.getConnectionsClient(context)
+        Nearby.getConnectionsClient(context.toAndroid())
                 .startDiscovery(SERVICE_ID, endpointDiscoveryCallback, DISCOVERY_OPTIONS)
                 .addOnSuccessListener(
                         (Void unused) -> {
@@ -310,7 +308,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                     CommsLog.log(CommsLog.Entry.Category.STATUS, "Connection initiated with " + deviceId + "("+info.getEndpointName()+")");
                     setStatus(Status.CONNECTED);
                     //TODO add some security check here
-                    Nearby.getConnectionsClient(context).acceptConnection(deviceId, payloadCallback);
+                    Nearby.getConnectionsClient(context.toAndroid()).acceptConnection(deviceId, payloadCallback);
                 }
 
                 @Override
@@ -351,7 +349,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                             }
                             if (TACTIC_REPEATED_CONNETION_TRIES) {
                                 CommsLog.log(CommsLog.Entry.Category.PROBLEM,  "Trying to resent connection by disconnecting from " + deviceId);
-                                Nearby.getConnectionsClient(context).disconnectFromEndpoint(deviceId);
+                                Nearby.getConnectionsClient(context.toAndroid()).disconnectFromEndpoint(deviceId);
                                 connectionQueue.put(deviceId,System.currentTimeMillis() + CONNECTION_RETRY_RATE);
                             }
                             break;
@@ -400,7 +398,7 @@ public class NearbyConnectionsManet extends AbstractManet {
                     device.setStatus(SqAnDevice.Status.ONLINE);
                     device.setLastEntry(new CommsLog.Entry(CommsLog.Entry.Category.STATUS, "Device found"));
 
-                    Nearby.getConnectionsClient(context)
+                    Nearby.getConnectionsClient(context.toAndroid())
                             .requestConnection(Integer.toString(Config.getThisDevice().getUUID()),deviceId,connectionLifecycleCallback);
                     if (TACTIC_REPEATED_CONNETION_TRIES)
                         connectionQueue.put(deviceId,System.currentTimeMillis() + CONNECTION_RETRY_RATE);

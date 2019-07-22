@@ -70,7 +70,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     private long nextRepairAttempt = Long.MIN_VALUE;
     private long nextConnectionInfoRequest = Long.MIN_VALUE;
 
-    public WiFiDirectManet(Handler handler, Context context, ManetListener listener) {
+    public WiFiDirectManet(android.os.Handler handler, android.content.Context context, ManetListener listener) {
         super(handler,context,listener);
         channel = null;
         manager = null;
@@ -198,7 +198,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
     private void startChannel() {
         if (channel == null) {
             CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Starting WiFi Channel");
-            channel = manager.initialize(context, (handler != null) ? handler.getLooper() : null, () -> onDisconnected());
+            channel = manager.initialize(context.toAndroid(), (handler != null) ? handler.toAndroid().getLooper() : null, () -> onDisconnected());
         } else
             CommsLog.log(CommsLog.Entry.Category.CONNECTION,"Tried to start WiFi Channel, but one already exists so using that channel instead");
         if (nsd == null)
@@ -246,13 +246,13 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
-        manager = (WifiP2pManager) context.getSystemService(Context.WIFI_P2P_SERVICE);
-        wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+        manager = (WifiP2pManager) context.toAndroid().getSystemService(Context.WIFI_P2P_SERVICE);
+        wifiManager = (WifiManager) context.toAndroid().getSystemService(Context.WIFI_SERVICE);
         priorWiFiStateEnabled = wifiManager.isWifiEnabled();
         wifiManager.setWifiEnabled(true);
         wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF,"sqan");
         wifiLock.acquire();
-        channel = manager.initialize(context, (handler!=null)?handler.getLooper():null, () -> onDisconnected());
+        channel = manager.initialize(context.toAndroid(), (handler!=null)?handler.toAndroid().getLooper():null, () -> onDisconnected());
         context.registerReceiver(hardwareStatusReceiver, intentFilter);
         startChannel();
     }
@@ -583,7 +583,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                             Log.d(TAG, device.deviceName + " (" + device.deviceAddress + ") is "+Util.getDeviceStatusString(device.status)+" scheduling a connection attempt");
                             waitingMap.put(device,System.currentTimeMillis() + DELAY_BEFORE_CONNECTING);
                             if (handler != null) {
-                                handler.postDelayed(() -> {
+                                handler.toAndroid().postDelayed(() -> {
                                     if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
                                         connectToDeviceIfAppropriate(device);
                                 }, DELAY_BEFORE_CONNECTING_CHECK);
@@ -594,7 +594,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                             waitingMap.put(device,System.currentTimeMillis() + DELAY_BEFORE_CONNECTING);
                         Log.d(TAG, "The other peer teammate has a higher priority MAC so waiting a bit before attempting connection");
                         if (handler != null) {
-                            handler.postDelayed(() -> {
+                            handler.toAndroid().postDelayed(() -> {
                                 if ((socketClient != null) && (socketServer != null) && !thisDevice.isGroupOwner())
                                     connectToDeviceIfAppropriate(device);
                             }, DELAY_BEFORE_CONNECTING_CHECK);
@@ -831,7 +831,7 @@ public class WiFiDirectManet extends AbstractManet implements WifiP2pManager.Pee
                     if ((socketServer == null) && (socketClient == null))
                         startClient(hostAddress);
                 } else {
-                    handler.postDelayed(() -> {
+                    handler.toAndroid().postDelayed(() -> {
                         if ((socketClient != null) && (socketServer != null) && (manager != null) && (channel != null)) {
                             CommsLog.log(CommsLog.Entry.Category.CONNECTION,"WIFi Direct group ownership still not resolved, requesting details again");
                             manager.requestConnectionInfo(channel,WiFiDirectManet.this);

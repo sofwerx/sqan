@@ -1,9 +1,9 @@
 package org.sofwerx.sqan.manet.common;
 
-import android.content.Context;
+import org.sofwerx.notdroid.content.Context;
 import android.content.pm.PackageManager;
-import android.os.Handler;
-import android.util.Log;
+import org.sofwerx.notdroid.os.Handler;
+import org.sofwerx.notdroid.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SavedTeammate;
@@ -26,6 +26,8 @@ import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.sofwerx.sqandr.Config.isAndroid;
 
 /**
  * Abstract class that handles all broad MANET activity. This abstracts away any MANET specific
@@ -51,12 +53,23 @@ public abstract class AbstractManet {
      */
     public AbstractManet(Handler handler, Context context, ManetListener listener) {
         this.handler = handler;
-        this.context = context.getApplicationContext();
+        if (isAndroid()) {
+            this.context = new Context(context.getApplicationContext());
+        } else {
+            this.context = context;
+        }
         this.listener = listener;
         SegmentTool.setMaxPacketSize(getMaximumPacketSize());
         parser = new PacketParser(this);
     }
 
+    public AbstractManet(android.os.Handler handler, android.content.Context context, ManetListener listener) {
+        this.handler = new Handler(handler);
+        this.context = new Context (context.getApplicationContext());
+        this.listener = listener;
+        SegmentTool.setMaxPacketSize(getMaximumPacketSize());
+        parser = new PacketParser(this);
+    }
     /**
      * Sets the listener for any status reports from a peripheral (most manet will not have a peripheral)
      * @param listener
@@ -77,9 +90,11 @@ public abstract class AbstractManet {
      */
     public boolean checkForSystemIssues() {
         boolean passed = true;
-        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
-            SqAnService.onIssueDetected(new WiFiIssue(true,"WiFi absent"));
-            passed = false;
+        if (isAndroid()) {
+            if (!context.toAndroid().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+                SqAnService.onIssueDetected(new WiFiIssue(true, "WiFi absent"));
+                passed = false;
+            }
         }
         return passed;
     }
@@ -100,16 +115,16 @@ public abstract class AbstractManet {
     public final static AbstractManet newFromType(Handler handler, Context context, ManetListener listener, ManetType type) {
         switch (type) {
             case NEARBY_CONNECTION:
-                return new NearbyConnectionsManet(handler, context, listener);
+                return new NearbyConnectionsManet(handler.toAndroid(), context.toAndroid(), listener);
 
             case WIFI_AWARE:
-                return new WiFiAwareManetV2(handler, context, listener);
+                return new WiFiAwareManetV2(handler.toAndroid(), context.toAndroid(), listener);
 
             case WIFI_DIRECT:
-                return new WiFiDirectManet(handler, context, listener);
+                return new WiFiDirectManet(handler.toAndroid(), context.toAndroid(), listener);
 
             case BT_ONLY:
-                return new BtManetV2(handler, context, listener);
+                return new BtManetV2(handler.toAndroid(), context.toAndroid(), listener);
 
             case SDR:
                 return new SdrManet(handler, context, listener);

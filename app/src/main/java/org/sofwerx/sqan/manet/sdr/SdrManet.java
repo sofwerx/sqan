@@ -1,8 +1,8 @@
 package org.sofwerx.sqan.manet.sdr;
 
-import android.content.Context;
-import android.os.Handler;
-import android.util.Log;
+import org.sofwerx.notdroid.content.Context;
+import org.sofwerx.notdroid.os.Handler;
+import org.sofwerx.notdroid.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.ManetOps;
@@ -44,7 +44,14 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     private int dedupIndex = 0;
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
-        super(handler, context,listener);
+        super(handler, context, listener);
+        sqANDRService = new SqANDRService(context,this);
+        instance = this;
+    }
+
+
+    public SdrManet(android.os.Handler handlerIn, android.content.Context contextIn, ManetListener listener) {
+        super(new Handler(handlerIn), new Context(contextIn), listener);
         sqANDRService = new SqANDRService(context,this);
         instance = this;
     }
