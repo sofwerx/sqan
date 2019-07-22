@@ -119,7 +119,7 @@ public class Segment {
         out.put(HEADER_MARKER);
         out.put((byte)data.length);
         out.put(getFlags());
-        out.put(NetUtil.getChecksum(data));
+        out.put((byte)(NetUtil.getChecksum(data)&0xff));
         out.put(data);
         return out.array();
     }
@@ -163,7 +163,7 @@ public class Segment {
             data = new byte[size];
             byte checksum = buf.get();
             buf.get(data);
-            if (checksum != NetUtil.getChecksum(data)) {
+            if (checksum != (byte)(NetUtil.getChecksum(data)&0xff)) {
                 Log.w(TAG, "Parsing Segment "+index+" of Packet ID "+packetId+" failed - bad checksum ("+checksum+" received, "+NetUtil.getChecksum(data)+" expected data size "+size+"b)"+(isFinalSegment?" final segment":""));
                 data = null;
                 return;

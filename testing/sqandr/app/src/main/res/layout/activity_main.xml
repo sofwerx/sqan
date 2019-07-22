@@ -47,10 +47,355 @@
             android:layout_width="50dp"
             android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
-            android:tint="@color/darkGreen"
             android:src="@android:drawable/ic_media_play" />
 
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:padding="3dp"
+        android:layout_margin="3dp"
+        android:background="@color/darkGreen"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/mainToggleSend"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:src="@drawable/icon_not_sending"/>
+
+        <TableLayout
+            android:id="@+id/mainTableSendSpecs"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp">
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pkt size"/>
+
+                <EditText
+                    android:id="@+id/mainPktSize"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="100"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="bytes"/>
+            </TableRow>
+
+            <TableRow
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Delay"/>
+
+                <EditText
+                    android:id="@+id/mainPktDelay"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="1000"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ms"/>
+            </TableRow>
+        </TableLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:padding="3dp"
+        android:layout_margin="3dp"
+        android:background="@color/darkGreen"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <View
+            android:layout_height="match_parent"
+            android:layout_width="5dp"
+            android:padding="3dp"
+            android:layout_margin="3dp"
+            android:background="@color/darkRed"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <TableLayout
+                android:id="@+id/mainTableSpecs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OTA Loopback:"
+                        android:textStyle="bold" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Complete"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meComplete"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Unique"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meUnique"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Missed"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meMissed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Success rate"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meSuccessRate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="%"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="From other device:"
+                        android:textStyle="bold" />
+                </TableRow>
+
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Complete"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/otherComplete"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Unique"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/otherUnique"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Missed"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/otherMissed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Success rate"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/otherSuccessRate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="%"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OTA Segments:"
+                        android:textStyle="bold" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Complete"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/unkSegments"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="seg"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Partial"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/unkPartial"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+            </TableLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 </LinearLayout>

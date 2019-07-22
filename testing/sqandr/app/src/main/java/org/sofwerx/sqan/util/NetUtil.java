@@ -29,15 +29,19 @@ public class NetUtil {
      * @param bytes
      * @return
      */
-    public static byte getChecksum(byte[] bytes) {
+    public static int getChecksum(byte[] bytes) {
         int checksum = FNV_OFFSET_BASIS;
         if (bytes != null) {
             for (byte b:bytes) {
-                checksum = checksum ^ b;
-                checksum = checksum * FNV_PRIME;
+                checksum = updateChecksum(checksum,b);
             }
         }
-        return (byte)(checksum & 0xFF);
+        return checksum;
+    }
+
+    public static int updateChecksum(int checksum, byte b) {
+        checksum = checksum ^ b;
+        return checksum * FNV_PRIME;
     }
 
     public static final byte[] longToByteArray(long value) {

@@ -15,11 +15,12 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
-import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.testing.PlutoStatus;
+import org.sofwerx.sqandr.testing.SqandrStatus;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.Loader;
 import org.sofwerx.sqandr.util.SqANDRLoaderListener;
@@ -104,6 +105,15 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         handlerThread.start();
     }
 
+    public void setCommandFlags(String flags) {
+        SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
+                +(USE_BIN_USB_IN ?" -binI":"")
+                +(USE_BIN_USB_OUT ?" -binO":"")
+                +" -minComms"
+                +((flags==null)?"":flags)
+                +"\n").getBytes(StandardCharsets.UTF_8);//*/
+    }
+
     public void open(@NonNull Context context, UsbDevice usbDevice) {
         this.context = context;
         UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -147,8 +157,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
 
     private void restartFromError() {
         if (sdrAppStatus == SdrAppStatus.ERROR) {
-            if (peripheralStatusListener != null)
-                peripheralStatusListener.onPeripheralMessage("Trying to fix SDR...");
+            if (listener != null)
+                listener.onPlutoStatus(PlutoStatus.ERROR,"Trying to fix SDR...");
             sdrAppStatus = SdrAppStatus.OFF;
             handler.postDelayed(() -> launchSdrApp(),2000);
         }
@@ -164,44 +174,49 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             if (USE_BIN_USB_OUT) {
                 if (lastSqandrHeartbeat > 0l) {
                     if (System.currentTimeMillis() > (lastSqandrHeartbeat + SQANDR_HEARTBEAT_STALE_TIME)) {
-                        if (sdrAppStatus != SdrAppStatus.ERROR) {
-                            Log.w(TAG,"SqANDR app appears to be offline");
-                            sdrAppStatus = SdrAppStatus.ERROR;
-                            if (peripheralStatusListener != null)
-                                peripheralStatusListener.onPeripheralError("SqANDR app on the SDR stopped working");
+                        if (sdrAppStatus != SdrAppStatus.OFF) {
+                            sdrAppStatus = SdrAppStatus.OFF;
+                            if (listener != null)
+                                listener.onSqandrStatus(SqandrStatus.OFF,null);
                         }
                     } else {
                         if (sdrAppStatus != SdrAppStatus.RUNNING) {
                             Log.d(TAG,"SqANDR app is now running");
                             sdrAppStatus = SdrAppStatus.RUNNING;
                             if (listener != null)
-                                listener.onOperational();
-                            if (peripheralStatusListener != null)
-                                peripheralStatusListener.onPeripheralReady();
+                                listener.onSqandrStatus(SqandrStatus.RUNNING,null);
                         }
                     }
                 }
             }
-            /*ignore for now
-            if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                if (USE_BIN_USB_IN) {
-                    //ignore for now
-                } else {
-                   if (!isSdrConnectionCongested() && (System.currentTimeMillis() > nextKeepAliveMessage)) {
-                   }
-                }
-            }*/
 
             if (handler != null)
                 handler.postDelayed(this,TIME_BETWEEN_KEEP_ALIVE_MESSAGES);
         }
     };
 
-    int inArow = 0;
+    public void stopApp() {
+        Log.d(TAG,"Stopping SqANDR...");
+        sdrAppStatus = SdrAppStatus.OFF;
+        byte[] exitCommand;
+        if (USE_BIN_USB_IN) {
+            exitCommand = SHUTDOWN_BYTES;
+        } else {
+            String formattedData = HEADER_SHUTDOWN_CHAR + "\n";
+            exitCommand = formattedData.getBytes(StandardCharsets.UTF_8);
+        }
+        try {
+            port.write(exitCommand, 100);
+        } catch (IOException e) {
+            Log.w(TAG,"Unable to stop SqANDR: "+e.getMessage());
+        }
+        if (listener != null)
+            listener.onSqandrStatus(SqandrStatus.OFF,"SqANDR stopped");
+    }
 
     public void close() {
-        Log.d(TAG,"Closing...");
         if (handlerThread != null) {
+            Log.d(TAG,"Closing...");
             handlerThread.quitSafely();
             handlerThread = null;
             handler = null;
@@ -417,11 +432,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 //    ioManager.writeAsync(data);
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
-                //TODO testing
-                //if ((data != null) && (data.length > 10))
                 Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
-                //    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
-                //TODO testing
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
                 if (bytesWritten < data.length)
@@ -450,8 +461,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             if (attempts > 3) {
                 status = LoginStatus.ERROR;
                 if (listener != null)
-                    listener.onConnectionError("Unable to login after 3 attempts: "+((message==null)?"":message));
-                //    listener.onSerialError(new Exception("Unable to login after 3 attempts: "+((message==null)?"":message)));
+                    listener.onPlutoStatus(PlutoStatus.ERROR,"Unable to login after 3 attempts: "+((message==null)?"":message));
                 return;
             }
             if (message == null) {
@@ -469,14 +479,13 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             } else {
                 if (message.length() < 3) //ignore short echo back messages
                     return;
-                Log.d(TAG,"From SDR: "+message);
                 if (status == LoginStatus.CHECKING_LOGGED_IN) {
                     if (isLoggedInAlready(message)) {
                         Log.d(TAG, "Already logged-in");
                         status = LoginStatus.LOGGED_IN;
                         launchSdrApp();
                         if (listener != null)
-                            listener.onConnect();
+                            listener.onPlutoStatus(PlutoStatus.LOGGED_IN,"Already logged in to Pluto");
                         //listener.onSerialConnect();
                         return;
                     } else {
@@ -494,8 +503,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                             //don't know what the terminal is asking, so throw an error
                             status = LoginStatus.ERROR;
                             if (listener != null)
-                                listener.onConnectionError("Unable to login; unknown message received: "+message);
-                            //listener.onSerialError(new Exception("Unable to login; unknown message received: "+message));
+                                listener.onPlutoStatus(PlutoStatus.ERROR,"Unable to login; unknown message received: "+message);
                         }
                     }
                 }
@@ -514,7 +522,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     status = LoginStatus.LOGGED_IN;
                     launchSdrApp();
                     if (listener != null)
-                        listener.onConnect();
+                        listener.onPlutoStatus(PlutoStatus.LOGGED_IN,null);
                     //listener.onSerialConnect();
                 } else if (isLoginPasswordError(message)) {
                     status = LoginStatus.WAITING_USERNAME;
@@ -522,8 +530,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 } else if (isLoginErrorMessage(message)) {
                     status = LoginStatus.ERROR;
                     if (listener != null)
-                        listener.onConnectionError(message);
-                    //listener.onSerialError(new Exception(message));
+                        listener.onPlutoStatus(PlutoStatus.ERROR,message);
                 }
             }
         }
@@ -566,17 +573,14 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
-                    //TODO temp for testing
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
                         if ((data[0] == (byte) 54)) // 6 - like the start of the SqAN header
                             Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
                         else if ((data[0] != (byte) 42)) //ignore echos of sent data
                             Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
-                    }
-                    //else
-                    //    Log.d(TAG,"From SDR: +"+StringUtils.toHex(data));
-                    //TODO temp for testing
+                    } else
+                        Log.d(TAG, "From SDR: " + new String(data,StandardCharsets.UTF_8));
 
                     /*byte[] preserveHeader = new byte[Segment.HEADER_MARKER.length];
                     for (int i=0; i< preserveHeader.length; i++) {
@@ -594,8 +598,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         if (status != LoginStatus.LOGGED_IN) {
             if (handler != null)
                 handler.postDelayed(new LoginHelper(data), DELAY_FOR_LOGIN_WRITE);
-            if (listener != null)
-                listener.onReceiveCommandData(data);
         } else {
             if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE) {
                 String message = new String(data,StandardCharsets.UTF_8);
@@ -670,7 +672,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         return false;
     }
 
-    private String[] SUCCESS_WORDS = {"Welcome to:","logged","help"};
+    private String[] SUCCESS_WORDS = {"Welcome to:","logged","help","v0.3"};
     private boolean isLoginSuccessMessage(String message) {
         if (message != null) {
             for (String word:SUCCESS_WORDS) {
@@ -696,7 +698,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     public void onRunError(Exception e) {
         Log.e(TAG,"onRunError()");
         if (listener != null)
-            listener.onConnectionError(e.getMessage());
+            listener.onPlutoStatus(PlutoStatus.ERROR,e.getMessage());
     }
 
     private class SdrAppHelper implements Runnable {
@@ -738,9 +740,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                                 final String errorMessage = "The app on the SDR is having a problem: "+input;
                                 sdrAppStatus = SdrAppStatus.ERROR;
                                 if (listener != null)
-                                    listener.onConnectionError(errorMessage);
-                                if (peripheralStatusListener != null)
-                                    peripheralStatusListener.onPeripheralError(errorMessage);
+                                    listener.onSqandrStatus(SqandrStatus.ERROR,errorMessage);
                             } else
                                 input = "Unknown command: "+input+"\n";
                     }
@@ -752,9 +752,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 sdrAppStatus = SdrAppStatus.ERROR;
                 final String errorMessage = "Unable to start app after 3 attempts: "+((input==null)?"":input);
                 if (listener != null)
-                    listener.onConnectionError(errorMessage);
-                if (peripheralStatusListener != null)
-                    peripheralStatusListener.onPeripheralError(errorMessage);
+                    listener.onSqandrStatus(SqandrStatus.ERROR,errorMessage);
                 return;
             }
             if (input == null) {
@@ -778,66 +776,33 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     } else {
                         if (sdrAppStatus == SdrAppStatus.RUNNING)
                             Log.d(TAG, "SDR input: " + input);
-                        if (listener != null)
-                            listener.onReceiveCommandData(input.getBytes(StandardCharsets.UTF_8));
                     }
                 }
             }
         }
     }
 
-    @Override
-    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
-        super.setPeripheralStatusListener(listener);
-        if (listener != null) {
-            switch (sdrAppStatus) {
-                case OFF:
-                case STARTING:
-                case NEED_START:
-                    listener.onPeripheralMessage("SDR is getting ready...");
-                    break;
-
-                case INSTALLING:
-                case INSTALL_NEEDED:
-                case CHECKING_FOR_UPDATE:
-                    listener.onPeripheralMessage("SDR is checking for updated software...");
-                    break;
-
-                case RUNNING:
-                    Log.d(TAG,"onPeripheralReady()");
-                    listener.onPeripheralReady();
-                    break;
-
-                default:
-                    listener.onPeripheralError("SDR has an error");
-                    break;
-            }
-        }
-    }
-
-    private void startSdrApp() {
-        if ((sdrAppStatus == SdrAppStatus.NEED_START) || (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)) {
+    public void startSdrApp() {
+        if ((sdrAppStatus == SdrAppStatus.NEED_START) || (sdrAppStatus == SdrAppStatus.OFF) || (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)) {
             sdrAppStatus = SdrAppStatus.STARTING;
             final String message = "Starting SDR companion app (SqANDR)";
             Log.d(TAG,message);
-            if (peripheralStatusListener != null)
-                peripheralStatusListener.onPeripheralMessage(message);
             attempts = 0;
             Log.d(TAG,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
-            write(SDR_START_COMMAND);
+            try {
+                port.write(SDR_START_COMMAND,1000);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void reportAppAsRunning() {
+        if (listener != null)
+            listener.onSqandrStatus(SqandrStatus.RUNNING,null);
         if (sdrAppStatus != SdrAppStatus.RUNNING) {
             Log.d(TAG,"Reporting SDR app is now running");
             sdrAppStatus = SdrAppStatus.RUNNING;
-            if (listener != null)
-                listener.onOperational();
-            if (peripheralStatusListener != null) {
-                //Log.d(TAG, "onPeripheralReady()");
-                peripheralStatusListener.onPeripheralReady();
-            }
         }
     }
 
@@ -846,29 +811,25 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
      */
     private void launchSdrApp() {
         Log.d(TAG, "launchSdrApp()");
-        //if (sdrAppStatus == SdrAppStatus.CHECKING_FOR_UPDATE)
-        //    return;
         if (sdrAppStatus == SdrAppStatus.OFF) {
             sdrAppStatus = SdrAppStatus.CHECKING_FOR_UPDATE;
-            if (peripheralStatusListener != null)
-                peripheralStatusListener.onPeripheralMessage("Checking if current version of SqANDR is installed...");
-            //Loader.queryIsCurrentSqANDRInstalled(port);
+            if (listener != null)
+                listener.onSqandrStatus(SqandrStatus.PENDING,"Checking if current version of SqANDR is installed...");
             startSdrApp();
         } else if (sdrAppStatus == SdrAppStatus.NEED_START) {
-            startSdrApp();
+            if (listener != null)
+                listener.onSqandrStatus(SqandrStatus.OFF,null);
         } else {
             if (sdrAppStatus != SdrAppStatus.INSTALL_NEEDED)
                 return; //already installing, ignore
-            if (peripheralStatusListener != null)
-                peripheralStatusListener.onPeripheralMessage("Updating SqANDR...");
+            if (listener != null)
+                listener.onPlutoStatus(PlutoStatus.INSTALLING,"Updating SqANDR...");
             if (context == null) {
                 final String errorMessage = "Cannot push the SqANDR app onto the SDR with a null context - this should never happen";
                 Log.e(TAG,errorMessage);
                 sdrAppStatus = SdrAppStatus.ERROR;
                 if (listener != null)
-                    listener.onConnectionError(errorMessage);
-                if (peripheralStatusListener != null)
-                    peripheralStatusListener.onPeripheralError(errorMessage);
+                    listener.onPlutoStatus(PlutoStatus.ERROR,errorMessage);
                 return;
             }
             sdrAppStatus = SdrAppStatus.INSTALLING;
@@ -876,25 +837,26 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 @Override
                 public void onSuccess() {
                     sdrAppStatus = SdrAppStatus.NEED_START;
-                    if (peripheralStatusListener != null)
-                        peripheralStatusListener.onPeripheralMessage("SqANDR updated.");
-                    startSdrApp();
+                    if (listener != null) {
+                        listener.onPlutoStatus(PlutoStatus.UP,"SqANDR installed");
+                        listener.onSqandrStatus(SqandrStatus.OFF,null);
+                    }
                 }
 
                 @Override
                 public void onFailure(String message) {
                     Log.e(TAG,"Error installing SqANDR: "+message);
                     sdrAppStatus = SdrAppStatus.ERROR;
-                    if (listener != null)
-                        listener.onConnectionError(message);
-                    if (peripheralStatusListener != null)
-                        peripheralStatusListener.onPeripheralError(message);
+                    if (listener != null) {
+                        listener.onPlutoStatus(PlutoStatus.ERROR,"Error installing SqANDR: "+message);
+                        listener.onSqandrStatus(SqandrStatus.OFF,null);
+                    }
                 }
 
                 @Override
                 public void onProgressPercent(int percent) {
-                    if (peripheralStatusListener != null)
-                        peripheralStatusListener.onPeripheralMessage("Installing SqANDR: "+percent+"%...");
+                    if (listener != null)
+                        listener.onPlutoStatus(PlutoStatus.INSTALLING,"Installing SqANDR: "+percent+"%...");
                 }
             });
         }

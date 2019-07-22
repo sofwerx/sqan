@@ -238,11 +238,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         }
     };
 
-    int inArow = 0;
-
     public void close() {
-        Log.d(TAG,"Closing...");
         if (handlerThread != null) {
+            Log.d(TAG,"Closing...");
             handlerThread.quitSafely();
             handlerThread = null;
             handler = null;
@@ -760,7 +758,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return false;
     }
 
-    private String[] SUCCESS_WORDS = {"Welcome to:","logged","help"};
+    private String[] SUCCESS_WORDS = {"Welcome to:","logged","help","v0.3"};
     private boolean isLoginSuccessMessage(String message) {
         if (message != null) {
             for (String word:SUCCESS_WORDS) {

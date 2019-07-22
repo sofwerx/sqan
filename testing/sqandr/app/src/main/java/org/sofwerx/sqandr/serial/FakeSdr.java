@@ -12,15 +12,16 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
-import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
+import org.sofwerx.sqandr.testing.PlutoStatus;
+import org.sofwerx.sqandr.testing.SqandrStatus;
+import org.sofwerx.sqandr.testing.TestListener;
 import org.sofwerx.sqandr.util.SdrUtils;
 
 import java.nio.charset.StandardCharsets;
 
-public class FakeSdr implements DataConnectionListener {
+public class FakeSdr implements TestListener {
     private final static String TAG = Config.TAG+".FakeSDR";
     protected UsbDevice usbDevice;
     protected UsbInterface usbInterface;
@@ -30,11 +31,8 @@ public class FakeSdr implements DataConnectionListener {
     protected UsbManager usbManager;
     protected AbstractDataConnection dataConnection;
     protected AbstractDataConnection commandConnection;
-    protected DataConnectionListener dataConnectionListener;
-    protected PeripheralStatusListener peripheralStatusListener;
+    private TestListener listener;
     private Context context;
-
-    public void setDataConnectionListener(DataConnectionListener listener) { this.dataConnectionListener = listener; }
 
     public void setUsbDevice(Context context, UsbManager usbManager, UsbDevice usbDevice) throws SdrException {
         Log.d(TAG,"setUsbDevice()");
@@ -69,10 +67,9 @@ public class FakeSdr implements DataConnectionListener {
                 }
 
                 Log.d(TAG,"Creating serial connection...");
-                serialConnection = new SerialConnectionTest(commands);
+                serialConnection = new SerialConnectionTest(null);
                 serialConnection.open(context, usbDevice);
                 serialConnection.setListener(this);
-                serialConnection.setPeripheralStatusListener(peripheralStatusListener);
             }
         }
     }
@@ -202,66 +199,55 @@ public class FakeSdr implements DataConnectionListener {
         return sent;
     }
 
-    @Override
-    public void onOperational() {
-        //ignore
+    public void setAppRunning(boolean shouldRun) {
+        if (serialConnection != null) {
+            if (shouldRun)
+                serialConnection.startSdrApp();
+            else
+                serialConnection.stopApp();
+        }
     }
 
-    @Override
-    public void onDisconnect() {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onDisconnect();
-    }
-
-    @Override
-    public void onConnectionError(String message) {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onConnectionError(message);
-    }
-
-    @Override
-    public void onReceiveDataLinkData(byte[] data) {
-        Log.d(TAG,"AbstractSdr.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
-        if (dataConnectionListener != null)
-            dataConnectionListener.onReceiveDataLinkData(data);
-        else
-            Log.d(TAG,"...but ignored as there is no AbstractSDR DataConnectionListener");
-    }
-
-    @Override
-    public void onReceiveCommandData(byte[] data) {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onReceiveCommandData(data);
-    }
-
-    @Override
-    public void onPacketDropped() {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onPacketDropped();
+    public void setCommandFlags(String flags) {
+        if (serialConnection != null)
+            serialConnection.setCommandFlags(flags);
     }
 
     private SerialConnectionTest serialConnection;
-    private String commands;
 
     public final static int VENDOR_ID = 1110;
 
     @Override
-    public void onConnect() {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onConnect();
-        if ((serialConnection != null) && serialConnection.isActive()) {
-            dataConnection = serialConnection;
-            commandConnection = serialConnection;
-        }
+    public void onDataReassembled(byte[] payloadData) {
+        if (listener != null)
+            listener.onDataReassembled(payloadData);
     }
 
-    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
-        peripheralStatusListener = listener;
-        if (dataConnection != null)
-            dataConnection.setPeripheralStatusListener(listener);
-        if (serialConnection != null)
-            serialConnection.setPeripheralStatusListener(listener);
-        else
-            Log.d(TAG,"Unable to set Peripheral Listener as the Serial Connection has not been assigned yet");
+    @Override
+    public void onPacketDropped() {
+        if (listener != null)
+            listener.onPacketDropped();
+    }
+
+    @Override
+    public void onReceivedSegment() {
+        if (listener != null)
+            listener.onReceivedSegment();
+    }
+
+    @Override
+    public void onSqandrStatus(SqandrStatus status, String message) {
+        if (listener != null)
+            listener.onSqandrStatus(status, message);
+    }
+
+    @Override
+    public void onPlutoStatus(PlutoStatus status, String message) {
+        if (listener != null)
+            listener.onPlutoStatus(status, message);
+    }
+
+    public void setListener(TestListener listener) {
+        this.listener = listener;
     }
 }

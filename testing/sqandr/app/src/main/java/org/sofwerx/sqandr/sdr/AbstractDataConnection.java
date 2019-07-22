@@ -3,9 +3,10 @@ package org.sofwerx.sqandr.sdr;
 import android.util.Log;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.testing.SqandrStatus;
+import org.sofwerx.sqandr.testing.TestListener;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.SdrUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
@@ -17,13 +18,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractDataConnection {
     private final static String TAG = Config.TAG+".DataCon";
     private final static long TIME_BETWEEN_STALE_SEGMENTATION_CHECKS = 500l;
-    protected DataConnectionListener listener;
+    protected TestListener listener;
     public abstract boolean isActive();
     public abstract void write(byte[] data);
     public abstract void burstPacket(byte[] data);
-    public void setListener(DataConnectionListener listener) { this.listener = listener; }
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
-    protected PeripheralStatusListener peripheralStatusListener = null;
     private WriteableInputStream dataBuffer;
     private Thread readThread;
     private long nextStaleCheck = Long.MIN_VALUE;
@@ -32,10 +31,6 @@ public abstract class AbstractDataConnection {
     protected long lastSqandrHeartbeat = Long.MIN_VALUE;
     private int lastHeaderBufferIndex = 0; //used to rewind the buffer a bit when a header turns out to produce an invalid packet
     private final static long TIME_CONGESTION_IS_RECENT = 1000l * 5l; //time in ms to consider any congestion marker as recent
-
-    //TODO implement the below
-    protected long rfCongestedUntil = Long.MIN_VALUE;
-    private final static long TIME_FOR_RF_ACTIVITY_TO_ADD_TO_CONGESTION = 100l; //ms to wait if data is flowing in via RF on the bulk data channel
 
     private class PartialHeaderData {
         public PartialHeaderData(int size, boolean inverted) {
@@ -67,10 +62,10 @@ public abstract class AbstractDataConnection {
                         byte[] out = readPacketData();
                         lastSqandrHeartbeat = System.currentTimeMillis();
                         if (out != null) {
-                            if (listener == null)
-                                Log.d(TAG, "...but ignored as DataConnectionListener in AbstractDataConnection is null");
-                            else
-                                listener.onReceiveDataLinkData(out);
+                            if (listener != null) {
+                                listener.onSqandrStatus(SqandrStatus.RUNNING,null);
+                                listener.onDataReassembled(out);
+                            }
                         }
                         if (System.currentTimeMillis() > nextStaleCheck) {
                             if ((segmenters != null) && !segmenters.isEmpty()) {
@@ -240,7 +235,7 @@ public abstract class AbstractDataConnection {
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
                 if (listener != null)
-                    listener.onReceiveDataLinkData(Crypto.decrypt(segmenter.reassemble()));
+                    listener.onDataReassembled(Crypto.decrypt(segmenter.reassemble()));
                 segmenters.remove(segmenter);
             }
         }
@@ -268,6 +263,8 @@ public abstract class AbstractDataConnection {
             Segment segment = new Segment();
             segment.parseRemainder(rest);
             if (segment.isValid()) {
+                if (listener != null)
+                    listener.onReceivedSegment();
                 if (segment.isStandAlone()) {
                     Log.d(TAG,"Standalone packet recovered ("+headerData.size+"b)");
                     return Crypto.decrypt(segment.getData());
@@ -285,7 +282,5 @@ public abstract class AbstractDataConnection {
         return null;
     }
 
-    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
-        this.peripheralStatusListener = listener;
-    }
+    public void setListener(TestListener listener) { this.listener = listener; }
 }

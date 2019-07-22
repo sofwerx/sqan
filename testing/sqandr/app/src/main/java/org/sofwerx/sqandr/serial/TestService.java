@@ -16,34 +16,47 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.listeners.PeripheralStatusListener;
-import org.sofwerx.sqandr.SqANDRListener;
-import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
+import org.sofwerx.sqandr.sdr.sar.Segment;
+import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.testing.OneStats;
+import org.sofwerx.sqandr.testing.PlutoStatus;
+import org.sofwerx.sqandr.testing.SqandrStatus;
+import org.sofwerx.sqandr.testing.Stats;
+import org.sofwerx.sqandr.testing.TestListener;
+import org.sofwerx.sqandr.testing.TestPacket;
 import org.sofwerx.sqandr.util.PermissionsHelper;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-public class TestService implements DataConnectionListener {
+public class TestService implements TestListener {
     private final static String TAG = Config.TAG+".sqandr";
     private final static String SDR_USB_PERMISSION = "org.sofwerx.sqandr.SDR_USB_PERMISSION";
-    private final static long PERIODIC_TASK_INTERVAL = 1000l * 10l;
+    private final static long PERIODIC_TASK_INTERVAL = 1000l*10l;
     private Context context;
     private HandlerThread sdrThread;
     private Handler handler;
-    private SqANDRListener listener;
-    private BroadcastReceiver usbBroadcastReceiver;
+   private BroadcastReceiver usbBroadcastReceiver;
     private BroadcastReceiver permissionBroadcastReceiver;
-    private DataConnectionListener dataConnectionListener;
+    //private DataConnectionListener dataConnectionListener;
     private FakeSdr fakeSdr;
-    private PeripheralStatusListener peripheralStatusListener;
+    private TestListener listener;
+    private boolean isSqandrRunning = false;
+    private boolean sendData = false;
+    private Thread txThread;
+    private long thisDevice = System.currentTimeMillis();
+    private Stats stats = new Stats();
+    private int packetsSent = 0;
+    private int bytesSent = 0;
+    private SqandrStatus appStatus = SqandrStatus.OFF;
 
     public TestService(@NonNull Context context) {
         this.context = context;
-        if (context instanceof SqANDRListener)
-            listener = (SqANDRListener) context;
+        if (context instanceof TestListener)
+            listener = (TestListener) context;
         if (context instanceof Activity)
             PermissionsHelper.checkForPermissions((Activity)context);
         Log.d(TAG,"Starting TestService...");
@@ -57,6 +70,63 @@ public class TestService implements DataConnectionListener {
             }
         };
         sdrThread.start();
+        txThread = new TxThread();
+        txThread.start();
+    }
+
+    private long nextTxTime = Long.MIN_VALUE;
+    private long intervalBetweenTx = 1000l;
+    private int myPacketIndex = 0;
+
+    public void setIntervalBetweenTx(long intervalInMs) { intervalBetweenTx = intervalInMs; }
+
+    public Stats getStats() {
+        return stats;
+    }
+
+    public SqandrStatus getAppStatus() { return appStatus; }
+
+    public boolean getAppRunning() {
+        return appStatus == SqandrStatus.RUNNING;
+    }
+
+    private class TxThread extends Thread {
+        private ArrayList<Segment> segs;
+        private byte[] data;
+        private long lag;
+        @Override
+        public void run() {
+            while(isSqandrRunning && sendData) {
+                lag = nextTxTime - System.currentTimeMillis();
+                if (lag > 0l) {
+                    if (lag > 2l) {
+                        try {
+                            sleep(lag - 2);
+                        } catch (InterruptedException ignore) {
+                        }
+                    }
+                } else {
+                    nextTxTime = System.currentTimeMillis() + intervalBetweenTx;
+                    data = getNextTestData();
+                    stats.statsMe.incrementTotalSent();
+                    if (Segment.isAbleToWrapInSingleSegment(data))
+                        burst(Segmenter.wrap(data).toBytes());
+                    else {
+                        segs = Segmenter.wrapIntoSegments(data);
+                        if (segs != null) {
+                            for (Segment seg:segs) {
+                                burst(seg.toBytes());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private byte[] getNextTestData() {
+        myPacketIndex++;
+        return new TestPacket(thisDevice,myPacketIndex).toBytes();
     }
 
     private Runnable periodicTask = new Runnable() {
@@ -94,12 +164,7 @@ public class TestService implements DataConnectionListener {
                     Log.d(TAG,message);
                     if (fakeSdr == null) {
                         fakeSdr = new FakeSdr();
-                        fakeSdr.setDataConnectionListener(this);
-                        fakeSdr.setPeripheralStatusListener(peripheralStatusListener);
-                        if (peripheralStatusListener != null)
-                            peripheralStatusListener.onPeripheralMessage("SDR found");
-                        else
-                            Log.d("SqAN.oPM","TestService.updateUsbDevices psl is NULL");
+                        fakeSdr.setListener(this);
                         final UsbDevice device = pair.getValue();
                         post(() -> setUsbDevice(context,manager,device) );
                     }
@@ -119,7 +184,7 @@ public class TestService implements DataConnectionListener {
                 }
             }
             if (listener != null)
-                listener.onSdrMessage(result.toString());
+                listener.onPlutoStatus(PlutoStatus.OFF,result.toString());
         });
     }
 
@@ -136,8 +201,8 @@ public class TestService implements DataConnectionListener {
     }
 
     public void shutdown() {
-        peripheralStatusListener = null;
-        Log.d(TAG,"Shutting down TestService...");
+        isSqandrRunning = false;
+        listener = null;
         Log.d(TAG,"Shutting down TestService...");
         if (usbBroadcastReceiver != null) {
             try {
@@ -167,76 +232,8 @@ public class TestService implements DataConnectionListener {
         }
     }
 
-    public void setListener(SqANDRListener listener) {
+    public void setListener(TestListener listener) {
         this.listener = listener;
-        if (listener != null) {
-            /*if (manet != null) {
-                switch (manet.getStatus()) {
-                    case CONNECTED:
-                        listener.onSdrReady(true);
-                        break;
-                    case ERROR:
-                        listener.onSdrError(null);
-                    case OFF:
-                    case ADVERTISING:
-                    case DISCOVERING:
-                    case CHANGING_MEMBERSHIP:
-                    case ADVERTISING_AND_DISCOVERING:
-                        listener.onSdrReady(false);
-                        break;
-                }
-            }*/
-        }
-    }
-
-    @Override
-    public void onConnect() {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onConnect();
-    }
-
-    @Override
-    public void onDisconnect() {
-        //TODO
-        if (dataConnectionListener != null)
-            dataConnectionListener.onDisconnect();
-    }
-
-    @Override
-    public void onReceiveDataLinkData(byte[] data) {
-        Log.d(TAG,"TestService.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
-        if (listener != null) {
-            listener.onPacketReceived(data);
-        } else
-            Log.d(TAG,"...but ignored as there is no TestService Listener");
-        if (dataConnectionListener != null)
-            dataConnectionListener.onReceiveDataLinkData(data);
-    }
-
-    @Override
-    public void onReceiveCommandData(byte[] data) {
-        if (dataConnectionListener != null)
-            dataConnectionListener.onReceiveCommandData(data);
-        //TODO on command received
-    }
-
-    @Override
-    public void onConnectionError(String message) {
-        if (listener != null)
-            listener.onSdrError(message);
-        if (dataConnectionListener != null)
-            dataConnectionListener.onConnectionError(message);
-    }
-
-    public void setDataConnectionListener(DataConnectionListener dataConnectionListener) { this.dataConnectionListener = dataConnectionListener; }
-
-    public void setPeripheralStatusListener(PeripheralStatusListener listener) {
-        peripheralStatusListener = listener;
-        if (fakeSdr == null) {
-            if (listener != null)
-                listener.onPeripheralError("SDR not connected");
-        } else
-            fakeSdr.setPeripheralStatusListener(listener);
     }
 
     private class UsbBroadcastReceiver extends BroadcastReceiver {
@@ -267,23 +264,19 @@ public class TestService implements DataConnectionListener {
                                 fakeSdr.setUsbDevice(context, manager, device);
                                 if (listener != null) {
                                     Log.d(TAG,"SDR is ready");
-                                    listener.onSdrMessage(fakeSdr.getInfo(context));
+                                    listener.onPlutoStatus(PlutoStatus.UP,fakeSdr.getInfo(context));
                                 }
                             } catch (SdrException e) {
                                 String errorMessage = "Unable to set the SDR connection: " + e.getMessage();
                                 Log.e(TAG, errorMessage);
-                                if (listener != null) {
-                                    listener.onSdrError(errorMessage);
-                                    listener.onSdrReady(false);
-                                }
+                                if (listener != null)
+                                    listener.onPlutoStatus(PlutoStatus.ERROR,errorMessage);
                             }
                         } else {
                             Log.e(TAG, "Permission denied for device " + device.getDeviceName());
                             Toast.makeText(context, "Permission denied to open SDR at " + device.getDeviceName(), Toast.LENGTH_LONG).show();
-                            if (listener != null) {
-                                listener.onSdrError("Permission denied for device " + device.getDeviceName());
-                                listener.onSdrReady(false);
-                            }
+                            if (listener != null)
+                                listener.onPlutoStatus(PlutoStatus.ERROR,"Permission denied for device " + device.getDeviceName());
                         }
                     }
                     try {
@@ -310,58 +303,105 @@ public class TestService implements DataConnectionListener {
     public void getInfo() {
         if (listener != null) {
             if (fakeSdr == null)
-                listener.onSdrMessage("No SDR device attached");
+                listener.onPlutoStatus(PlutoStatus.ERROR,"No SDR device attached");
             else
-                listener.onSdrMessage(fakeSdr.getInfo(context));
+                listener.onPlutoStatus(PlutoStatus.OFF,fakeSdr.getInfo(context));
         }
     }
 
-    public void burst(final byte[] data) {
+    private void burst(final byte[] data) {
         if (data == null)
             return;
-        /*if (data.length > SdrSocket.MAX_PACKET_SIZE) {
-            Log.e(TAG,"Error, cannot burstPacket a packet bigger than "+SdrSocket.MAX_PACKET_SIZE+"b over SqANDR - this "+data.length+"b packet is being dropped. Consider segmenting or restructuring.");
-            return;
-        }*/
         if (handler != null) {
             handler.post(() -> {
-                /*if ((sdrSocket == null) || !sdrSocket.isActive()) {
-                    Log.d(TAG,"Ignoring burstPacket, SdrSocket not ready");
-                    return;
-                }
-                sdrSocket.write(data);*/
                 if (fakeSdr == null) {
                     Log.d(TAG,"Ignoring burstPacket, SDR not ready");
                     return;
                 }
                 fakeSdr.burst(data);
+                bytesSent += data.length;
                 Log.d(TAG, "burstPacket(" + data.length + "b)");
             });
         }
     }
 
-    public void onPacketReceived(final byte[] data) {
-        if (handler != null) {
-            handler.post(() -> {
-                if (listener != null)
-                    listener.onPacketReceived(data);
-            });
+    private ArrayList<Integer> myStored = new ArrayList<>();
+    private ArrayList<Integer> otherStored = new ArrayList<>();
+
+    @Override
+    public void onDataReassembled(byte[] data) {
+        Log.d(TAG,"TestService.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
+        TestPacket pkt = new TestPacket(data);
+        if (pkt.isValid()) {
+            OneStats statsToUse;
+            ArrayList<Integer> current;
+            if (pkt.getDevice() == thisDevice) {
+                statsToUse = stats.statsMe;
+                current = myStored;
+            } else {
+                statsToUse = stats.statsOther;
+                current = otherStored;
+            }
+
+            int index = pkt.getIndex();
+            boolean unique = true;
+            for (Integer one:current) {
+                if (one.intValue() == index)
+                    unique = false;
+            }
+            if (unique) {
+                statsToUse.incrementUnique();
+                current.add(new Integer(index));
+                if (current.size() > 20)
+                    current.remove(0);
+            }
+
+            if (pkt.getIndex() > statsToUse.getTotal())
+                statsToUse.setTotal(pkt.getIndex());
+            statsToUse.incrementComplete();
+
+            if (listener != null)
+                listener.onDataReassembled(data);
+        } else {
+            stats.partialPackets++;
+            if (listener != null)
+                listener.onPacketDropped();
         }
     }
 
     @Override
     public void onPacketDropped() {
-        if (handler != null) {
-            handler.post(() -> {
-                if (listener != null)
-                    listener.onPacketDropped();
-            });
-        }
+        stats.partialPackets++;
     }
 
     @Override
-    public void onOperational() {
+    public void onReceivedSegment() {
+        stats.segments++;
+    }
+
+    @Override
+    public void onSqandrStatus(SqandrStatus status, String message) {
+        appStatus = status;
         if (listener != null)
-            listener.onSdrReady(true);
+            listener.onSqandrStatus(status, message);
+    }
+
+    @Override
+    public void onPlutoStatus(PlutoStatus status, String message) {
+        if (listener != null)
+            listener.onPlutoStatus(status, message);
+    }
+
+    public void setAppRunning(boolean shouldRun) {
+        if (shouldRun) {
+            stats.clear();
+        }
+        if (fakeSdr != null)
+            fakeSdr.setAppRunning(shouldRun);
+    }
+
+    public void setCommandFlags(String flags) {
+        if (fakeSdr != null)
+            fakeSdr.setCommandFlags(flags);
     }
 }
