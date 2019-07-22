@@ -1,17 +1,17 @@
 package org.sofwerx.sqandr;
 
-import android.app.Activity;
+import org.sofwerx.notdroid.app.Activity;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+//import org.sofwerx.notdroid.content.BroadcastReceiver;
+import org.sofwerx.notdroid.content.Context;
+import org.sofwerx.notdroid.content.Intent;
+import org.sofwerx.notdroid.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
-import android.widget.Toast;
+//import org.sofwerx.notdroid.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -36,6 +36,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import static org.sofwerx.sqandr.Config.isAndroid;
+
 public class SqANDRService implements DataConnectionListener {
     private final static String TAG = Config.TAG+".sqandr";
     private final static String SDR_USB_PERMISSION = "org.sofwerx.sqandr.SDR_USB_PERMISSION";
@@ -44,8 +46,8 @@ public class SqANDRService implements DataConnectionListener {
     private HandlerThread sdrThread;
     private Handler handler;
     private SqANDRListener listener;
-    private BroadcastReceiver usbBroadcastReceiver;
-    private BroadcastReceiver permissionBroadcastReceiver;
+    private android.content.BroadcastReceiver usbBroadcastReceiver;
+    private android.content.BroadcastReceiver permissionBroadcastReceiver = null;
     private AbstractSdr sdrDevice;
     //private SdrSocket sdrSocket;
     //private SerialListener serialListener;
@@ -53,30 +55,32 @@ public class SqANDRService implements DataConnectionListener {
     private SdrManet manet;
     private PeripheralStatusListener peripheralStatusListener;
 
-    public SqANDRService(@NonNull Context context, SdrManet manet) {
-        this.context = context;
+    public SqANDRService(@NonNull Context contextIn, SdrManet manet) {
+        this.context = contextIn;
+
         if (context instanceof SqANDRListener)
             listener = (SqANDRListener) context;
         else if (manet instanceof SqANDRListener)
             listener = manet;
         this.manet = manet;
-        if (context instanceof Activity)
-            PermissionsHelper.checkForPermissions((Activity)context);
-        //SqANDRLog.init(context);
-        //SqANDRLog.log("Starting SqANDRService...");
-        CommsLog.log(CommsLog.Entry.Category.SDR,"Starting SqANDRService...");
-        sdrThread = new HandlerThread("SqANDRSrvc") {
-            @Override
-            protected void onLooperPrepared() {
-                //SqANDRLog.log("SqANDRService started");
-                CommsLog.log(CommsLog.Entry.Category.SDR,"SqANDRService started");
-                handler = new Handler(sdrThread.getLooper());
-                handler.postDelayed(periodicTask,PERIODIC_TASK_INTERVAL);
-                init();
-            }
-        };
-        sdrThread.start();
-
+        if (isAndroid()) {
+            if (context.toAndroid() instanceof android.app.Activity)
+                PermissionsHelper.checkForPermissions((android.app.Activity) context.toAndroid());
+            //SqANDRLog.init(context);
+            //SqANDRLog.log("Starting SqANDRService...");
+            CommsLog.log(CommsLog.Entry.Category.SDR, "Starting SqANDRService...");
+            sdrThread = new HandlerThread("SqANDRSrvc") {
+                @Override
+                protected void onLooperPrepared() {
+                    //SqANDRLog.log("SqANDRService started");
+                    CommsLog.log(CommsLog.Entry.Category.SDR, "SqANDRService started");
+                    handler = new Handler(sdrThread.getLooper());
+                    handler.postDelayed(periodicTask, PERIODIC_TASK_INTERVAL);
+                    init();
+                }
+            };
+            sdrThread.start();
+        }
 
         //FIXME testing
         //SerialConnection.testSerialConnection();
@@ -104,69 +108,73 @@ public class SqANDRService implements DataConnectionListener {
         handler.post(runnable);
     }
 
-    private void updateUsbDevices(final Context context) {
-        post(() -> {
-            Log.d(TAG,"Updating USB devices...");
-            StringBuilder result = new StringBuilder();
-            final UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-            HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
-            int count = 0;
-            if ((deviceList != null) && !deviceList.isEmpty()) {
-                Iterator it = deviceList.entrySet().iterator();
-                while (it.hasNext()) {
-                    count++;
-                    Map.Entry<String, UsbDevice> pair = (Map.Entry)it.next();
-                    if (pair.getValue() == null)
-                        continue;
-                    String message = "USB Device available: "+pair.getKey()+", "+pair.getValue().getProductName()+" Manufacturer "+pair.getValue().getVendorId()+" product "+pair.getValue().getProductId()+'\n';
-                    result.append(message);
-                    result.append('\n');
-                    Log.d(TAG,message);
-                    if (sdrDevice == null) {
-                        sdrDevice = AbstractSdr.newFromVendor(pair.getValue().getVendorId());
-                        //if (sdrDevice != null)
-                        //    sdrDevice.setSerialListener(this);
-                        if (sdrDevice != null) {
-                            sdrDevice.setDataConnectionListener(this);
-                            sdrDevice.setPeripheralStatusListener(peripheralStatusListener);
-                            if (peripheralStatusListener != null)
-                                peripheralStatusListener.onPeripheralMessage("SDR found");
-                            else
-                                Log.d("SqAN.oPM","SqANDRService.updateUsbDevices psl is NULL");
+    private void updateUsbDevices(final android.content.Context context) {
+        if (isAndroid()) {
+            post(() -> {
+                Log.d(TAG, "Updating USB devices...");
+                StringBuilder result = new StringBuilder();
+                final UsbManager manager = (UsbManager) context.getSystemService(android.content.Context.USB_SERVICE);
+                HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
+                int count = 0;
+                if ((deviceList != null) && !deviceList.isEmpty()) {
+                    Iterator it = deviceList.entrySet().iterator();
+                    while (it.hasNext()) {
+                        count++;
+                        Map.Entry<String, UsbDevice> pair = (Map.Entry) it.next();
+                        if (pair.getValue() == null)
+                            continue;
+                        String message = "USB Device available: " + pair.getKey() + ", " + pair.getValue().getProductName() + " Manufacturer " + pair.getValue().getVendorId() + " product " + pair.getValue().getProductId() + '\n';
+                        result.append(message);
+                        result.append('\n');
+                        Log.d(TAG, message);
+                        if (sdrDevice == null) {
+                            sdrDevice = AbstractSdr.newFromVendor(pair.getValue().getVendorId());
+                            //if (sdrDevice != null)
+                            //    sdrDevice.setSerialListener(this);
+                            if (sdrDevice != null) {
+                                sdrDevice.setDataConnectionListener(this);
+                                sdrDevice.setPeripheralStatusListener(peripheralStatusListener);
+                                if (peripheralStatusListener != null)
+                                    peripheralStatusListener.onPeripheralMessage("SDR found");
+                                else
+                                    Log.d("SqAN.oPM", "SqANDRService.updateUsbDevices psl is NULL");
+                            }
+                            final UsbDevice device = pair.getValue();
+                            post(() -> setUsbDevice(context, manager, device));
                         }
-                        final UsbDevice device = pair.getValue();
-                        post(() -> setUsbDevice(context,manager,device) );
                     }
                 }
-            }
 
-            if (count == 0) {
-                sdrDevice = null;
-                result.append("No USB devices detected");
-            } else {
-                result.append(count+" USB device"+((count==1)?"":"s")+" detected\r\n");
-                if (sdrDevice == null)
-                    result.append("but no SDR was found");
-                else {
-                    result.append(sdrDevice.getClass().getSimpleName() + " was found");
-                    getInfo();
+                if (count == 0) {
+                    sdrDevice = null;
+                    result.append("No USB devices detected");
+                } else {
+                    result.append(count + " USB device" + ((count == 1) ? "" : "s") + " detected\r\n");
+                    if (sdrDevice == null)
+                        result.append("but no SDR was found");
+                    else {
+                        result.append(sdrDevice.getClass().getSimpleName() + " was found");
+                        getInfo();
+                    }
                 }
-            }
-            if (listener != null)
-                listener.onSdrMessage(result.toString());
-        });
+                if (listener != null)
+                    listener.onSdrMessage(result.toString());
+            });
+        }
     }
 
     private void init() {
-        if (usbBroadcastReceiver == null) {
-            usbBroadcastReceiver = new UsbBroadcastReceiver();
-            IntentFilter filter = new IntentFilter(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
-            filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
-            filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
-            filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
-            context.registerReceiver(usbBroadcastReceiver, filter);
+        if (isAndroid()) {
+            if (usbBroadcastReceiver == null) {
+                usbBroadcastReceiver = new UsbBroadcastReceiver();
+                android.content.IntentFilter filter = new android.content.IntentFilter(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
+                filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
+                filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+                filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+                context.toAndroid().registerReceiver(usbBroadcastReceiver, filter);
+            }
+            updateUsbDevices(context.toAndroid());
         }
-        updateUsbDevices(context);
     }
 
     public void shutdown() {
@@ -184,7 +192,7 @@ public class SqANDRService implements DataConnectionListener {
         }
         if (permissionBroadcastReceiver != null) {
             try {
-                context.unregisterReceiver(permissionBroadcastReceiver);
+                context.toAndroid().unregisterReceiver(permissionBroadcastReceiver);
                 Log.d(TAG,"Unregistered Permission Broadcast Receiver");
             } catch (Exception e) {
                 Log.e(TAG,"Unable to unregister Permission Broadcast Receiver: "+e.getMessage());
@@ -292,12 +300,12 @@ public class SqANDRService implements DataConnectionListener {
             sdrDevice.setPeripheralStatusListener(listener);
     }
 
-    private class UsbBroadcastReceiver extends BroadcastReceiver {
+    private class UsbBroadcastReceiver extends android.content.BroadcastReceiver {
         @Override
-        public void onReceive(Context context, Intent intent) {
+        public void onReceive(android.content.Context context, android.content.Intent intent) {
             StringBuilder sb = new StringBuilder();
             sb.append("Action: " + intent.getAction() + "\n");
-            sb.append("URI: " + intent.toUri(Intent.URI_INTENT_SCHEME) + "\n");
+            sb.append("URI: " + intent.toUri(android.content.Intent.URI_INTENT_SCHEME) + "\n");
             String log = sb.toString();
             Log.d(TAG, log);
             updateUsbDevices(context);
@@ -309,61 +317,63 @@ public class SqANDRService implements DataConnectionListener {
             sdrDevice.setUsbStorage(UsbStorage.getInstance());
     }
 
-    private void setUsbDevice(final Context context, final UsbManager manager, UsbDevice device) {
+    private void setUsbDevice(final android.content.Context context, final UsbManager manager, UsbDevice device) {
         if (sdrDevice == null) {
             Log.e(TAG,"Cannot set USB Device as sdrDevice has not yet been assigned.");
             return;
         }
-        if (permissionBroadcastReceiver == null) {
-            permissionBroadcastReceiver = new BroadcastReceiver() {
-                public void onReceive(Context context, Intent intent) {
-                    if (SDR_USB_PERMISSION.equals(intent.getAction())) {
-                        UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                        if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) && device != null) {
-                            Log.d(TAG, "Permission granted for device " + device.getDeviceName());
-                            try {
-                                sdrDevice.setUsbDevice(context, manager, device);
-                                //startSocket();
-                                if (listener != null) {
-                                    CommsLog.log("SDR is ready");
-                                    listener.onSdrMessage(sdrDevice.getInfo(context));
-                                    //listener.onSdrReady(true);
+        if (isAndroid()) {
+            if (permissionBroadcastReceiver == null) {
+                    permissionBroadcastReceiver = new android.content.BroadcastReceiver() {
+                    public void onReceive(android.content.Context context, android.content.Intent intent) {
+                        if (SDR_USB_PERMISSION.equals(intent.getAction())) {
+                            UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                            if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false) && device != null) {
+                                Log.d(TAG, "Permission granted for device " + device.getDeviceName());
+                                try {
+                                    sdrDevice.setUsbDevice(context, manager, device);
+                                    //startSocket();
+                                    if (listener != null) {
+                                        CommsLog.log("SDR is ready");
+                                        listener.onSdrMessage(sdrDevice.getInfo(context));
+                                        //listener.onSdrReady(true);
+                                    }
+                                } catch (SdrException e) {
+                                    String errorMessage = "Unable to set the SDR connection: " + e.getMessage();
+                                    Log.e(TAG, errorMessage);
+                                    if (listener != null) {
+                                        listener.onSdrError(errorMessage);
+                                        listener.onSdrReady(false);
+                                    }
                                 }
-                            } catch (SdrException e) {
-                                String errorMessage = "Unable to set the SDR connection: " + e.getMessage();
-                                Log.e(TAG, errorMessage);
+                            } else {
+                                Log.e(TAG, "Permission denied for device " + device.getDeviceName());
+                                android.widget.Toast.makeText(context, "Permission denied to open SDR at " + device.getDeviceName(), android.widget.Toast.LENGTH_LONG).show();
                                 if (listener != null) {
-                                    listener.onSdrError(errorMessage);
+                                    listener.onSdrError("Permission denied for device " + device.getDeviceName());
                                     listener.onSdrReady(false);
                                 }
                             }
-                        } else {
-                            Log.e(TAG, "Permission denied for device " + device.getDeviceName());
-                            Toast.makeText(context, "Permission denied to open SDR at " + device.getDeviceName(), Toast.LENGTH_LONG).show();
-                            if (listener != null) {
-                                listener.onSdrError("Permission denied for device " + device.getDeviceName());
-                                listener.onSdrReady(false);
-                            }
                         }
+                        try {
+                            context.unregisterReceiver(permissionBroadcastReceiver);
+                            Log.d(TAG, "Permission Broadcast Receiver unregistered");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Unable to unregister the Permission Broadcast Receiver");
+                        }
+                        permissionBroadcastReceiver = null;
                     }
-                    try {
-                        context.unregisterReceiver(permissionBroadcastReceiver);
-                        Log.d(TAG,"Permission Broadcast Receiver unregistered");
-                    } catch (Exception e) {
-                        Log.e(TAG,"Unable to unregister the Permission Broadcast Receiver");
-                    }
-                    permissionBroadcastReceiver = null;
-                }
-            };
+                };
 
-            PendingIntent mPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(SDR_USB_PERMISSION), 0);
-            IntentFilter filter = new IntentFilter(SDR_USB_PERMISSION);
-            context.registerReceiver(permissionBroadcastReceiver, filter);
-            Log.d(TAG,"Permission Broadcast Receiver registered");
+                PendingIntent mPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(SDR_USB_PERMISSION).toAndroid(), 0);
+                android.content.IntentFilter filter = new android.content.IntentFilter(SDR_USB_PERMISSION);
+                context.registerReceiver(permissionBroadcastReceiver, filter);
+                Log.d(TAG, "Permission Broadcast Receiver registered");
 
-            // Fire the request:
-            manager.requestPermission(device, mPermissionIntent);
-            Log.d(TAG, "Permission request for device " + device.getDeviceName() + " was sent. waiting...");
+                // Fire the request:
+                manager.requestPermission(device, mPermissionIntent);
+                Log.d(TAG, "Permission request for device " + device.getDeviceName() + " was sent. waiting...");
+            }
         }
     }
 

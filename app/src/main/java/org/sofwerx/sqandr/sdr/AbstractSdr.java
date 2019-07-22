@@ -1,6 +1,6 @@
 package org.sofwerx.sqandr.sdr;
 
-import android.content.Context;
+import org.sofwerx.notdroid.content.Context;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -85,7 +85,7 @@ public abstract class AbstractSdr implements DataConnectionListener {
 
     //public void setSerialListener(SerialListener listener) { this.serialListener = listener; }
 
-    public void setUsbDevice(Context context,UsbManager usbManager, UsbDevice usbDevice) throws SdrException {
+    public void setUsbDevice(android.content.Context context,UsbManager usbManager, UsbDevice usbDevice) throws SdrException {
         Log.d(TAG,"setUsbDevice()");
         this.usbManager = usbManager;
         if (this.usbDevice != usbDevice) {
@@ -139,6 +139,10 @@ public abstract class AbstractSdr implements DataConnectionListener {
     protected abstract String getTerminalPassword();
 
     public String getInfo(@NonNull Context context) {
+        return this.getInfo(context.toAndroid());
+    }
+
+        public String getInfo(@NonNull android.content.Context context) {
         if (usbDevice == null)
             return "no device connected";
         else {

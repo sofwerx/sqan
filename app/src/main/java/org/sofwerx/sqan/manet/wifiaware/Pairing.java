@@ -94,7 +94,7 @@ public class Pairing {
 
             Log.d(TAG, "Requesting a network connection for "+getLabel()+"...");
             networkCallback = new AwareManetV2ConnectionCallback(context, manet, this);
-            connectivityManager.requestNetwork(networkRequest, networkCallback, manet.getHandler());
+            connectivityManager.requestNetwork(networkRequest, networkCallback, manet.getHandler().toAndroid());
         }
     }
 
