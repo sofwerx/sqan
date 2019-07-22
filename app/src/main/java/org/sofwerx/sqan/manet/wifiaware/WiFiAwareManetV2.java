@@ -77,7 +77,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
     private AtomicInteger messageIds = new AtomicInteger(0);
     private ConnectivityManager connectivityManager;
 
-    public WiFiAwareManetV2(Handler handler, Context context, ManetListener listener) {
+    public WiFiAwareManetV2(android.os.Handler handler, android.content.Context context, ManetListener listener) {
         super(handler, context,listener);
         if (Build.VERSION.SDK_INT >= O) {
             Pairing.init(context,this);
@@ -136,14 +136,14 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
             passed = false;
         } else {
             if (Build.VERSION.SDK_INT >= O) {
-                WifiAwareManager mngr = (WifiAwareManager) context.getSystemService(Context.WIFI_AWARE_SERVICE);
+                WifiAwareManager mngr = (WifiAwareManager) context.toAndroid().getSystemService(Context.WIFI_AWARE_SERVICE);
                 if (!mngr.isAvailable()) {
                     SqAnService.onIssueDetected(new WiFiIssue(true, "WiFi Aware is supported but the system is not making it available"));
                     passed = false;
                 }
             }
         }
-        if (NetUtil.isWiFiConnected(context))
+        if (NetUtil.isWiFiConnected(context.toAndroid()))
             SqAnService.onIssueDetected(new WiFiInUseIssue(false,"WiFi is connected to another network"));
         return passed;
     }
@@ -176,14 +176,14 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
                     public void onReceive(Context context, Intent intent) { onWiFiAwareStatusChanged(); }
                 };
                 IntentFilter filter = new IntentFilter(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED);
-                context.registerReceiver(hardwareStatusReceiver, filter, null, handler);
+                context.toAndroid().registerReceiver(hardwareStatusReceiver, filter, null, handler.toAndroid());
             }
             if (wifiAwareManager == null) {
-                NetUtil.turnOnWiFiIfNeeded(context);
-                NetUtil.forceLeaveWiFiNetworks(context); //TODO include a check to protect an active connection if its used for data backhaul
-                wifiAwareManager = (WifiAwareManager) context.getSystemService(Context.WIFI_AWARE_SERVICE);
+                NetUtil.turnOnWiFiIfNeeded(context.toAndroid());
+                NetUtil.forceLeaveWiFiNetworks(context.toAndroid()); //TODO include a check to protect an active connection if its used for data backhaul
+                wifiAwareManager = (WifiAwareManager) context.toAndroid().getSystemService(Context.WIFI_AWARE_SERVICE);
                 if ((wifiAwareManager != null) && wifiAwareManager.isAvailable())
-                    wifiAwareManager.attach(attachCallback, identityChangedListener, handler);
+                    wifiAwareManager.attach(attachCallback, identityChangedListener, handler.toAndroid());
                 else {
                     Log.e(TAG, "WiFi Aware Manager is not available");
                     setStatus(Status.ERROR);
@@ -203,7 +203,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
             CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware start advertising");
             if (awareSession != null) {
                 setStatus(Status.ADVERTISING);
-                awareSession.publish(configPub, new CustomDSCallback(), handler);
+                awareSession.publish(configPub, new CustomDSCallback(), handler.toAndroid());
             }
         }
     }
@@ -214,7 +214,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
             if (awareSession != null) {
                 CommsLog.log(CommsLog.Entry.Category.STATUS, "Aware discovery started");
                 setStatus(Status.DISCOVERING);
-                awareSession.subscribe(configSub, new CustomDSCallback(), handler);
+                awareSession.subscribe(configSub, new CustomDSCallback(), handler.toAndroid());
             }
         }
     }
@@ -475,7 +475,7 @@ public class WiFiAwareManetV2 extends AbstractManet implements ServerStatusListe
      */
     private void onWiFiAwareStatusChanged() {
         if (Build.VERSION.SDK_INT >= O) {
-            WifiAwareManager mgr = (WifiAwareManager) context.getSystemService(Context.WIFI_AWARE_SERVICE);
+            WifiAwareManager mgr = (WifiAwareManager) context.toAndroid().getSystemService(Context.WIFI_AWARE_SERVICE);
             if (mgr != null) {
                 Log.d(TAG, "WiFi Aware state changed: " + (mgr.isAvailable() ? "available" : "not available"));
                 //TODO
