@@ -274,6 +274,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     public void burstPacket(byte[] data) {
         if (data == null)
             return;
+        Log.d(TAG,"burstPacket wrapping "+StringUtils.toHex(data));
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
             final byte[] cipherData = Crypto.encrypt(data);
             if (Segment.isAbleToWrapInSingleSegment(cipherData)) {

@@ -117,6 +117,7 @@
                     android:text="ms"/>
             </TableRow>
         </TableLayout>
+
     </LinearLayout>
 
     <View
@@ -151,6 +152,61 @@
                 android:layout_height="wrap_content">
 
                 <TableRow
+                    android:background="@color/lightGrey"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Outgoing:"
+                        android:textStyle="bold" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Packets"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meOutPackets"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="pkts"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Data"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:id="@+id/meOutBytes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0000000"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="bytes"
+                        android:layout_marginStart="8dp"/>
+                </TableRow>
+
+                <TableRow
+                    android:background="@color/lightGrey"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
 
@@ -232,11 +288,13 @@
                         android:layout_height="wrap_content"
                         android:text="Success rate"
                         android:layout_marginEnd="8dp"/>
+
                     <TextView
                         android:id="@+id/meSuccessRate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0"/>
+                        android:text="0"
+                        android:textStyle="bold" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -245,6 +303,7 @@
                 </TableRow>
 
                 <TableRow
+                    android:background="@color/lightGrey"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
 
@@ -327,11 +386,13 @@
                         android:layout_height="wrap_content"
                         android:text="Success rate"
                         android:layout_marginEnd="8dp"/>
+
                     <TextView
                         android:id="@+id/otherSuccessRate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0"/>
+                        android:text="0"
+                        android:textStyle="bold" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -340,6 +401,7 @@
                 </TableRow>
 
                 <TableRow
+                    android:background="@color/lightGrey"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent">
                     <TextView

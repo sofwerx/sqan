@@ -26,11 +26,13 @@ import org.sofwerx.sqandr.testing.Stats;
 import org.sofwerx.sqandr.testing.TestListener;
 import org.sofwerx.sqandr.testing.TestPacket;
 import org.sofwerx.sqandr.util.PermissionsHelper;
+import org.sofwerx.sqandr.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestService implements TestListener {
     private final static String TAG = Config.TAG+".sqandr";
@@ -39,19 +41,18 @@ public class TestService implements TestListener {
     private Context context;
     private HandlerThread sdrThread;
     private Handler handler;
-   private BroadcastReceiver usbBroadcastReceiver;
+    private BroadcastReceiver usbBroadcastReceiver;
     private BroadcastReceiver permissionBroadcastReceiver;
-    //private DataConnectionListener dataConnectionListener;
     private FakeSdr fakeSdr;
     private TestListener listener;
     private boolean isSqandrRunning = false;
     private boolean sendData = false;
     private Thread txThread;
+    //private long thisDevice = 1234l;
     private long thisDevice = System.currentTimeMillis();
     private Stats stats = new Stats();
-    private int packetsSent = 0;
-    private int bytesSent = 0;
     private SqandrStatus appStatus = SqandrStatus.OFF;
+    private AtomicBoolean keepGoing = new AtomicBoolean(true);
 
     public TestService(@NonNull Context context) {
         this.context = context;
@@ -86,39 +87,52 @@ public class TestService implements TestListener {
 
     public SqandrStatus getAppStatus() { return appStatus; }
 
-    public boolean getAppRunning() {
+    public boolean isAppRunning() {
         return appStatus == SqandrStatus.RUNNING;
+    }
+
+    public void setSendData(boolean send) {
+        this.sendData = send;
+    }
+
+    public boolean isSendData() {
+        return sendData;
     }
 
     private class TxThread extends Thread {
         private ArrayList<Segment> segs;
         private byte[] data;
         private long lag;
+
         @Override
         public void run() {
-            while(isSqandrRunning && sendData) {
-                lag = nextTxTime - System.currentTimeMillis();
-                if (lag > 0l) {
-                    if (lag > 2l) {
-                        try {
-                            sleep(lag - 2);
-                        } catch (InterruptedException ignore) {
-                        }
-                    }
-                } else {
-                    nextTxTime = System.currentTimeMillis() + intervalBetweenTx;
-                    data = getNextTestData();
-                    stats.statsMe.incrementTotalSent();
-                    if (Segment.isAbleToWrapInSingleSegment(data))
-                        burst(Segmenter.wrap(data).toBytes());
-                    else {
-                        segs = Segmenter.wrapIntoSegments(data);
-                        if (segs != null) {
-                            for (Segment seg:segs) {
-                                burst(seg.toBytes());
+            Log.d(TAG,"TxThread starting...");
+            while(keepGoing.get()) {
+                isSqandrRunning = isAppRunning();
+                while (isSqandrRunning && sendData) {
+                    if (nextTxTime > 0l)
+                        lag = nextTxTime - System.currentTimeMillis();
+                    else
+                        lag = 0l;
+                    if (lag > 0l) {
+                        if (lag > 2l) {
+                            try {
+                                sleep(lag - 2);
+                            } catch (InterruptedException ignore) {
                             }
                         }
+                    } else {
+                        nextTxTime = System.currentTimeMillis() + intervalBetweenTx;
+                        data = getNextTestData();
+                        Log.d(TAG,"Next test packet: "+StringUtils.toHex(data));
+                        stats.statsMe.incrementTotalSent();
+                        stats.incrementPacketsSent();
+                        burst(data);
                     }
+                }
+                try {
+                    sleep(1000);
+                } catch (InterruptedException ignore) {
                 }
             }
         }
@@ -126,7 +140,8 @@ public class TestService implements TestListener {
 
     private byte[] getNextTestData() {
         myPacketIndex++;
-        return new TestPacket(thisDevice,myPacketIndex).toBytes();
+        TestPacket pkt = new TestPacket(thisDevice,myPacketIndex);
+        return pkt.toBytes();
     }
 
     private Runnable periodicTask = new Runnable() {
@@ -201,6 +216,7 @@ public class TestService implements TestListener {
     }
 
     public void shutdown() {
+        keepGoing.set(false);
         isSqandrRunning = false;
         listener = null;
         Log.d(TAG,"Shutting down TestService...");
@@ -319,7 +335,7 @@ public class TestService implements TestListener {
                     return;
                 }
                 fakeSdr.burst(data);
-                bytesSent += data.length;
+                stats.incrementBytesSent(data.length);
                 Log.d(TAG, "burstPacket(" + data.length + "b)");
             });
         }
@@ -330,11 +346,12 @@ public class TestService implements TestListener {
 
     @Override
     public void onDataReassembled(byte[] data) {
-        Log.d(TAG,"TestService.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b)");
+        Log.d(TAG,"TestService.onReceiveDataLinkData("+((data==null)?"no ":data.length)+"b): "+ StringUtils.toHex(data));
         TestPacket pkt = new TestPacket(data);
         if (pkt.isValid()) {
             OneStats statsToUse;
             ArrayList<Integer> current;
+            Log.d(TAG,"Valid packet received from "+pkt.getDevice());
             if (pkt.getDevice() == thisDevice) {
                 statsToUse = stats.statsMe;
                 current = myStored;
@@ -356,10 +373,13 @@ public class TestService implements TestListener {
                     current.remove(0);
             }
 
-            if (pkt.getIndex() > statsToUse.getTotal())
-                statsToUse.setTotal(pkt.getIndex());
-            statsToUse.incrementComplete();
+            if (pkt.getIndex() < statsToUse.getTotal() + 100) {
+                if (pkt.getIndex() > statsToUse.getTotal())
+                    statsToUse.setTotal(pkt.getIndex());
+                statsToUse.incrementComplete();
+            }
 
+            Log.d(TAG,"TestService received: "+StringUtils.toHex(data));
             if (listener != null)
                 listener.onDataReassembled(data);
         } else {
@@ -382,6 +402,7 @@ public class TestService implements TestListener {
     @Override
     public void onSqandrStatus(SqandrStatus status, String message) {
         appStatus = status;
+        isSqandrRunning = isAppRunning();
         if (listener != null)
             listener.onSqandrStatus(status, message);
     }
@@ -393,9 +414,8 @@ public class TestService implements TestListener {
     }
 
     public void setAppRunning(boolean shouldRun) {
-        if (shouldRun) {
+        if (shouldRun)
             stats.clear();
-        }
         if (fakeSdr != null)
             fakeSdr.setAppRunning(shouldRun);
     }

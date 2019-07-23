@@ -15,13 +15,14 @@ public class TestPacket {
     private int index;
     private byte[] data;
     private static byte[] STD_DATA;
-    private static int STD_DATA_CHECKSUM;
+    private static byte STD_DATA_CHECKSUM;
 
     private final static int HEADER_SIZE = 16;
 
     private static int size = 0;
 
     public TestPacket(long device, int index) {
+        Log.d(TAG,"Packet "+index+" created for device "+device);
         this.device = device;
         this.index = index;
     }
@@ -56,13 +57,14 @@ public class TestPacket {
         //write header
         out.putLong(device);
         out.putInt(index);
-        out.putInt(updateChecksum(STD_DATA_CHECKSUM));
+        out.put(updateChecksum());
         out.put(STD_DATA);
 
         return out.array();
     }
 
-    private int updateChecksum(int check) {
+    private byte updateChecksum() {
+        byte check = STD_DATA_CHECKSUM;
         byte[] bytes = NetUtil.longToByteArray(device);
         for (int i=0;i<bytes.length;i++) {
             check = NetUtil.updateChecksum(check,bytes[i]);
@@ -84,17 +86,19 @@ public class TestPacket {
         try {
             device = buf.getLong();
             index = buf.getInt();
-            int checksum = buf.getInt();
+            byte checksum = buf.get();
+            Log.d(TAG,"Parser checking "+index+" from "+device+", checksum "+checksum);
             data = new byte[size];
             buf.get(data);
             for (int i=0;i<data.length;i++) {
                 if (data[i] != STD_DATA[i]) {
                     data = null;
+                    Log.d(TAG,"Packet "+index+" from "+device+" parsed failed: data not the same");
                     return;
                 }
             }
-            if (updateChecksum(STD_DATA_CHECKSUM) != checksum) {
-                Log.d(TAG,"checksum failed");
+            if (updateChecksum() != checksum) {
+                Log.d(TAG,"Packet "+index+" from "+device+"checksum failed");
                 data = null;
                 return;
             }

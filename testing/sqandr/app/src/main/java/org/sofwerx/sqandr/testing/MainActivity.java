@@ -5,18 +5,26 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqandr.sdr.sar.Segment;
+import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.TestService;
+import org.sofwerx.sqandr.util.StringUtils;
 
+import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements TestListener {
+    private final static String TAG = Config.TAG+".ui";
     private TestService testService;
     private TextView textStatus;
     private EditText editCommands, editPktSize, editPktDelay;
@@ -25,12 +33,14 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     private SqandrStatus appStatus = SqandrStatus.OFF;
     private TextView pktMeComplete,pktMeUnique,pktMeMissed,pktMeSuccess;
     private TextView pktOtherComplete,pktOtherUnique,pktOtherMissed,pktOtherSuccess;
-    private TextView pktPartial,pktSegments;
+    private TextView pktPartial,pktSegments, outPackets, outBytes;
     private View tableSpecs;
     private Timer autoUpdate;
     private ImageView buttonSend;
 
     private final static String PREFS_COMMANDS = "cmds";
+    private final static String PREFS_PKT_SIZE = "pktss";
+    private final static String PREFS_PKT_DELAY = "pktdly";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,36 +62,64 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         pktOtherSuccess = findViewById(R.id.otherSuccessRate);
         pktPartial = findViewById(R.id.unkPartial);
         pktSegments = findViewById(R.id.unkSegments);
+        outPackets = findViewById(R.id.meOutPackets);
+        outBytes = findViewById(R.id.meOutBytes);
         editPktSize = findViewById(R.id.mainPktSize);
         editPktDelay = findViewById(R.id.mainPktDelay);
         tableSpecs = findViewById(R.id.mainTableSendSpecs);
         buttonSend = findViewById(R.id.mainToggleSend);
+        imagePlutoStatus.setVisibility(View.INVISIBLE);
         buttonSend.setOnClickListener(v -> {
             if (testService != null) {
-                if (testService.getAppRunning())
-                    testService.setAppRunning(false);
+                if (testService.isSendData())
+                    testService.setSendData(false);
                 else {
                     try {
                         TestPacket.setPacketSize(Integer.parseInt(editPktSize.getText().toString()));
                         testService.setIntervalBetweenTx(Long.parseLong(editPktDelay.getText().toString()));
                     } catch (NumberFormatException ignore) {
                     }
-                    testService.setAppRunning(true);
+                    testService.setSendData(true);
                 }
             }
             updateSendButton();
         });
+
+        /*TestPacket.setPacketSize(105);
+        TestPacket pkt = new TestPacket(1234l,1);
+        byte[] bytes = pkt.toBytes();
+        Log.d(TAG,"pkt = "+ StringUtils.toHex(bytes));
+        byte[] segBytes = Segmenter.wrap(bytes).toBytes();
+        ByteBuffer in = ByteBuffer.wrap(segBytes);
+        byte[] header = new byte[3];
+        header[0] = in.get();
+        header[1] = in.get();
+        header[2] = in.get();
+        int size = header[2] & 0xFF;
+        byte[] rest = new byte[size+2]; //2 added to get the rest of the header
+        in.get(rest);
+        Segment segment = new Segment();
+        segment.parseRemainder(rest);
+        Log.d(TAG,"Seg = "+ StringUtils.toHex(segment.toBytes()));
+        //TestPacket newPkt = new TestPacket(segment.getData());
+        TestPacket newPkt = new TestPacket(StringUtils.toByteArray("33cc31d4f75555555555555187555555547e5457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d555555"));
+        Log.d(TAG,"Packet "+newPkt.getIndex()+" from "+newPkt.getDevice());
+        Log.d(TAG,newPkt.isValid()?"Valid":"Invalid");*/
     }
 
     private void loadPrefs() {
         SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         editCommands.setText(sharedPrefs.getString(PREFS_COMMANDS,null));
+        editPktSize.setText(sharedPrefs.getString(PREFS_PKT_SIZE,"100"));
+        editPktDelay.setText(sharedPrefs.getString(PREFS_PKT_DELAY,"10000"));
     }
 
     private void savePrefs() {
         SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         SharedPreferences.Editor edit = sharedPrefs.edit();
         edit.putString(PREFS_COMMANDS,editCommands.getText().toString());
+        edit.putString(PREFS_PKT_SIZE,editPktSize.getText().toString());
+        edit.putString(PREFS_PKT_DELAY,editPktDelay.getText().toString());
         edit.apply();
     }
 
@@ -93,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         if ((appStatus != SqandrStatus.PENDING) && (testService != null)) {
             testService.setCommandFlags(editCommands.getText().toString());
             testService.setAppRunning(appStatus != SqandrStatus.RUNNING);
+            updateStats();
             setStatus(SqandrStatus.PENDING);
         }
     }
@@ -110,6 +149,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
                         break;
 
                     case RUNNING:
+                        setStatus(PlutoStatus.UP);
                         imageAppStatus.setImageResource(android.R.drawable.ic_media_pause);
                         imageAppStatus.setVisibility(View.VISIBLE);
                         editCommands.setEnabled(false);
@@ -174,6 +214,8 @@ public class MainActivity extends AppCompatActivity implements TestListener {
             pktOtherSuccess.setText(Integer.toString(stats.statsOther.getSuccessRate()));
             pktSegments.setText(Integer.toString(stats.segments));
             pktPartial.setText(Integer.toString(stats.partialPackets));
+            outPackets.setText(Integer.toString(stats.packetsSent));
+            outBytes.setText(Long.toString(stats.bytesSent));
         });
     }
 
@@ -181,20 +223,14 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         runOnUiThread(() -> {
             if (testService == null)
                 buttonSend.setVisibility(View.INVISIBLE);
-            switch (testService.getAppStatus()) {
-                case RUNNING:
+            if (testService.getAppStatus() == SqandrStatus.RUNNING) {
+                buttonSend.setVisibility(View.VISIBLE);
+                if (testService.isSendData())
                     buttonSend.setImageResource(R.drawable.icon_sending);
-                    buttonSend.setVisibility(View.VISIBLE);
-                    break;
-
-                case OFF:
+                else
                     buttonSend.setImageResource(R.drawable.icon_not_sending);
-                    buttonSend.setVisibility(View.VISIBLE);
-
-                default:
-                    buttonSend.setVisibility(View.INVISIBLE);
-                    break;
-            }
+            } else
+                buttonSend.setVisibility(View.INVISIBLE);
         });
     }
 

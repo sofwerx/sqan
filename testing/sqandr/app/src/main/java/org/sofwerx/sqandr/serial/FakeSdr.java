@@ -12,12 +12,14 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.util.StringUtil;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqandr.sdr.SdrException;
 import org.sofwerx.sqandr.testing.PlutoStatus;
 import org.sofwerx.sqandr.testing.SqandrStatus;
 import org.sofwerx.sqandr.testing.TestListener;
 import org.sofwerx.sqandr.util.SdrUtils;
+import org.sofwerx.sqandr.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 
@@ -70,6 +72,7 @@ public class FakeSdr implements TestListener {
                 serialConnection = new SerialConnectionTest(null);
                 serialConnection.open(context, usbDevice);
                 serialConnection.setListener(this);
+                dataConnection = serialConnection;
             }
         }
     }
@@ -219,6 +222,7 @@ public class FakeSdr implements TestListener {
 
     @Override
     public void onDataReassembled(byte[] payloadData) {
+        Log.d(TAG,"FakeSDR received: "+ StringUtils.toHex(payloadData));
         if (listener != null)
             listener.onDataReassembled(payloadData);
     }

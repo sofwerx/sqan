@@ -5,6 +5,12 @@ public class OneStats {
     private int unique;
     private int total;
 
+    public void clear() {
+        complete = 0;
+        unique = 0;
+        total = 0;
+    }
+
     public int getSuccessRate() {
         if (total == 0)
             return 0;

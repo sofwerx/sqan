@@ -9,6 +9,7 @@ import org.sofwerx.sqandr.testing.SqandrStatus;
 import org.sofwerx.sqandr.testing.TestListener;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.SdrUtils;
+import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
@@ -64,6 +65,7 @@ public abstract class AbstractDataConnection {
                         if (out != null) {
                             if (listener != null) {
                                 listener.onSqandrStatus(SqandrStatus.RUNNING,null);
+                                Log.d(TAG,"reassembled = "+StringUtils.toHex(out));
                                 listener.onDataReassembled(out);
                             }
                         }
@@ -143,7 +145,7 @@ public abstract class AbstractDataConnection {
                 return new PartialHeaderData(size,false);
             } else if (Segment.isQuickInversionValidCheck(header)) {
                 Log.d(TAG,"readPartialHeader() validity test passed, but inverted");
-                size = ~header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
+                size = header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
                 lastHeaderBufferIndex = dataBuffer.getReadPosition();
                 return new PartialHeaderData(size,false);
             } else {
@@ -235,7 +237,7 @@ public abstract class AbstractDataConnection {
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
                 if (listener != null)
-                    listener.onDataReassembled(Crypto.decrypt(segmenter.reassemble()));
+                    listener.onDataReassembled(segmenter.reassemble());
                 segmenters.remove(segmenter);
             }
         }
@@ -266,8 +268,10 @@ public abstract class AbstractDataConnection {
                 if (listener != null)
                     listener.onReceivedSegment();
                 if (segment.isStandAlone()) {
-                    Log.d(TAG,"Standalone packet recovered ("+headerData.size+"b)");
-                    return Crypto.decrypt(segment.getData());
+                    Log.d(TAG,"Standalone packet recovered ("+headerData.size+"b): "+ StringUtils.toHex(rest));
+                    byte[] sabytes = segment.getData();
+                    Log.d(TAG,"Standalone data: "+ StringUtils.toHex(sabytes));
+                    return Crypto.decrypt(sabytes);
                 } else
                     handleSegment(segment);
             } else {

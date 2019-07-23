@@ -148,7 +148,7 @@ public abstract class AbstractDataConnection {
                 return new PartialHeaderData(size,false);
             } else if (Segment.isQuickInversionValidCheck(header)) {
                 Log.d(TAG,"readPartialHeader() validity test passed, but inverted");
-                size = ~header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
+                size = header[2] & 0xFF; //needed to convert signed byte into unsigned int and invert
                 lastHeaderBufferIndex = dataBuffer.getReadPosition();
                 return new PartialHeaderData(size,false);
             } else {
