@@ -6,7 +6,7 @@ import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqandr.SqANDRListener;
 
-public class Listener implements SqANDRListener, ManetListener {
+public abstract class Listener implements SqANDRListener, ManetListener {
 
     @Override
     public void onSdrError(String message) {
