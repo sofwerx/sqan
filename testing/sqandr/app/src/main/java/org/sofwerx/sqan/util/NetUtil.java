@@ -69,6 +69,12 @@ public class NetUtil {
         return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
     }
 
+    public static final int byteArrayToShort(byte[] bytes) {
+        if ((bytes == null) || (bytes.length != 2))
+            return Integer.MIN_VALUE;
+        return bytes[0] << 8 | (bytes[1] & 0xFF);
+    }
+
     /**
      * Provides a string listing of the byte values in this array for debug purposes
      * @param bytes

@@ -15,6 +15,10 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
+import org.sofwerx.sqan.rf.SignalConverter;
+import org.sofwerx.sqan.rf.SignalProcessingListener;
+import org.sofwerx.sqan.rf.SignalProcessor;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqandr.sdr.AbstractDataConnection;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqandr.sdr.sar.Segment;
@@ -36,7 +40,7 @@ import java.util.concurrent.Executors;
 /**
  * Test version of the SerialConnection class for configuration testing of SQANDR
  */
-public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener {
+public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener, SignalProcessingListener {
     private final static String TAG = Config.TAG+".Serial";
     private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
@@ -87,11 +91,19 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private final static boolean USE_BIN_USB_IN = false; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
 
+
+    private boolean processOnPluto = false;
+    private SignalProcessor signalProcessor;
+
     public SerialConnectionTest(String commands) {
+        if (!processOnPluto)
+            signalProcessor = new SignalProcessor(this);
+
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
+                +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
                 +((commands==null)?"":commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
@@ -107,9 +119,9 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
 
     public void setCommandFlags(String flags) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                +(USE_BIN_USB_IN ?" -binI":"")
-                +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms"
+                //+(USE_BIN_USB_IN ?" -binI":"")
+                //+(USE_BIN_USB_OUT ?" -binO":"")
+                //+" -minComms"
                 +((flags==null)?"":flags)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
     }
@@ -259,6 +271,10 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 Log.d(TAG,"Unable to close connection: "+e.getMessage());
             }
             connection = null;
+        }
+        if (signalProcessor != null) {
+            signalProcessor.shutdown();
+            signalProcessor = null;
         }
     }
 
@@ -535,7 +551,9 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 }
             }
         }
-    };
+    }
+
+    private boolean showAsInt16 = false;
 
     @Override
     public void onNewData(byte[] data) {
@@ -575,23 +593,58 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                        //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
-                        if ((data[0] == (byte) 54)) // 6 - like the start of the SqAN header
+                        if (processOnPluto) {
                             Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                        else if ((data[0] != (byte) 42)) //ignore echos of sent data
-                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
-                    } else
-                        Log.d(TAG, "From SDR: " + new String(data,StandardCharsets.UTF_8));
+                            handleRawDatalinkInput(data);
+                        } else {
+                            if (signalProcessor != null)
+                                signalProcessor.consumeIqData(data);
 
-                    /*byte[] preserveHeader = new byte[Segment.HEADER_MARKER.length];
-                    for (int i=0; i< preserveHeader.length; i++) {
-                        preserveHeader[i] = data[i];
+                            /*if (!showAsInt16) {
+                                Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
+                                if (data.length > 3)
+                                    Log.d(TAG, "From SDR: byte " + data[0] + "," + data[1] + "," + data[2] + "," + data[3]);
+                                if (data.length > 3) {
+                                    showAsInt16 = data[0] == 0x2a;
+                                    if (showAsInt16)
+                                        Log.d(TAG, "data[0] == 42");
+                                    showAsInt16 = showAsInt16 && (data[1] == 0x2a);
+                                    if (showAsInt16)
+                                        Log.d(TAG, "data[1] == 42");
+                                    showAsInt16 = showAsInt16 && (data[2] == (byte) 42);
+                                    if (showAsInt16)
+                                        Log.d(TAG, "data[2] == 42");
+                                    showAsInt16 = showAsInt16 && (data[3] == (byte) 42);
+                                    if (showAsInt16)
+                                        Log.d(TAG, "data[3] == 42");
+                                    //showAsInt16 = ((data[0] == (byte) 42) && (data[1] == (byte) 42) && (data[2] == (byte) 42) && (data[3] == (byte) 42));
+                                }
+                                if (showAsInt16)
+                                    Log.d(TAG, "Switching to Int16 mode");
+                            } else {
+                                int i = 0;
+                                final int max = data.length - 2;
+                                StringBuilder out = new StringBuilder();
+                                boolean first = true;
+                                while (i < max) {
+                                    if (first)
+                                        first = false;
+                                    else
+                                        out.append(",");
+                                    int value = data[i] << 8 | (data[i + 1] & 0xFF);
+                                    out.append(value);
+                                    i += 2;
+                                }
+
+                                Log.d(TAG, "From SDR: " + out.toString());
+                            }*/
+                        }
+                    } else {
+                        if (data.length > 1000)
+                            sdrAppStatus = SdrAppStatus.RUNNING;
+                        else
+                            Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
                     }
-                    byte[] plaintext = Crypto.decrypt(data);
-                    for (int i=0; i< preserveHeader.length; i++) { //restore the header after any encryption/decryption
-                        plaintext[i] = preserveHeader[i];
-                    }*/
-                    handleRawDatalinkInput(data);
                 }
             });
             return;
@@ -861,5 +914,16 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 }
             });
         }
+    }
+
+    @Override
+    public void onSignalDataExtracted(byte[] data) {
+        handleRawDatalinkInput(data);
+    }
+
+    @Override
+    public void onSignalDataOverflow() {
+        Log.w(TAG,"Signal Processor is unable to keep up with data intake");
+        //FIXME report the overflow
     }
 }

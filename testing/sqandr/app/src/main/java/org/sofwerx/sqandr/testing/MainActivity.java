@@ -5,21 +5,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.util.StringUtil;
-import org.sofwerx.sqandr.sdr.sar.Segment;
-import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.TestService;
-import org.sofwerx.sqandr.util.StringUtils;
 
-import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -35,8 +31,12 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     private TextView pktOtherComplete,pktOtherUnique,pktOtherMissed,pktOtherSuccess;
     private TextView pktPartial,pktSegments, outPackets, outBytes;
     private View tableSpecs;
+    private View rawView;
+    private Switch switchMode;
     private Timer autoUpdate;
     private ImageView buttonSend;
+    private boolean modeProcessed = true;
+    private boolean systemChangingModeToggle = false;
 
     private final static String PREFS_COMMANDS = "cmds";
     private final static String PREFS_PKT_SIZE = "pktss";
@@ -66,9 +66,12 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         outBytes = findViewById(R.id.meOutBytes);
         editPktSize = findViewById(R.id.mainPktSize);
         editPktDelay = findViewById(R.id.mainPktDelay);
-        tableSpecs = findViewById(R.id.mainTableSendSpecs);
+        tableSpecs = findViewById(R.id.mainTableSpecs);
+        rawView = findViewById(R.id.mainViewRaw);
         buttonSend = findViewById(R.id.mainToggleSend);
         imagePlutoStatus.setVisibility(View.INVISIBLE);
+        switchMode = findViewById(R.id.mainToggleMode);
+        switchMode.setChecked(modeProcessed);
         buttonSend.setOnClickListener(v -> {
             if (testService != null) {
                 if (testService.isSendData())
@@ -83,6 +86,10 @@ public class MainActivity extends AppCompatActivity implements TestListener {
                 }
             }
             updateSendButton();
+        });
+        switchMode.setOnCheckedChangeListener((buttonView, isChecked) ->  {
+            if (!systemChangingModeToggle)
+                updateToggleMode();
         });
 
         /*TestPacket.setPacketSize(105);
@@ -105,6 +112,17 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         TestPacket newPkt = new TestPacket(StringUtils.toByteArray("33cc31d4f75555555555555187555555547e5457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d555555"));
         Log.d(TAG,"Packet "+newPkt.getIndex()+" from "+newPkt.getDevice());
         Log.d(TAG,newPkt.isValid()?"Valid":"Invalid");*/
+    }
+
+    private void updateToggleMode() {
+        modeProcessed = switchMode.isChecked();
+        if (modeProcessed) {
+            tableSpecs.setVisibility(View.VISIBLE);
+            rawView.setVisibility(View.GONE);
+        } else {
+            tableSpecs.setVisibility(View.GONE);
+            rawView.setVisibility(View.VISIBLE);
+        }
     }
 
     private void loadPrefs() {
@@ -198,12 +216,14 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         if (testService == null)
             return;
         runOnUiThread(() -> {
+            if (!modeProcessed)
+                return;
             Stats stats = testService.getStats();
             if ((stats == null) || (stats.statsMe == null) || (stats.statsOther == null)) {
-                tableSpecs.setVisibility(View.INVISIBLE);
+                //tableSpecs.setVisibility(View.INVISIBLE);
                 return;
             }
-            tableSpecs.setVisibility(View.VISIBLE);
+            //tableSpecs.setVisibility(View.VISIBLE);
             pktMeComplete.setText(Integer.toString(stats.statsMe.getComplete()));
             pktMeUnique.setText(Integer.toString(stats.statsMe.getUnique()));
             pktMeMissed.setText(Integer.toString(stats.statsMe.getTotal()-stats.statsMe.getUnique()));
@@ -239,6 +259,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         super.onResume();
         loadPrefs();
         updateSendButton();
+        updateToggleMode();
         if (testService != null)
             testService.setListener(this);
         autoUpdate = new Timer();
