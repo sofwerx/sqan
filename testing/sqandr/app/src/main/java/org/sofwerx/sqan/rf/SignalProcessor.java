@@ -155,7 +155,13 @@ public class SignalProcessor {
     public void consumeIqData(byte[] incoming) {
         if (incoming == null)
             return;
-        Log.d(TAG,"Consuming "+incoming.length+"b");
+        if (incoming.length < 100) {
+            if (incoming.length < 10)
+                Log.d(TAG, "Consuming " + incoming.length + "b: " + StringUtils.toHex(incoming)+": " + new String(incoming, StandardCharsets.UTF_8));
+            else
+                Log.d(TAG, "Consuming " + incoming.length + "b: " + new String(incoming, StandardCharsets.UTF_8));
+        } else
+            Log.d(TAG,"Consuming "+incoming.length+"b");
         /*if (incoming.length < 200) {
             Log.d(TAG, "From SDR: " + new String(incoming, StandardCharsets.UTF_8));
             return;
@@ -174,8 +180,8 @@ public class SignalProcessor {
             iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" "+ StringUtils.toStringRepresentation(incoming[i+1])+" "+ StringUtils.toStringRepresentation(incoming[i+2])+" "+ StringUtils.toStringRepresentation(incoming[i+3]));
 
             //switching endianness
-            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4;
-            valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF))<<4;
+            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF));
+            valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF));
             iiqoffsetTest.append(" 1: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
 
             /*converter1.onNewIQ(valueI,valueQ);
