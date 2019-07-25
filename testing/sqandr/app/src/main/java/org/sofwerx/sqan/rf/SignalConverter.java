@@ -29,7 +29,7 @@ public class SignalConverter {
     private int amplitudeLast;
     private boolean isReadingHeader = true;
     private int tempHeader;
-    private byte bit;
+    private boolean bitOn;
     private byte tempByte = 0;
     private int bitIndex = 0;
     private boolean shortHeader = true;
@@ -49,6 +49,8 @@ public class SignalConverter {
             headerLength = 11;
     }
 
+
+    StringBuilder outNewIQ = new StringBuilder(); //FIXME for testing
     /**
      * Intake a new IQ value into the converter
      * @param valueI
@@ -57,71 +59,76 @@ public class SignalConverter {
     public void onNewIQ(int valueI, int valueQ) {
         if (dataPtIsReady) {
             Log.w(TAG, "SignalConverter is attempting to consume another IQ value, but the last byte hasn't been read. Be sure to call hasByte() to see if a byte is ready then popByte() to remove the byte from the converter");
-
-            //straight port of the current Pluto logic
-            amplitude = valueI << 4; // Real (I) //TODO this bitshift seems unnecessary
-
-            if (isReadingHeader) {
-                boolean headerComplete = false;
-                tempHeader = tempHeader << 1; //move bits over to make room for new bit
-
-                if (amplitude >= amplitudeLast) {
-                    tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
-                    bit = 1;
-                } else {
-                    bit = 0;
-                }
-                if (shortHeader)
-                    tempHeader = tempHeader & SHORT_HEADER_MASK;
-                else
-                    tempHeader = tempHeader & HEADER_MASK;
-
-                if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
-                    headerComplete = true;
-                    isSignalInverted = false;
-                } else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
-                    headerComplete = true;
-                    isSignalInverted = true;
-                }
-
-                if (headerComplete) {
-                    tempHeader = 0;
-                    isReadingHeader = false;
-                    bitIndex = 0;
-                    tempByte = 0;
-                }
-            } else {
-                bitIndex++;
-                tempByte = (byte)(tempByte << 1);
-                if (isSignalInverted) {
-                    if (amplitude <= amplitudeLast){
-                        tempByte = (byte)(tempByte | LEAST_SIG_BIT);
-                        bit = 1;
-                    } else
-                        bit = 0;
-                } else {
-                    if (amplitude >= amplitudeLast){
-                        tempByte = (byte)(tempByte | LEAST_SIG_BIT);
-                        bit = 1;
-                    } else
-                        bit = 0;
-                }
-
-                if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
-                    dataPt = tempByte;
-                    dataPtIsReady = true;
-
-                    //FIXME for testing
-                    out.append(StringUtils.toHex(dataPt));
-                    if (out.length() > 100) {
-                        Log.d(TAG,"Converted IQs: "+out.toString());
-                        out = new StringBuilder();
-                    }
-                    //FIXME for testing
-                }
-            }
-            amplitudeLast = amplitude*PERCENT_LAST/100;
+            return;
         }
+
+        //straight port of the current Pluto logic
+        amplitude = valueI; // Real (I)
+
+        if (isReadingHeader) {
+            boolean headerComplete = false;
+            tempHeader = tempHeader << 1; //move bits over to make room for new bit
+
+            if (amplitude >= amplitudeLast) {
+                tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+                bitOn = true;
+            } else {
+                bitOn = false;
+            }
+            if (shortHeader)
+                tempHeader = tempHeader & SHORT_HEADER_MASK;
+            else
+                tempHeader = tempHeader & HEADER_MASK;
+
+            if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
+                headerComplete = true;
+                isSignalInverted = false;
+            } else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
+                headerComplete = true;
+                isSignalInverted = true;
+            }
+
+            if (headerComplete) {
+                //Log.d(TAG,"header found");
+                tempHeader = 0;
+                isReadingHeader = false;
+                bitIndex = 0;
+                tempByte = 0;
+            }
+        } else {
+            bitIndex++;
+            tempByte = (byte)(tempByte << 1);
+            if (isSignalInverted) {
+                if (amplitude <= amplitudeLast){
+                    tempByte = (byte)(tempByte | LEAST_SIG_BIT);
+                    bitOn = true;
+                } else
+                    bitOn = false;
+            } else {
+                if (amplitude >= amplitudeLast){
+                    tempByte = (byte)(tempByte | LEAST_SIG_BIT);
+                    bitOn = true;
+                } else
+                    bitOn = false;
+            }
+
+            if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+                dataPt = tempByte;
+                dataPtIsReady = true;
+
+                /*
+                //FIXME for testing
+                out.append(StringUtils.toHex(dataPt));
+                if (out.length() > 100) {
+                    Log.d(TAG,"Converted IQs: "+out.toString());
+                    out = new StringBuilder();
+                }
+                //FIXME for testing
+                */
+
+            }
+        }
+        amplitudeLast = amplitude*PERCENT_LAST/100;
     }
 
     /**
@@ -139,6 +146,7 @@ public class SignalConverter {
         dataPtIsReady = false;
         final byte outgoing = dataPt;
         dataPt = (byte)0;
+        isReadingHeader = true;
         return outgoing;
     }
 }

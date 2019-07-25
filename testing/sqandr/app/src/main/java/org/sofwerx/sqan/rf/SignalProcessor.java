@@ -2,10 +2,13 @@ package org.sofwerx.sqan.rf;
 
 import android.util.Log;
 
+import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalProcessor {
@@ -22,6 +25,7 @@ public class SignalProcessor {
     private final static int CYCLES_BETWEEN_OVERFLOW_CHECKS = 100;
     private int nextOverflowCheck = CYCLES_BETWEEN_OVERFLOW_CHECKS;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
+    private int maxToShow = 4;
 
     /**
      * Creates a new signal processor that will intake IQ values and then output processed
@@ -64,8 +68,8 @@ public class SignalProcessor {
                                 nextOverflowCheck = CYCLES_BETWEEN_OVERFLOW_CHECKS;
                             }
 
-                            valueI = byteValueI[0] << 8 | (byteValueI[1] & 0xFF);
-                            valueQ = byteValueQ[0] << 8 | (byteValueQ[1] & 0xFF);
+                            valueI = (byteValueI[0] << 8 | (byteValueI[1] & 0xFF))<<4;
+                            valueQ = (byteValueQ[0] << 8 | (byteValueQ[1] & 0xFF))<<4;
                             if (rawListener != null)
                                 rawListener.onIqValue(valueI,valueQ);
                             if (maxToShow != 0) { //FIXME for testing
@@ -139,19 +143,100 @@ public class SignalProcessor {
     }*/
 
     //FIXME trying a synchronous approach to parsing all the incoming data
+    private SignalConverter converter1 = new SignalConverter();
+    private ByteBuffer out1 = ByteBuffer.allocate(16);
+    private SignalConverter converter2 = new SignalConverter();
+    private ByteBuffer out2 = ByteBuffer.allocate(16);
+    private SignalConverter converter3 = new SignalConverter();
+    private ByteBuffer out3 = ByteBuffer.allocate(16);
+    private SignalConverter converter4 = new SignalConverter();
+    private ByteBuffer out4 = ByteBuffer.allocate(16);
+    private StringBuilder iiqoffsetTest = new StringBuilder();
     public void consumeIqData(byte[] incoming) {
-        int valueI,valueQ;
-        int maxToShow = 256;
         if (incoming == null)
             return;
-        int len = incoming.length-3;
-        for (int i=0;i<len;i+=4) {
-            valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
-            valueQ = incoming[i+2] << 8 | (incoming[i+3] & 0xFF);
-            if (maxToShow != 0) { //FIXME for testing
-                maxToShow--;
-                Log.d(TAG, "I=" + valueI + ",Q=" + valueQ);
-            }
+        Log.d(TAG,"Consuming "+incoming.length+"b");
+        /*if (incoming.length < 200) {
+            Log.d(TAG, "From SDR: " + new String(incoming, StandardCharsets.UTF_8));
+            return;
+        }*/
+        final int limit = out1.limit()-1;
+        int valueI,valueQ;
+        maxToShow--;
+
+        //int len = incoming.length-3;
+        //for (int i=0;i<len;i+=4) {
+        int len = incoming.length-4;
+        for (int i=7;i<len;i+=4) { //fwrite sends data offset by 10 samples plus 7 bytesv
+            //valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
+            //valueQ = incoming[i+2] << 8 | (incoming[i+3] & 0xFF);
+
+            iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" "+ StringUtils.toStringRepresentation(incoming[i+1])+" "+ StringUtils.toStringRepresentation(incoming[i+2])+" "+ StringUtils.toStringRepresentation(incoming[i+3]));
+
+            //switching endianness
+            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4;
+            valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF))<<4;
+            iiqoffsetTest.append(" 1: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
+
+            /*converter1.onNewIQ(valueI,valueQ);
+            if (converter1.hasByte()) {
+                out1.put(converter1.popByte());
+                if (out1.position() == limit) {
+                    byte[] outBytes = out1.array();
+                    Log.d(TAG,"From SDR: (offset 1) "+ StringUtils.toHex(outBytes));
+                    if (listener != null)
+                        listener.onSignalDataExtracted(outBytes);
+                    out1.clear();
+                }
+            }*/
+            valueI = incoming[i+2] << 8 | (incoming[i+1] & 0xFF);
+            valueQ = incoming[i] << 8 | (incoming[i+3] & 0xFF);
+            iiqoffsetTest.append(" 2: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
+
+            /*converter2.onNewIQ(valueI,valueQ);
+            if (converter2.hasByte()) {
+                out2.put(converter2.popByte());
+                if (out2.position() == limit) {
+                    byte[] outBytes = out2.array();
+                    Log.d(TAG,"From SDR: (offset 2) "+ StringUtils.toHex(outBytes));
+                    out2.clear();
+                }
+            }*/
+
+            valueI = incoming[i+3] << 8 | (incoming[i+2] & 0xFF);
+            valueQ = incoming[i+1] << 8 | (incoming[i] & 0xFF);
+            iiqoffsetTest.append(" 3: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
+
+            /*converter3.onNewIQ(valueI,valueQ);
+            if (converter3.hasByte()) {
+                out3.put(converter3.popByte());
+                if (out3.position() == limit) {
+                    byte[] outBytes = out3.array();
+                    Log.d(TAG,"From SDR: (offset 3) "+ StringUtils.toHex(outBytes));
+                    out3.clear();
+                }
+            }*/
+
+            valueI = incoming[i] << 8 | (incoming[i+3] & 0xFF);
+            valueQ = incoming[i+2] << 8 | (incoming[i+1] & 0xFF);
+            iiqoffsetTest.append(" 4: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
+            Log.d(TAG,iiqoffsetTest.toString());
+            iiqoffsetTest = new StringBuilder();
+
+            /*converter4.onNewIQ(valueI,valueQ);
+            if (converter4.hasByte()) {
+                out4.put(converter4.popByte());
+                if (out4.position() == limit) {
+                    byte[] outBytes = out4.array();
+                    Log.d(TAG,"From SDR: (offset 4) "+ StringUtils.toHex(outBytes));
+                    out4.clear();
+                }
+            }*/
+
+            //if ((maxToShow != 0) && (valueI != 0) && (valueQ != 0)) { //FIXME for testing
+            //Log.d(TAG, i+": I=" + valueI + " ("+incoming[i]+","+incoming[i+1]+"), Q=" + valueQ+"("+incoming[i+2]+","+incoming[i+3]+")");
+            //Log.d(TAG, i+":"+ StringUtils.toStringRepresentation(incoming[i])+" "+ StringUtils.toStringRepresentation(incoming[i+1])+" "+ StringUtils.toStringRepresentation(incoming[i+2])+" "+ StringUtils.toStringRepresentation(incoming[i+3])+" , I=" + valueI+", Q=" + valueQ);
+            //}
         }
     }
 

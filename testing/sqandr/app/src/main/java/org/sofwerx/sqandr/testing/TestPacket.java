@@ -22,7 +22,7 @@ public class TestPacket {
     private static int size = 0;
 
     public TestPacket(long device, int index) {
-        Log.d(TAG,"Packet "+index+" created for device "+device);
+        //Log.d(TAG,"Packet "+index+" created for device "+device);
         this.device = device;
         this.index = index;
     }

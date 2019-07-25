@@ -103,7 +103,9 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
+                +" -fir"
                 +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
+                +" -rxSize 50 -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
                 +((commands==null)?"":commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
@@ -183,7 +185,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 handler.postDelayed(() -> restartFromError(), 2000);
                 return;
             }
-            if (USE_BIN_USB_OUT) {
+            if (USE_BIN_USB_OUT && processOnPluto) {
                 if (lastSqandrHeartbeat > 0l) {
                     if (System.currentTimeMillis() > (lastSqandrHeartbeat + SQANDR_HEARTBEAT_STALE_TIME)) {
                         if (sdrAppStatus != SdrAppStatus.OFF) {
@@ -239,6 +241,10 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             ioManager = null;
         }
         sdrAppStatus = SdrAppStatus.OFF;
+        if (signalProcessor != null) {
+            signalProcessor.shutdown();
+            signalProcessor = null;
+        }
         if (port != null) {
             try {
                 byte[] exitCommand;
@@ -272,10 +278,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             }
             connection = null;
         }
-        if (signalProcessor != null) {
-            signalProcessor.shutdown();
-            signalProcessor = null;
-        }
     }
 
     public boolean isActive() {
@@ -290,14 +292,13 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     public void burstPacket(byte[] data) {
         if (data == null)
             return;
-        Log.d(TAG,"burstPacket wrapping "+StringUtils.toHex(data));
+        //Log.d(TAG,"burstPacket wrapping "+StringUtils.toHex(data));
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
             final byte[] cipherData = Crypto.encrypt(data);
             if (Segment.isAbleToWrapInSingleSegment(cipherData)) {
                 Segment segment = new Segment();
                 segment.setData(cipherData);
                 segment.setStandAlone();
-                Log.d(TAG,"burstPacket()");
                 if (USE_BIN_USB_IN) {
                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
                     write(segment.toBytes());
@@ -641,7 +642,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                         }
                     } else {
                         if (data.length > 1000)
-                            sdrAppStatus = SdrAppStatus.RUNNING;
+                            reportAppAsRunning();
                         else
                             Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
                     }
