@@ -96,7 +96,7 @@ public class WriteableInputStream extends InputStream {
      * keeping up and the writing is overwriting the unread data
      * @return true == is overflowing
      */
-    private boolean isOverflowing() {
+    public boolean isOverflowing() {
         return backlogSize >= BUFFER_SIZE - 2;
     }
 

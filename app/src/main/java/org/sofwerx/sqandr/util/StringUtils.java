@@ -152,6 +152,14 @@ public class StringUtils {
         return new String(hexChars);
     }
 
+    public static char[] toHex(byte data) {
+        int v = data & 0xFF;
+        char[] hexChars = new char[2];
+        hexChars[0] = HEX_ARRAY[v >>> 4];
+        hexChars[1] = HEX_ARRAY[v & 0x0F];
+        return hexChars;
+    }
+
     /**
      * Converts a byte string up to length "len" to an array of hex preceeded by "\x"
      * @param bytes

@@ -413,15 +413,15 @@ int main (int argc, char **argv){
 	const int16_t TRANSMIT_SIGNAL_NEG_Q = -30000;
 	const int MAX_BYTES_PER_LINE = 250;
 	const float DEFAULT_FREQ = 800; //in MHz
-	const float DEFAULT_SAMPLE_RATE = 4.5; //FIXME switch back to 4.5
-	const float DEFAULT_BANDWIDTH = 18; //in MHz
+	const float DEFAULT_SAMPLE_RATE = 6; //FIXME switch back to 4.5
+	const float DEFAULT_BANDWIDTH = 7; //in MHz
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
-	int TIMES_TO_SEND_MESSAGE = 7; //trigger sending a packet more than once
-	int TIMES_TO_COPY_MESSAGE = 5;
-	int rxSize = 1200;
-	int txSize = 1200;
+	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
+	int TIMES_TO_COPY_MESSAGE = 8;
+	int rxSize = 2500;
+	int txSize = 2500;
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
@@ -453,6 +453,7 @@ int main (int argc, char **argv){
 	bool inNonBlock = true;
 	bool binOut = false;
 	bool firstCycle = true;
+	bool noOnboardProcessing = false;
 
 	
 	//int emptyBuffersSent = 0;
@@ -519,6 +520,8 @@ int main (int argc, char **argv){
 				inNonBlock = false;
 			} else if (strcmp("-fir",argv[j]) == 0) {
 				firFilter = true;
+			} else if (strcmp("-rawOut",argv[j]) == 0) {
+				noOnboardProcessing = true;
 			} else if (strcmp("-shortHeader",argv[j]) == 0) {
 				shortHeader = true;
 			} else if (strcmp("-useTiming",argv[j]) == 0) {
@@ -563,6 +566,7 @@ int main (int argc, char **argv){
 				printf(" -fir = runs with FIR filtering and possible lower sample rates\n");
 				printf(" -noHeader = reports all data, not just samples that include the SqAN header\n");
 				printf(" -useTiming = checks for headers on predefined intervals after SQaN header is found\n");
+				printf(" -rawOut = Skips all onboard sample processing and sends buffer directly to master device. Must be used with -binO.\n");
 				printf(" -rxtype = Sets rx gain type. 1 = Slow Attack, 2 = Hybrid, 3 = Fast Attack. Default: 2\n");
 				printf(" -timingInterval = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
 				printf(" -messageRepeat = Designates number of times to repeat packet and concatenate. Default: 5\n");
@@ -878,126 +882,132 @@ int main (int argc, char **argv){
 			 */
 			bytesSentThisLine = 0;
 			dataoutIndex = 0;
-			for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
-				//totalSamples++;
-				if (AMPLITUDE_USE_I) {
-					amplitude = ((int16_t*)p_rx_dat)[0] << 4; // Real (I)
-				}
-				else {
-					amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
-				}
-
-				//if ((amplitude < SIGNAL_THRESHOLD) & (amplitude > -SIGNAL_THRESHOLD)) {
-					//drop due to below threshold
-				//} else {
-					if (isReadingHeader) {
-						bool headerComplete = false;
-						tempHeader = tempHeader << 1; //move bits over to make room for new bit
-						
-						if (amplitude >= amplitudeLast) {
-							tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
-							bit = 1;
-						} else {
-							bit = 0;
-						}
-						if (shortHeader)
-							tempHeader = tempHeader & SHORT_HEADER_MASK;
-						else
-							tempHeader = tempHeader & HEADER_MASK;
-
-						if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
-							headerComplete = true;
-							isSignalInverted = false;
-						} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
-							headerComplete = true;
-							isSignalInverted = true;
-						}
-
-						if (headerComplete) {
-							tempHeader = 0;
-							isReadingHeader = false;
-							bitIndex = 0;
-							tempByte = 0;
-						}
-					} else {
-						bitIndex++;
-						tempByte = tempByte << 1;
-						if (isSignalInverted) {
-							if (amplitude <= amplitudeLast){
-								tempByte = tempByte | LEAST_SIG_BIT;
-								bit = 1;
-							} else
-								bit = 0;
-						} else {
-							if (amplitude >= amplitudeLast){
-								tempByte = tempByte | LEAST_SIG_BIT;
-								bit = 1;
-							} else
-								bit = 0;
-						}
-
-						if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
-							if (dataoutIndex < SIZE_OF_DATAOUT) {
-								dataout[dataoutIndex] = tempByte;
-								dataoutIndex++;
-								bitIndex = 0;
-							}
-							if (!sqanHeaderFound) {
-								if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
-									sqanHeaderMatchIndex++;
-									if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
-										sqanHeaderFound = true;
-											//FIXME testing ------------------------------------
-											//if (!binOut && sqanHeaderFound)
-											//	printf("\nSQAN packet: 6699");
-											//FIXME testing ------------------------------------
-									}
-								} else
-									sqanHeaderMatchIndex = 0;
-							}
-						
-							//FIXME testing --------------------------
-							//if (!binOut && sqanHeaderFound) {
-								if (superVerbose) {
-									char *a = "0123456789abcdef"[tempByte >> 4];
-									char *b = "0123456789abcdef"[tempByte & 0x0F];
-									printf("HEX: %c%c\n",a,b);
-								}
-							//}
-							//FIXME testing --------------------------
-							if (sqanHeaderFound && byteTiming) {
-								ignoreHeaders = true;
-							}
-							if (ignoreHeaders) {
-								headerCounter++;
-								if (headerCounter == timingInterval) {
-									headerCounter = 0;
-									isReadingHeader = true;
-									ignoreHeaders = false;
-								}
-							} else {
-							isReadingHeader = true; //go back to reading the header
-							}
-						}
+			if (!noOnboardProcessing) {
+				for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
+					//totalSamples++;
+					if (AMPLITUDE_USE_I) {
+						amplitude = ((int16_t*)p_rx_dat)[0] << 4; // Real (I)
 					}
-				//}
-				if (superVerbose)
-					printf("\tBit: %d, A: %d\n", bit, amplitude);
-				amplitudeLast = amplitude*PERCENT_LAST/100;
+					else {
+						amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
+					}
+	
+					//if ((amplitude < SIGNAL_THRESHOLD) & (amplitude > -SIGNAL_THRESHOLD)) {
+						//drop due to below threshold
+					//} else {
+						if (isReadingHeader) {
+							bool headerComplete = false;
+							tempHeader = tempHeader << 1; //move bits over to make room for new bit
+							
+							if (amplitude >= amplitudeLast) {
+								tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+								bit = 1;
+							} else {
+								bit = 0;
+							}
+							if (shortHeader)
+								tempHeader = tempHeader & SHORT_HEADER_MASK;
+							else
+								tempHeader = tempHeader & HEADER_MASK;
+	
+							if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
+								headerComplete = true;
+								isSignalInverted = false;
+							} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
+								headerComplete = true;
+								isSignalInverted = true;
+							}
+	
+							if (headerComplete) {
+								tempHeader = 0;
+								isReadingHeader = false;
+								bitIndex = 0;
+								tempByte = 0;
+							}
+						} else {
+							bitIndex++;
+							tempByte = tempByte << 1;
+							if (isSignalInverted) {
+								if (amplitude <= amplitudeLast){
+									tempByte = tempByte | LEAST_SIG_BIT;
+									bit = 1;
+								} else
+									bit = 0;
+							} else {
+								if (amplitude >= amplitudeLast){
+									tempByte = tempByte | LEAST_SIG_BIT;
+									bit = 1;
+								} else
+									bit = 0;
+							}
+	
+							if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+								if (dataoutIndex < SIZE_OF_DATAOUT) {
+									dataout[dataoutIndex] = tempByte;
+									dataoutIndex++;
+									bitIndex = 0;
+								}
+								if (!sqanHeaderFound) {
+									if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
+										sqanHeaderMatchIndex++;
+										if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
+											sqanHeaderFound = true;
+												//FIXME testing ------------------------------------
+												//if (!binOut && sqanHeaderFound)
+												//	printf("\nSQAN packet: 6699");
+												//FIXME testing ------------------------------------
+										}
+									} else
+										sqanHeaderMatchIndex = 0;
+								}
+							
+								//FIXME testing --------------------------
+								//if (!binOut && sqanHeaderFound) {
+									if (superVerbose) {
+										char *a = "0123456789abcdef"[tempByte >> 4];
+										char *b = "0123456789abcdef"[tempByte & 0x0F];
+										printf("HEX: %c%c\n",a,b);
+									}
+								//}
+								//FIXME testing --------------------------
+								if (sqanHeaderFound && byteTiming) {
+									ignoreHeaders = true;
+								}
+								if (ignoreHeaders) {
+									headerCounter++;
+									if (headerCounter == timingInterval) {
+										headerCounter = 0;
+										isReadingHeader = true;
+										ignoreHeaders = false;
+									}
+								} else {
+								isReadingHeader = true; //go back to reading the header
+								}
+							}
+						}
+					//}
+					if (superVerbose)
+						printf("\tBit: %d, A: %d\n", bit, amplitude);
+					amplitudeLast = amplitude*PERCENT_LAST/100;
+				}
 			}
-			
 			/**
 			 * Output the recovered data
 			 **/
 			
-			if ((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) { //only output if there's something to send
+			if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) || noOnboardProcessing) { //only output if there's something to send
 				activityThisCycle = true;
 				if (binOut) {
 					/**
-					 * Output as pure binary
-					 **/
-					fwrite(dataout,1,dataoutIndex,stdout);
-					fflush(stdout);
+					* Output as pure binary
+					**/
+					if (noOnboardProcessing) {
+						fwrite(rxbuf,1,(20*rxSize),stdout);
+						fflush(stdout);
+					} else {
+						fwrite(dataout,1,dataoutIndex,stdout);
+						fflush(stdout);
+					}
 				} else {
 					/**
 					 * Output as hex text
