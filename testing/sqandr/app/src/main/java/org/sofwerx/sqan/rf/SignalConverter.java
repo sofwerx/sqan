@@ -115,17 +115,6 @@ public class SignalConverter {
             if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
                 dataPt = tempByte;
                 dataPtIsReady = true;
-
-                /*
-                //FIXME for testing
-                out.append(StringUtils.toHex(dataPt));
-                if (out.length() > 100) {
-                    Log.d(TAG,"Converted IQs: "+out.toString());
-                    out = new StringBuilder();
-                }
-                //FIXME for testing
-                */
-
             }
         }
         amplitudeLast = amplitude*PERCENT_LAST/100;
