@@ -26,7 +26,7 @@ public class SignalProcessor {
     private int nextOverflowCheck = CYCLES_BETWEEN_OVERFLOW_CHECKS;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
     private int maxToShow = 4;
-    private final static boolean DETAILED_IQ = true;
+    private final static boolean DETAILED_IQ = false;
 
     /**
      * Creates a new signal processor that will intake IQ values and then output processed
@@ -173,10 +173,16 @@ public class SignalProcessor {
             } else
                 Log.d(TAG, "Consuming " + incoming.length + "b");
             maxToShow--;
+        } else {
+            Log.d(TAG, "Consuming " + incoming.length + "b");
+            if (incoming.length < 100)
+                Log.d(TAG, "Consuming " + incoming.length + "b: " + StringUtils.toHex(incoming) + ": " + new String(incoming, StandardCharsets.UTF_8));
+            else
+                Log.d(TAG, "Consuming " + incoming.length + "b");
         }
 
         int len = incoming.length-4;
-        for (int i=0;i<len;i+=4) { //fwrite sends data offset by 10 samples plus 7 bytesv
+        for (int i=0;i<len;i+=4) {
             //valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
             //valueQ = incoming[i+2] << 8 | (incoming[i+3] & 0xFF);
 

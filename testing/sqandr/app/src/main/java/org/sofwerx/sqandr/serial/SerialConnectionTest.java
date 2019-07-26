@@ -103,9 +103,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
-                +" -fir"
                 +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
-                +" -rxSize 50 -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
+                +" -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
                 +((commands==null)?"":commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
@@ -412,6 +411,45 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         return parseSerialLinkFormat(new String(raw,StandardCharsets.UTF_8));
     }
 
+    private final static byte ESCAPE_BYTE = 0b01000000;
+
+    /**
+     * Used to remove special byte escaping done to prevent Pluto from modifying certain bytes
+     * when Pluto fails to open stdout in binary mode
+     * @param data
+     * @return
+     */
+    private static byte[] separateEscapedCharacters(byte[] data) {
+        if (data == null)
+            return null;
+        int escapeBytes = 0;
+        for (int i=0;i<data.length;i++) {
+            if (data[i] == ESCAPE_BYTE)
+                escapeBytes++;
+        }
+
+        if (escapeBytes == 0)
+            return data;
+        byte[] out = new byte[data.length-escapeBytes];
+        int index = 0;
+        try {
+            for (int i = 0; i < data.length; i++) {
+                if (data[i] == ESCAPE_BYTE) {
+                    i++;
+                    if (i < data.length)
+                        out[index] = (byte)(data[i] - ESCAPE_BYTE);
+                    else
+                        Log.w(TAG,"An escape byte was detected at the end of the data stream; this should not happen but means that the next byte stream received will start with a character that is incorrect");
+                } else
+                    out[index] = data[i];
+                index++;
+            }
+        } catch (Exception e) {
+            Log.e(TAG,"Error removing escaped characters from data stream: "+StringUtils.toHex(data));
+        }
+        Log.d(TAG,"Removed "+escapeBytes+" escape bytes");
+        return out;
+    }
     private byte[] parseSerialLinkFormat(String raw) {
         if ((raw == null) || (raw.length() < 3))
             return null;
@@ -596,7 +634,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         if (processOnPluto) {
                             Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                            handleRawDatalinkInput(data);
+                            handleRawDatalinkInput(separateEscapedCharacters(data));
                         } else {
                             if (signalProcessor != null)
                                 signalProcessor.consumeIqData(data);

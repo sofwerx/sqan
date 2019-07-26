@@ -420,8 +420,8 @@ int main (int argc, char **argv){
 	unsigned char hexin[1024];
 	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
 	int TIMES_TO_COPY_MESSAGE = 8;
-	int rxSize = 2500;
-	int txSize = 2500;
+	int rxSize = 200;
+	int txSize = 200;
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
@@ -768,7 +768,8 @@ int main (int argc, char **argv){
 
 	if (verbose)
 		printf("d* Creating non-cyclic IIO buffers with 1 MiS\n");
-	rxbuf = iio_device_create_buffer(rx, 20*rxSize, false);
+	//rxbuf = iio_device_create_buffer(rx, 20*rxSize, false);
+	rxbuf = iio_device_create_buffer(rx, 20*rxSize, false);//fixed to a hard 2048 based on byte gap correction issues in stdout
 	if (!rxbuf) {
 		perror("m Could not create RX buffer");
 		shutdown();
@@ -781,10 +782,10 @@ int main (int argc, char **argv){
 		shutdown();
 	}
 	
-	char* membuf[20*1200];
-
+	char* membuf[20*txSize];
 		
-	iio_buffer_set_blocking_mode(txbuf,false);
+	iio_buffer_set_blocking_mode(txbuf,true);
+	iio_buffer_set_blocking_mode(rxbuf,true);
 
 	p_tx_inc = iio_buffer_step(txbuf);
 	p_tx_end = iio_buffer_end(txbuf);
@@ -794,7 +795,7 @@ int main (int argc, char **argv){
 	}
 
 	int16_t amplitude = 0; //amplitude
-
+	int totalRxSize = rxSize*20;
 	int cnt = 0;
 	int startrx = true;
 	int bufferCycleCount = 0;
@@ -826,6 +827,8 @@ int main (int argc, char **argv){
 	int samplesToShow = 0;
 	int bytesInput = 0;
 	int  bit = 0;
+	int a = 0;
+	int index = 0;
 	bool activityThisCycle = false; //did something happen (Rx or Tx) this cycle
 
 	int iLast = 0;
@@ -990,24 +993,39 @@ int main (int argc, char **argv){
 						printf("\tBit: %d, A: %d\n", bit, amplitude);
 					amplitudeLast = amplitude*PERCENT_LAST/100;
 				}
+			} else {
+				for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
+					((int16_t*)p_rx_dat)[0] << 4; // Real (I)
+					((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
+					for (a=0;a<4;a++) {
+						if (((char*)p_rx_dat)[a] == 0b00001010) //promote all 10s to 11s as Pluto corrects 10s to 13,10 to adjust for line break format
+							((char*)p_rx_dat)[a] = 0b00001011;
+						else if (((char*)p_rx_dat)[a] == 0b00001000) //demote all 8s to 7s
+							((char*)p_rx_dat)[a] = 0b00000111;
+						else if (((char*)p_rx_dat)[a] == 0b00001001) //promote all 9s to 11s
+							((char*)p_rx_dat)[a] = 0b00001011;
+					}
+					fwrite(p_rx_dat,1,4,stdout);
+					index++;
+					if (index == 256) {
+						fflush(stdout);
+						fwrite(p_rx_dat,1,4,stdout);
+						index = 0;
+					}
+				}
 			}
 			/**
 			 * Output the recovered data
 			 **/
 			
-			if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) || noOnboardProcessing) { //only output if there's something to send
+			if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) && !noOnboardProcessing) { //only output if there's something to send
 				activityThisCycle = true;
 				if (binOut) {
 					/**
 					* Output as pure binary
 					**/
-					if (noOnboardProcessing) {
-						fwrite(rxbuf,1,(20*rxSize),stdout);
-						fflush(stdout);
-					} else {
-						fwrite(dataout,1,dataoutIndex,stdout);
-						fflush(stdout);
-					}
+					fwrite(dataout,1,dataoutIndex,stdout);
+					fflush(stdout);
 				} else {
 					/**
 					 * Output as hex text
@@ -1021,7 +1039,7 @@ int main (int argc, char **argv){
 					}
 					printf("\n");
 				}
-			} else {
+			} else if (!noOnboardProcessing) {
 				if (binOut) {
 					/**
 					 * Send a heartbeat to let SqAN know the SqANDR app is active
