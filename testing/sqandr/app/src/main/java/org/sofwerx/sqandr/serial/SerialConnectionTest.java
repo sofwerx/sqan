@@ -100,14 +100,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         if (!processOnPluto)
             signalProcessor = new SignalProcessor(this);
 
-        SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                +(USE_BIN_USB_IN ?" -binI":"")
-                +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms"
-                +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
-                //+" -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
-                +((commands==null)?"":" "+commands)
-                +"\n").getBytes(StandardCharsets.UTF_8);//*/
+        setCommandFlags(commands);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -121,11 +114,11 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
 
     public void setCommandFlags(String flags) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                //+(USE_BIN_USB_IN ?" -binI":"")
-                //+(USE_BIN_USB_OUT ?" -binO":"")
-                //+" -minComms"
-                +((flags==null)?"":flags)
-                +"\n").getBytes(StandardCharsets.UTF_8);//*/
+                +(USE_BIN_USB_IN ?" -binI":"")
+                +(USE_BIN_USB_OUT ?" -binO":"")
+                +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
+                +((flags==null)?"":" "+flags)
+                +"\n").getBytes(StandardCharsets.UTF_8);
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
