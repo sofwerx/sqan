@@ -106,7 +106,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 +" -minComms"
                 +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
                 //+" -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
-                +((commands==null)?"":commands)
+                +((commands==null)?"":" "+commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override

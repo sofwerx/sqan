@@ -211,16 +211,12 @@ public class SignalProcessor {
                 if (turnOnIqRemaining < 10)
                     turnOnIqRemaining = 10;
             }
+            byte valueByte = 0;
+            boolean showByteValue = false;
             if (converter.hasByte()) {
-                byte valueByte = converter.popByte();
+                valueByte = converter.popByte();
+                showByteValue = true;
                 if (DETAILED_IQ) {
-                    if (turnOnIqRemaining > 0) {
-                        StringBuilder tempO = new StringBuilder();
-                        tempO.append("**** Byte: ");
-                        tempO.append(StringUtils.toHex(valueByte));
-                        tempO.append(" (includes next IQ value)");
-                        Log.d(TAG, tempO.toString());
-                    }
                     if (sqanHeaderIndex == 0) {
                         if (valueByte == SQAN_HEADER[0]) {
                             sqanHeaderIndex = 1;
@@ -252,6 +248,15 @@ public class SignalProcessor {
                 turnOnIqRemaining--;
                 if (turnOnIqRemaining == 0)
                     Log.d(TAG,"Reverting back to no IQ reporting");
+                else if ((turnOnIqRemaining > 0) && showByteValue) {
+                    StringBuilder tempO = new StringBuilder();
+                    tempO.append("**** Byte: ");
+                    tempO.append(StringUtils.toHex(valueByte));
+                    tempO.append(" (");
+                    tempO.append(StringUtils.toStringRepresentation(valueByte));
+                    tempO.append(")");
+                    Log.d(TAG, tempO.toString());
+                }
             }
         }
     }
