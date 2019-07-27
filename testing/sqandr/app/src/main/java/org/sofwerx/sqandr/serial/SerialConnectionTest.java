@@ -93,7 +93,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
 
 
-    private boolean processOnPluto = false;
+    private boolean processOnPluto = true;
     private SignalProcessor signalProcessor;
 
     public SerialConnectionTest(String commands) {

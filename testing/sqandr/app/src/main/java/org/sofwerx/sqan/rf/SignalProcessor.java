@@ -27,6 +27,7 @@ public class SignalProcessor {
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
     private int maxToShow = 4;
     private final static boolean DETAILED_IQ = true;
+    private final static boolean FORCE_DETAILED_IQ = true;
     private final static byte[] SQAN_HEADER = {(byte)0b01100110,(byte)0b10011001};
 
     /**
@@ -252,7 +253,7 @@ public class SignalProcessor {
                 }
             } else
                 asterisksInARow = 0;
-            if (DETAILED_IQ && (turnOnIqRemaining > 0)) {
+            if (FORCE_DETAILED_IQ || (DETAILED_IQ && (turnOnIqRemaining > 0))) {
                 iiqoffsetTest.append(String.format ("%04d",i/4)+": "+StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
                 iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ)+" Bit:"+(iqResult.bitOn?"1":"0"));
                 Log.d(TAG, iiqoffsetTest.toString());

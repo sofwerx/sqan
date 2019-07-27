@@ -16,6 +16,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.rf.SignalConverter;
 import org.sofwerx.sqandr.sdr.SdrException;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
@@ -73,6 +74,54 @@ public class TestService implements TestListener {
         sdrThread.start();
         txThread = new TxThread();
         txThread.start();
+    }
+
+    private final static void testIqParsing() {
+        SignalConverter conv = new SignalConverter();
+        class PairIQ {
+            int i,q;
+            PairIQ(int i, int q) {
+                this.i = i;
+                this.q = q;
+            }
+        }
+
+        //101101010011 01010101
+        PairIQ[] pairs = {
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(30000,0),        //1
+
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+                new PairIQ(-30000,0),        //0
+                new PairIQ(30000,0),        //1
+        };
+
+        for (int i=0;i<pairs.length;i++) {
+            conv.onNewIQ(pairs[i].i,pairs[i].q);
+            if (conv.hasByte()) {
+                byte popped = conv.popByte();
+                StringBuilder sbO = new StringBuilder();
+                sbO.append("Popped byte: ");
+                sbO.append(StringUtils.toHex(popped));
+                Log.d(TAG,sbO.toString());
+            }
+        }
+        Log.d(TAG,"test done");
     }
 
     private long nextTxTime = Long.MIN_VALUE;
