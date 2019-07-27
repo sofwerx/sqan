@@ -417,6 +417,7 @@ public class TestService implements TestListener {
             }
             if (unique) {
                 statsToUse.incrementUnique();
+                statsToUse.addBytes(data.length);
                 current.add(new Integer(index));
                 if (current.size() > 40)
                     current.remove(0);

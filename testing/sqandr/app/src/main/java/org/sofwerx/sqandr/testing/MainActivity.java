@@ -31,6 +31,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     private TextView pktMeComplete,pktMeUnique,pktMeMissed,pktMeSuccess;
     private TextView pktOtherComplete,pktOtherUnique,pktOtherMissed,pktOtherSuccess;
     private TextView pktPartial,pktSegments, outPackets, outBytes;
+    private TextView pktMeBandwidth,pktOtherBandwidth;
     private View tableSpecs;
     private View rawView;
     private Switch switchMode;
@@ -63,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         pktOtherSuccess = findViewById(R.id.otherSuccessRate);
         pktPartial = findViewById(R.id.unkPartial);
         pktSegments = findViewById(R.id.unkSegments);
+        pktMeBandwidth = findViewById(R.id.meBandwidth);
+        pktOtherBandwidth = findViewById(R.id.otherBandwidth);
         outPackets = findViewById(R.id.meOutPackets);
         outBytes = findViewById(R.id.meOutBytes);
         editPktSize = findViewById(R.id.mainPktSize);
@@ -233,10 +236,12 @@ public class MainActivity extends AppCompatActivity implements TestListener {
             pktMeUnique.setText(Integer.toString(stats.statsMe.getUnique()));
             pktMeMissed.setText(Integer.toString(stats.statsMe.getTotal()-stats.statsMe.getUnique()));
             pktMeSuccess.setText(Integer.toString(stats.statsMe.getSuccessRate()));
+            pktMeBandwidth.setText(String.format("% 6d",stats.statsMe.getBandwidth()));
             pktOtherComplete.setText(Integer.toString(stats.statsOther.getComplete()));
             pktOtherUnique.setText(Integer.toString(stats.statsOther.getUnique()));
             pktOtherMissed.setText(Integer.toString(stats.statsOther.getTotal()-stats.statsOther.getUnique()));
             pktOtherSuccess.setText(Integer.toString(stats.statsOther.getSuccessRate()));
+            pktOtherBandwidth.setText(String.format("% 6d",stats.statsOther.getBandwidth()));
             pktSegments.setText(Integer.toString(stats.segments));
             pktPartial.setText(Integer.toString(stats.partialPackets));
             outPackets.setText(Integer.toString(stats.packetsSent));
