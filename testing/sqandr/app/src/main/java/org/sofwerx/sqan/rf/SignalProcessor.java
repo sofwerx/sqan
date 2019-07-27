@@ -193,6 +193,7 @@ public class SignalProcessor {
             }
         }
 
+        int asterisksInARow = 0;
         int len = incoming.length-4;
         for (int i=0;i<len;i+=4) {
             //valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
@@ -208,8 +209,11 @@ public class SignalProcessor {
             SignalConverter.IqResult iqResult = converter.onNewIQ(valueI,valueQ);
             if (iqResult.headerFound) {
                 Log.d(TAG,"header found");
-                if (turnOnIqRemaining < 10)
+                if (turnOnIqRemaining < 10) {
+                    if (turnOnIqRemaining == 0)
+                        Log.d(TAG, "Consuming size " + incoming.length + "b");
                     turnOnIqRemaining = 10;
+                }
             }
             byte valueByte = 0;
             boolean showByteValue = false;
@@ -240,8 +244,16 @@ public class SignalProcessor {
                     out.clear();
                 }
             }
+            if (valueByte == (byte)42) {
+                asterisksInARow++;
+                if (asterisksInARow == 4) {
+                    Log.d(TAG,"fwrite error signal detected from Pluto");
+                    turnOnIqRemaining = 200;
+                }
+            } else
+                asterisksInARow = 0;
             if (DETAILED_IQ && (turnOnIqRemaining > 0)) {
-                iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
+                iiqoffsetTest.append(String.format ("%04d",i/4)+": "+StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
                 iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ)+" Bit:"+(iqResult.bitOn?"1":"0"));
                 Log.d(TAG, iiqoffsetTest.toString());
                 iiqoffsetTest = new StringBuilder();
