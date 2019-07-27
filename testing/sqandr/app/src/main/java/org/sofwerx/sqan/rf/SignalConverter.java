@@ -91,7 +91,8 @@ public class SignalConverter {
             }
 
             if (headerComplete) {
-                //Log.d(TAG,"header found");
+                //fresh commit
+                Log.d(TAG,"header found");
                 tempHeader = 0;
                 isReadingHeader = false;
                 bitIndex = 0;
