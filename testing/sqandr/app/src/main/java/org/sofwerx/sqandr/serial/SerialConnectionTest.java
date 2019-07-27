@@ -542,7 +542,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     if (isLoggedInAlready(message)) {
                         Log.d(TAG, "Already logged-in");
                         status = LoginStatus.LOGGED_IN;
-                        launchSdrApp();
+                        //launchSdrApp();
                         if (listener != null)
                             listener.onPlutoStatus(PlutoStatus.LOGGED_IN,"Already logged in to Pluto");
                         //listener.onSerialConnect();
@@ -579,7 +579,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 } else if (isLoginSuccessMessage(message)) {
                     Log.d(TAG, "Terminal login successful");
                     status = LoginStatus.LOGGED_IN;
-                    launchSdrApp();
+                    //launchSdrApp();
                     if (listener != null)
                         listener.onPlutoStatus(PlutoStatus.LOGGED_IN,null);
                     //listener.onSerialConnect();
@@ -855,8 +855,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 return;
             }
             if (input == null) {
-                if (sdrAppStatus == SdrAppStatus.NEED_START)
-                    launchSdrApp();
+                //if (sdrAppStatus == SdrAppStatus.NEED_START)
+                //    launchSdrApp();
             } else {
                 if (input.length() < 3) //ignore short echo back messages
                     return;
@@ -908,13 +908,13 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     /**
      * Installs the SqANDR app on the SDR if needed ans starts the app
      */
-    private void launchSdrApp() {
+    public void launchSdrApp() {
         Log.d(TAG, "launchSdrApp()");
         if (sdrAppStatus == SdrAppStatus.OFF) {
             sdrAppStatus = SdrAppStatus.CHECKING_FOR_UPDATE;
             if (listener != null)
                 listener.onSqandrStatus(SqandrStatus.PENDING,"Checking if current version of SqANDR is installed...");
-            startSdrApp();
+            //FIXME removed for testing: startSdrApp();
         } else if (sdrAppStatus == SdrAppStatus.NEED_START) {
             if (listener != null)
                 listener.onSqandrStatus(SqandrStatus.OFF,null);

@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -141,20 +142,23 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         edit.apply();
     }
 
-    private void setPlutoStatus(String message) {
+    private void setPlutoStatus(final String message) {
         runOnUiThread(() -> textStatus.setText(message));
     }
 
     private void toggleAppStatus() {
-        if ((appStatus != SqandrStatus.PENDING) && (testService != null)) {
+        Log.d(TAG,"toggleAppStatus()");
+        //if ((appStatus != SqandrStatus.PENDING) && (testService != null)) {
             testService.setCommandFlags(editCommands.getText().toString());
             testService.setAppRunning(appStatus != SqandrStatus.RUNNING);
             updateStats();
             setStatus(SqandrStatus.PENDING);
-        }
+        //} else
+        //    Log.d(TAG,"...toggleAppStatus() ignored, App Status: "+appStatus.name());
     }
 
-    private void setStatus(SqandrStatus status) {
+    private void setStatus(final SqandrStatus status) {
+        Log.d(TAG,"setStatus(SqAndr): "+status.name());
         if (this.appStatus != status) {
             this.appStatus = status;
             runOnUiThread(() -> {
@@ -175,14 +179,15 @@ public class MainActivity extends AppCompatActivity implements TestListener {
                         break;
 
                     default:
-                        imageAppStatus.setVisibility(View.INVISIBLE);
+                        //imageAppStatus.setVisibility(View.INVISIBLE);
                         editCommands.setEnabled(true);
                 }
             });
         }
     }
 
-    private void setStatus(PlutoStatus status) {
+    private void setStatus(final PlutoStatus status) {
+        Log.d(TAG,"setStatus(Pluto): "+status.name());
         if (this.plutoStatus != status) {
             this.plutoStatus = status;
             runOnUiThread(() -> {
@@ -190,6 +195,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
                     case UP:
                         imagePlutoStatus.setImageResource(R.drawable.icon_up);
                         Toast.makeText(MainActivity.this,"Pluto is ready",Toast.LENGTH_SHORT).show();
+                        setStatus(SqandrStatus.OFF);
                         break;
 
                     case INSTALLING:
@@ -208,6 +214,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
                         imagePlutoStatus.setImageResource(R.drawable.icon_error);
                         setStatus(SqandrStatus.PENDING);
                 }
+                updateSendButton();
             });
         }
     }
@@ -241,16 +248,29 @@ public class MainActivity extends AppCompatActivity implements TestListener {
 
     private void updateSendButton() {
         runOnUiThread(() -> {
-            if (testService == null)
+            if (testService == null) {
                 buttonSend.setVisibility(View.INVISIBLE);
+                imageAppStatus.setVisibility(View.INVISIBLE);
+            }
+            switch (plutoStatus) {
+                case LOGGED_IN:
+                case UP:
+                    imageAppStatus.setVisibility(View.VISIBLE);
+                    break;
+                default:
+                    imageAppStatus.setVisibility(View.INVISIBLE);
+                    buttonSend.setVisibility(View.INVISIBLE);
+                    return;
+            }
             if (testService.getAppStatus() == SqandrStatus.RUNNING) {
                 buttonSend.setVisibility(View.VISIBLE);
                 if (testService.isSendData())
                     buttonSend.setImageResource(R.drawable.icon_sending);
                 else
                     buttonSend.setImageResource(R.drawable.icon_not_sending);
-            } else
-                buttonSend.setVisibility(View.INVISIBLE);
+            } else {
+                //buttonSend.setVisibility(View.INVISIBLE);
+            }
         });
     }
 
@@ -307,6 +327,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
 
     @Override
     public void onSqandrStatus(SqandrStatus status, String message) {
+        Log.d(TAG,"onSqandrStatus: "+status.name());
         setStatus(status);
         if (message != null)
             setPlutoStatus(message);
@@ -315,6 +336,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
 
     @Override
     public void onPlutoStatus(PlutoStatus status, String message) {
+        Log.d(TAG,"onPlutoStatus: "+status.name());
         setStatus(status);
         if (message != null)
             setPlutoStatus(message);

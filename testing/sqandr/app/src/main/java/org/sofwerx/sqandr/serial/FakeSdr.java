@@ -204,9 +204,10 @@ public class FakeSdr implements TestListener {
 
     public void setAppRunning(boolean shouldRun) {
         if (serialConnection != null) {
-            if (shouldRun)
+            if (shouldRun) {
+                serialConnection.launchSdrApp();
                 serialConnection.startSdrApp();
-            else
+            } else
                 serialConnection.stopApp();
         }
     }
