@@ -130,9 +130,7 @@ public class TestService implements TestListener {
 
     public void setIntervalBetweenTx(long intervalInMs) { intervalBetweenTx = intervalInMs; }
 
-    public Stats getStats() {
-        return stats;
-    }
+    public Stats getStats() { return stats; }
 
     public SqandrStatus getAppStatus() { return appStatus; }
 
@@ -142,6 +140,8 @@ public class TestService implements TestListener {
 
     public void setSendData(boolean send) {
         this.sendData = send;
+        if (send)
+            stats.clear();
     }
 
     public boolean isSendData() {
@@ -418,15 +418,15 @@ public class TestService implements TestListener {
             if (unique) {
                 statsToUse.incrementUnique();
                 current.add(new Integer(index));
-                if (current.size() > 20)
+                if (current.size() > 40)
                     current.remove(0);
             }
 
             if (pkt.getIndex() < statsToUse.getTotal() + 100) {
                 if (pkt.getIndex() > statsToUse.getTotal())
                     statsToUse.setTotal(pkt.getIndex());
-                statsToUse.incrementComplete();
             }
+            statsToUse.incrementComplete();
 
             Log.d(TAG,"TestService received: "+StringUtils.toHex(data));
             if (listener != null)

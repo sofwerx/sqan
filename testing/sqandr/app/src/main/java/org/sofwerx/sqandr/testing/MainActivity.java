@@ -158,7 +158,6 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     }
 
     private void setStatus(final SqandrStatus status) {
-        Log.d(TAG,"setStatus(SqAndr): "+status.name());
         if (this.appStatus != status) {
             this.appStatus = status;
             runOnUiThread(() -> {
@@ -187,7 +186,6 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     }
 
     private void setStatus(final PlutoStatus status) {
-        Log.d(TAG,"setStatus(Pluto): "+status.name());
         if (this.plutoStatus != status) {
             this.plutoStatus = status;
             runOnUiThread(() -> {
@@ -280,6 +278,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         loadPrefs();
         updateSendButton();
         updateToggleMode();
+        updateStats();
         if (testService != null)
             testService.setListener(this);
         autoUpdate = new Timer();
@@ -327,7 +326,6 @@ public class MainActivity extends AppCompatActivity implements TestListener {
 
     @Override
     public void onSqandrStatus(SqandrStatus status, String message) {
-        Log.d(TAG,"onSqandrStatus: "+status.name());
         setStatus(status);
         if (message != null)
             setPlutoStatus(message);
@@ -336,7 +334,6 @@ public class MainActivity extends AppCompatActivity implements TestListener {
 
     @Override
     public void onPlutoStatus(PlutoStatus status, String message) {
-        Log.d(TAG,"onPlutoStatus: "+status.name());
         setStatus(status);
         if (message != null)
             setPlutoStatus(message);

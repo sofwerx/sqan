@@ -443,7 +443,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         } catch (Exception e) {
             Log.e(TAG,"Error removing escaped characters from data stream: "+StringUtils.toHex(data));
         }
-        Log.d(TAG,"Removed "+escapeBytes+" escape bytes");
+        Log.d(TAG,"Removed "+escapeBytes+" escape bytes in "+StringUtils.toHex(data)+" to "+StringUtils.toHex(out));
         return out;
     }
     private byte[] parseSerialLinkFormat(String raw) {
@@ -680,8 +680,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     } else {
                         if (data.length > 1000)
                             reportAppAsRunning();
-                        else
-                            Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
+                        Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
                     }
                 }
             });
