@@ -26,7 +26,8 @@ public class SignalProcessor {
     private int nextOverflowCheck = CYCLES_BETWEEN_OVERFLOW_CHECKS;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
     private int maxToShow = 4;
-    private final static boolean DETAILED_IQ = false;
+    private final static boolean DETAILED_IQ = true;
+    private final static byte[] SQAN_HEADER = {(byte)0b01100110,(byte)0b10011001};
 
     /**
      * Creates a new signal processor that will intake IQ values and then output processed
@@ -146,6 +147,14 @@ public class SignalProcessor {
     }*/
 
     //FIXME trying a synchronous approach to parsing all the incoming data
+    private int turnOnIqRemaining = 0;
+
+    public void turnOnDetailedIq() {
+        turnOnIqRemaining = 200;
+        Log.d(TAG,"Detailed IQ reporting turned on");
+    }
+
+    private int sqanHeaderIndex = 0;
     private SignalConverter converter = new SignalConverter();
     private ByteBuffer out = ByteBuffer.allocate(16);
     private StringBuilder iiqoffsetTest = new StringBuilder();
@@ -170,15 +179,18 @@ public class SignalProcessor {
                         Log.d(TAG, "Consuming " + incoming.length + "b: " + StringUtils.toHex(incoming) + ": " + new String(incoming, StandardCharsets.UTF_8));
                 } else
                     Log.d(TAG, "Consuming " + incoming.length + "b: " + new String(incoming, StandardCharsets.UTF_8));
-            } else
-                Log.d(TAG, "Consuming " + incoming.length + "b");
+            } else {
+                if (incoming.length != 1024)
+                    Log.d(TAG, "Consuming unexpected size " + incoming.length + "b");
+            }
             maxToShow--;
         } else {
-            Log.d(TAG, "Consuming " + incoming.length + "b");
+            //Log.d(TAG, "Consuming " + incoming.length + "b");
             if (incoming.length < 100)
                 Log.d(TAG, "Consuming " + incoming.length + "b: " + StringUtils.toHex(incoming) + ": " + new String(incoming, StandardCharsets.UTF_8));
-            else
-                Log.d(TAG, "Consuming " + incoming.length + "b");
+            else {
+                //Log.d(TAG, "Consuming " + incoming.length + "b");
+            }
         }
 
         int len = incoming.length-4;
@@ -186,21 +198,34 @@ public class SignalProcessor {
             //valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
             //valueQ = incoming[i+2] << 8 | (incoming[i+3] & 0xFF);
 
-            if (DETAILED_IQ)
-                iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
-
             //valueI = (incoming[i] << 8 | (incoming[i+1] & 0xFF));
             //valueQ = (incoming[i+2] << 8 | (incoming[i+3] & 0xFF));
 
             //switching endianness
-            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF));
-            valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF));
-            if (DETAILED_IQ)
-                iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
+            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4; //FIXME <<4 for testing
+            valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF))<<4;
 
-            converter.onNewIQ(valueI,valueQ);
+            boolean bitOn = converter.onNewIQ(valueI,valueQ);
             if (converter.hasByte()) {
-                out.put(converter.popByte());
+                byte valueByte = converter.popByte();
+                if (DETAILED_IQ) {
+                    if (turnOnIqRemaining > 0)
+                        Log.d(TAG,"**** Byte: "+StringUtils.toHex(valueByte).toString()+" (includes next IQ value)");
+                    if (sqanHeaderIndex == 0) {
+                        if (valueByte == SQAN_HEADER[0]) {
+                            sqanHeaderIndex = 1;
+                        }
+                    } else if (sqanHeaderIndex == 1) {
+                        if (valueByte == SQAN_HEADER[1]) {
+                            sqanHeaderIndex = 2;
+                            turnOnIqRemaining = 200;
+                            Log.d(TAG, "SqAN header found, beginning detailed IQ reporting");
+                        } else {
+                            sqanHeaderIndex = 0;
+                        }
+                    }
+                }
+                out.put(valueByte);
                 if (out.position() == limit) {
                     byte[] outBytes = out.array();
                     Log.d(TAG,"From SDR: "+ StringUtils.toHex(outBytes));
@@ -209,48 +234,14 @@ public class SignalProcessor {
                     out.clear();
                 }
             }
-
-            //valueI = incoming[i+2] << 8 | (incoming[i+1] & 0xFF);
-            //valueQ = incoming[i] << 8 | (incoming[i+3] & 0xFF);
-            //iiqoffsetTest.append(" 2: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
-            /*converter2.onNewIQ(valueI,valueQ);
-            if (converter2.hasByte()) {
-                out2.put(converter2.popByte());
-                if (out2.position() == limit) {
-                    byte[] outBytes = out2.array();
-                    Log.d(TAG,"From SDR: (offset 2) "+ StringUtils.toHex(outBytes));
-                    out2.clear();
-                }
-            }*/
-            //valueI = incoming[i+3] << 8 | (incoming[i+2] & 0xFF);
-            //valueQ = incoming[i+1] << 8 | (incoming[i] & 0xFF);
-            //iiqoffsetTest.append(" 3: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
-            /*converter3.onNewIQ(valueI,valueQ);
-            if (converter3.hasByte()) {
-                out3.put(converter3.popByte());
-                if (out3.position() == limit) {
-                    byte[] outBytes = out3.array();
-                    Log.d(TAG,"From SDR: (offset 3) "+ StringUtils.toHex(outBytes));
-                    out3.clear();
-                }
-            }*/
-            //valueI = incoming[i] << 8 | (incoming[i+3] & 0xFF);
-            //valueQ = incoming[i+2] << 8 | (incoming[i+1] & 0xFF);
-            //iiqoffsetTest.append(" 4: I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ));
-            /*converter4.onNewIQ(valueI,valueQ);
-            if (converter4.hasByte()) {
-                out4.put(converter4.popByte());
-                if (out4.position() == limit) {
-                    byte[] outBytes = out4.array();
-                    Log.d(TAG,"From SDR: (offset 4) "+ StringUtils.toHex(outBytes));
-                    out4.clear();
-                }
-            }*/
-
-
-            if (DETAILED_IQ) {
+            if (DETAILED_IQ && (turnOnIqRemaining > 0)) {
+                iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
+                iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ)+" Bit:"+(bitOn?"1":"0"));
                 Log.d(TAG, iiqoffsetTest.toString());
                 iiqoffsetTest = new StringBuilder();
+                turnOnIqRemaining--;
+                if (turnOnIqRemaining == 0)
+                    Log.d(TAG,"Reverting back to no IQ reporting");
             }
         }
     }

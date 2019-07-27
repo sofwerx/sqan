@@ -51,15 +51,17 @@ public class SignalConverter {
 
 
     StringBuilder outNewIQ = new StringBuilder(); //FIXME for testing
+
     /**
      * Intake a new IQ value into the converter
      * @param valueI
      * @param valueQ
+     * @return true == on (1), false
      */
-    public void onNewIQ(int valueI, int valueQ) {
+    public boolean onNewIQ(int valueI, int valueQ) {
         if (dataPtIsReady) {
             Log.w(TAG, "SignalConverter is attempting to consume another IQ value, but the last byte hasn't been read. Be sure to call hasByte() to see if a byte is ready then popByte() to remove the byte from the converter");
-            return;
+            return false;
         }
 
         //straight port of the current Pluto logic
@@ -118,6 +120,7 @@ public class SignalConverter {
             }
         }
         amplitudeLast = amplitude*PERCENT_LAST/100;
+        return bitOn;
     }
 
     /**

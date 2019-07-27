@@ -46,6 +46,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
     private final static long DELAY_BEFORE_BLIND_LOGIN = 1000l * 5l;
+    private final static boolean USE_ESC_BYTES = true;
     private UsbDeviceConnection connection;
     private UsbSerialPort port;
     private SerialInputOutputManager ioManager;
@@ -104,7 +105,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 +(USE_BIN_USB_OUT ?" -binO":"")
                 +" -minComms"
                 +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
-                +" -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
+                //+" -rxsrate 2.2 -txsrate 2.2" //FIXME for testing
                 +((commands==null)?"":commands)
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
@@ -387,6 +388,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 }*/
                 //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             }
+            if (signalProcessor != null)
+                signalProcessor.turnOnDetailedIq();
         } else
             Log.d(TAG,"Dropping "+data.length+"b packet as SqANDR is not yet running on the SDR");
     }
@@ -634,7 +637,10 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         if (processOnPluto) {
                             Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                            handleRawDatalinkInput(separateEscapedCharacters(data));
+                            if (USE_ESC_BYTES)
+                                handleRawDatalinkInput(separateEscapedCharacters(data));
+                            else
+                                handleRawDatalinkInput(data);
                         } else {
                             if (signalProcessor != null)
                                 signalProcessor.consumeIqData(data);

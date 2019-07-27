@@ -213,7 +213,6 @@ public class TestService implements TestListener {
             context.registerReceiver(usbBroadcastReceiver, filter);
         }
         updateUsbDevices(context);
-        SerialConnectionTest.testEscape(); //FIXME testing
     }
 
     public void shutdown() {
