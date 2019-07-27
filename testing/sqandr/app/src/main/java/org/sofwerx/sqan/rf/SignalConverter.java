@@ -32,7 +32,7 @@ public class SignalConverter {
     private boolean bitOn;
     private byte tempByte = 0;
     private int bitIndex = 0;
-    private boolean shortHeader = true;
+    private boolean shortHeader = false;
     private boolean ignoreHeaders = false;
     private boolean waitingOnHeader = true;
     private int headerLength = 7;
@@ -52,21 +52,32 @@ public class SignalConverter {
 
     StringBuilder outNewIQ = new StringBuilder(); //FIXME for testing
 
+    public class IqResult {
+        public boolean bitOn = false;
+        public boolean headerFound = false;
+        public IqResult(boolean bitOn, boolean headerFound) {
+            this.bitOn = bitOn;
+            this.headerFound = headerFound;
+        }
+        public IqResult() {}
+    }
+
     /**
      * Intake a new IQ value into the converter
      * @param valueI
      * @param valueQ
-     * @return true == on (1), false
+     * @return
      */
-    public boolean onNewIQ(int valueI, int valueQ) {
+    public IqResult onNewIQ(int valueI, int valueQ) {
         if (dataPtIsReady) {
             Log.w(TAG, "SignalConverter is attempting to consume another IQ value, but the last byte hasn't been read. Be sure to call hasByte() to see if a byte is ready then popByte() to remove the byte from the converter");
-            return false;
+            return new IqResult(false,false);
         }
 
         //straight port of the current Pluto logic
         amplitude = valueI; // Real (I)
 
+        IqResult iqResult = new IqResult();
         if (isReadingHeader) {
             boolean headerComplete = false;
             tempHeader = tempHeader << 1; //move bits over to make room for new bit
@@ -91,12 +102,11 @@ public class SignalConverter {
             }
 
             if (headerComplete) {
-                //fresh commit
-                Log.d(TAG,"header found");
                 tempHeader = 0;
                 isReadingHeader = false;
                 bitIndex = 0;
                 tempByte = 0;
+                iqResult.headerFound = true;
             }
         } else {
             bitIndex++;
@@ -121,7 +131,8 @@ public class SignalConverter {
             }
         }
         amplitudeLast = amplitude*PERCENT_LAST/100;
-        return bitOn;
+        iqResult.bitOn = bitOn;
+        return iqResult;
     }
 
     /**

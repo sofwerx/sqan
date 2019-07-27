@@ -205,12 +205,22 @@ public class SignalProcessor {
             valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4; //FIXME <<4 for testing
             valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF))<<4;
 
-            boolean bitOn = converter.onNewIQ(valueI,valueQ);
+            SignalConverter.IqResult iqResult = converter.onNewIQ(valueI,valueQ);
+            if (iqResult.headerFound) {
+                Log.d(TAG,"header found");
+                if (turnOnIqRemaining < 10)
+                    turnOnIqRemaining = 10;
+            }
             if (converter.hasByte()) {
                 byte valueByte = converter.popByte();
                 if (DETAILED_IQ) {
-                    if (turnOnIqRemaining > 0)
-                        Log.d(TAG,"**** Byte: "+StringUtils.toHex(valueByte).toString()+" (includes next IQ value)");
+                    if (turnOnIqRemaining > 0) {
+                        StringBuilder tempO = new StringBuilder();
+                        tempO.append("**** Byte: ");
+                        tempO.append(StringUtils.toHex(valueByte));
+                        tempO.append(" (includes next IQ value)");
+                        Log.d(TAG, tempO.toString());
+                    }
                     if (sqanHeaderIndex == 0) {
                         if (valueByte == SQAN_HEADER[0]) {
                             sqanHeaderIndex = 1;
@@ -236,7 +246,7 @@ public class SignalProcessor {
             }
             if (DETAILED_IQ && (turnOnIqRemaining > 0)) {
                 iiqoffsetTest.append(StringUtils.toStringRepresentation(incoming[i])+" ("+String.format ("%03d",incoming[i]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+1])+" ("+String.format ("%03d",incoming[i+1]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+2])+" ("+String.format ("%03d",incoming[i+2]&0xFF)+") "+ StringUtils.toStringRepresentation(incoming[i+3])+" ("+String.format ("%03d",incoming[i+3]&0xFF)+")");
-                iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ)+" Bit:"+(bitOn?"1":"0"));
+                iiqoffsetTest.append(" I=" + String.format ("% 6d", valueI)+", Q=" + String.format ("% 6d", valueQ)+" Bit:"+(iqResult.bitOn?"1":"0"));
                 Log.d(TAG, iiqoffsetTest.toString());
                 iiqoffsetTest = new StringBuilder();
                 turnOnIqRemaining--;
