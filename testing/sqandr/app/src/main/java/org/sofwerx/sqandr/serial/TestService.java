@@ -424,10 +424,10 @@ public class TestService implements TestListener {
             }
 
             if ((pkt.getIndex() < statsToUse.getTotal() + 100) && (pkt.getIndex() > statsToUse.getTotal()))
-                    statsToUse.setTotal(pkt.getIndex());
-            else
-                statsToUse.incrementComplete();
-            statsToUse.incrementTotalSent();
+                statsToUse.setTotal(pkt.getIndex());
+            //else
+            //    statsToUse.incrementTotalSent();
+            statsToUse.incrementComplete();
 
             Log.d(TAG,"TestService received: "+StringUtils.toHex(data));
             if (listener != null)

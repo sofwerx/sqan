@@ -40,6 +40,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
     private final static long DELAY_BEFORE_BLIND_LOGIN = 1000l * 5l;
+    private final static byte ESCAPE_BYTE = 0b01000000;
     private UsbDeviceConnection connection;
     private UsbSerialPort port;
     private SerialInputOutputManager ioManager;
@@ -93,20 +94,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +" -tx "+String.format("%.2f", SdrConfig.getTxFreq())
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
-                //FIXME +" -txgain "+TX_GAIN
-                //+" -transmitRepeat 1"
-                //+" -messageRepeat 8"
-                //+(USE_PLUTO_ONBOARD_FILTER?" -fir":"")
-                //+" -txsrate 1"
-                //+" -rxsrate 1"
-                //+" -rxSize 600"
-                //+" -txSize 600"
-                //+" -header" //this flag is now implemented by default in SqANDR
-                //+" -nonBlock" //this flag is now implemented by default in SqANDR
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -minComms"
-                +" -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 2500 -rxSize 5200 -rxtype 3" //TODO for testing
+                +" -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3"
                 +"\n").getBytes(StandardCharsets.UTF_8);//*/
         handlerThread = new HandlerThread("SerialCon") {
             @Override
@@ -117,32 +107,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }
         };
         handlerThread.start();
-    }
-
-    /**
-     * Just used for testing segmenter
-     */
-    public static void testSerialConnection() {
-        SerialConnection conn = new SerialConnection(null,null);
-        conn.runTests();
-    }
-
-    /**
-     * Run tests t check raw data through to digest pathway
-     */
-    private final void runTests() {
-        //byte[] raw1 = StringUtils.toByteArray("085e55121b1520c42d5555574a55555466992cc1583ea69a9ec5555d0d782734989d374ca3d9d55555555555543ea69a59237a4e993194081214205454545414fe545424485454545454545454545454545454545454545454545454545454545454545d0d7827342c75636500000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c121b1520c42d5555555515fed04a55555466992cc1583ea69a9e55555555555555555555555555555555555555555555555d0d7827342474636500314054d9d4545454545454f41414237a319408121420255555555515fed04a55555466992cc1583e5555555555555555555555555555555555555555555555555555555555555d0d7827342c75636500000000000066993140989d54374ca3d9d45454545554543ea69a88f5151459237a4e993195083c5e6255121b155515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555579a88f5151459237a4e9931");
-        byte[] raw2 = StringUtils.toByteArray("000000000000000000000066993140989d553755543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d782736240000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
-        //byte[] raw2 = StringUtils.toByteArray("66993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d555555551402992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c7563650000000000000000000066993140989d55374ca3d9d55555555555543ea69a8c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec55555555555555555555555555555555555555555555555555555555555555d0d7827342c756365000000000000003e9d55374ca3d9d55555555555543ea69a88f5151459237a4e993195083c5e6255121b1520c42d5555555515fed04a55555466992cc1583ea69a9ec5555555555555555555555555555555555555555555557827342c756365");
-
-
-        //byte[] raw1 = StringUtils.toByteArray("66993160bf9d55374ca3d9d55555555555543ea7a640521514592df67cb37895083c5ff673b440152195d6d5555555147ed04a555554");
-        //byte[] raw2 = StringUtils.toByteArray("66992ce17e3ea7a6515d5555555555555555555555555555555555555555555555555555555555555d0d7827342c756365");
-        //byte[] raw3 = StringUtils.toByteArray("66993100d6ad5508dffe8ad55555555555543ea6c78ae71514592d57ce5ab395083c5ffe21b6021520dd1b55555555151887a755555466992e817a3ea6c7b4855555555555555555555555555555555555555555555555555555555555555f023d3c263e302c756c64");
-
-        //handleRawDatalinkInput(raw1);
-        handleRawDatalinkInput(raw2);
-        //handleRawDatalinkInput(raw3);
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
@@ -408,6 +372,44 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     }
 
     /**
+     * Used to remove special byte escaping done to prevent Pluto from modifying certain bytes
+     * when Pluto fails to open stdout in binary mode
+     * @param data
+     * @return
+     */
+    private static byte[] separateEscapedCharacters(byte[] data) {
+        if (data == null)
+            return null;
+        int escapeBytes = 0;
+        for (int i=0;i<data.length;i++) {
+            if (data[i] == ESCAPE_BYTE)
+                escapeBytes++;
+        }
+
+        if (escapeBytes == 0)
+            return data;
+        byte[] out = new byte[data.length-escapeBytes];
+        int index = 0;
+        try {
+            for (int i = 0; i < data.length; i++) {
+                if (data[i] == ESCAPE_BYTE) {
+                    i++;
+                    if (i < data.length)
+                        out[index] = (byte)(data[i] - ESCAPE_BYTE);
+                    else
+                        Log.w(TAG,"An escape byte was detected at the end of the data stream; this should not happen but means that the next byte stream received will start with a character that is incorrect");
+                } else
+                    out[index] = data[i];
+                index++;
+            }
+        } catch (Exception e) {
+            Log.e(TAG,"Error removing escaped characters from data stream: "+StringUtils.toHex(data));
+        }
+        Log.d(TAG,"Removed "+escapeBytes+" escape bytes in "+StringUtils.toHex(data)+" to "+StringUtils.toHex(out));
+        return out;
+    }
+
+    /**
      * Converts from the format sent over the serial connection into the actual byte array
      * @param raw
      * @return
@@ -614,7 +616,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     }
                     //else
                     //    Log.d(TAG,"From SDR: +"+StringUtils.toHex(data));
-                    //TODO temp for testing
 
                     /*byte[] preserveHeader = new byte[Segment.HEADER_MARKER.length];
                     for (int i=0; i< preserveHeader.length; i++) {
@@ -624,7 +625,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     for (int i=0; i< preserveHeader.length; i++) { //restore the header after any encryption/decryption
                         plaintext[i] = preserveHeader[i];
                     }*/
-                    handleRawDatalinkInput(data);
+                    //handleRawDatalinkInput(data);
+                    handleRawDatalinkInput(separateEscapedCharacters(data));
                 }
             });
             return;

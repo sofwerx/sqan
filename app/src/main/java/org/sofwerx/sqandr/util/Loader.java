@@ -18,6 +18,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import static java.lang.Thread.sleep;
+
 /**
  * Helper class to assist in loading SqANDR on to Pluto and to get it running
  */
@@ -81,6 +83,7 @@ public class Loader {
                             total += bytesRead;
                             command = INSTALL_HEADER + hexes + INSTALL_FOOTER;
                             Log.d(TAG, "Chunk " + chunks + " of " + totalChunks + ": " + command);
+                            sleep(50); //give BusyBox a chance to complete the last write
                             if (!write(port, command))
                                 throw new IOException("Error while installing SqANDR; unable to write chunk #" + chunks + " (" + bytesRead + "b) - you may need to disconnect and reconnect the SDR");
                             chunks++;

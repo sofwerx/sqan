@@ -112,6 +112,11 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         handlerThread.start();
     }
 
+    //TODO for testing
+    private final static byte[] OPTIMAL_COMMANDS =
+            (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION+
+            " -binO -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3\n").getBytes();
+
     public void setCommandFlags(String flags) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
                 +(USE_BIN_USB_IN ?" -binI":"")
@@ -588,8 +593,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         }
     }
 
-    private boolean showAsInt16 = false;
-
     @Override
     public void onNewData(byte[] data) {
         if ((data == null) || (data.length < Segment.HEADER_MARKER.length))
@@ -879,6 +882,10 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             final String message = "Starting SDR companion app (SqANDR)";
             Log.d(TAG,message);
             attempts = 0;
+
+            //FIXME testing
+            SDR_START_COMMAND = OPTIMAL_COMMANDS;
+
             Log.d(TAG,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             try {
                 port.write(SDR_START_COMMAND,1000);

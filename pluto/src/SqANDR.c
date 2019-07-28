@@ -420,13 +420,13 @@ int main (int argc, char **argv){
 	unsigned char hexin[1024];
 	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
 	int TIMES_TO_COPY_MESSAGE = 8;
-	int rxSize = 200;
-	int txSize = 200;
+	int rxSize = 2048;
+	int txSize = 50000;
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
 	unsigned char bytein[MAX_DATA_IN]; //the data received from OTA
-	const int SIZE_OF_DATAOUT = (int)(sizeof(dataout)/sizeof(dataout[0]));
+	const int SIZE_OF_DATAOUT = (int)(sizeof(dataout)/sizeof(dataout[0]))-1;
 	bool shortHeader = false;
 	int bitTimerCount = 0;
 	int bitIndex = 0;
@@ -454,6 +454,7 @@ int main (int argc, char **argv){
 	bool binOut = false;
 	bool firstCycle = true;
 	bool noOnboardProcessing = false;
+	bool bufLoopback = false;
 
 	
 	//int emptyBuffersSent = 0;
@@ -518,6 +519,8 @@ int main (int argc, char **argv){
 				verbose = false;
 			} else if (strcmp("-block",argv[j]) == 0) {
 				inNonBlock = false;
+			} else if (strcmp("-bufferLoopback",argv[j]) == 0) {
+				bufLoopback = true;
 			} else if (strcmp("-fir",argv[j]) == 0) {
 				firFilter = true;
 			} else if (strcmp("-rawOut",argv[j]) == 0) {
@@ -768,21 +771,20 @@ int main (int argc, char **argv){
 
 	if (verbose)
 		printf("d* Creating non-cyclic IIO buffers with 1 MiS\n");
-	//rxbuf = iio_device_create_buffer(rx, 20*rxSize, false);
-	rxbuf = iio_device_create_buffer(rx, 20*rxSize, false);//fixed to a hard 2048 based on byte gap correction issues in stdout
+	rxbuf = iio_device_create_buffer(rx, rxSize, false);
 	if (!rxbuf) {
 		perror("m Could not create RX buffer");
 		shutdown();
 	}
 	iio_buffer_set_blocking_mode(rxbuf,true);
 
-	txbuf = iio_device_create_buffer(tx, 20*txSize, false);
+	txbuf = iio_device_create_buffer(tx, txSize, false);
 	if (!txbuf) {
 		perror("m Could not create TX buffer");
 		shutdown();
 	}
 	
-	char* membuf[20*txSize];
+	char* membuf[txSize];
 		
 	iio_buffer_set_blocking_mode(txbuf,true);
 	iio_buffer_set_blocking_mode(rxbuf,true);
@@ -795,7 +797,7 @@ int main (int argc, char **argv){
 	}
 
 	int16_t amplitude = 0; //amplitude
-	int totalRxSize = rxSize*20;
+	int totalRxSize = rxSize;
 	int cnt = 0;
 	int startrx = true;
 	int bufferCycleCount = 0;
@@ -830,6 +832,7 @@ int main (int argc, char **argv){
 	int a = 0;
 	int index = 0;
 	bool activityThisCycle = false; //did something happen (Rx or Tx) this cycle
+	int sampleCount = 0;
 
 	int iLast = 0;
 	int qLast = 0;
@@ -946,6 +949,20 @@ int main (int argc, char **argv){
 	
 							if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
 								if (dataoutIndex < SIZE_OF_DATAOUT) {
+									//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
+									//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
+									//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
+									//64 then 128 would be read as 64
+									if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
+										dataout[dataoutIndex] = 0b01000000;
+										dataoutIndex++;
+										tempByte = tempByte | 0b01000000;
+									} else if (tempByte == 0b01000000) {
+										dataout[dataoutIndex] = 0b01000000;
+										dataoutIndex++;
+										tempByte = 0b10000000;
+									}
+									
 									dataout[dataoutIndex] = tempByte;
 									dataoutIndex++;
 									bitIndex = 0;
@@ -993,7 +1010,7 @@ int main (int argc, char **argv){
 						printf("\tBit: %d, A: %d\n", bit, amplitude);
 					amplitudeLast = amplitude*PERCENT_LAST/100;
 				}
-			} else {
+			} else if (!bufLoopback) {
 				for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
 					((int16_t*)p_rx_dat)[0] << 4; // Real (I)
 					((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
@@ -1005,14 +1022,20 @@ int main (int argc, char **argv){
 						else if (((char*)p_rx_dat)[a] == 0b00001001) //promote all 9s to 11s
 							((char*)p_rx_dat)[a] = 0b00001011;
 					}
-					fwrite(p_rx_dat,1,4,stdout);
+					if (fwrite(p_rx_dat,1,4,stdout) != 4) {
+						ferror(stdout);
+						printf("****************************\n");
+					}
 					index++;
 					if (index == 256) {
 						fflush(stdout);
-						fwrite(p_rx_dat,1,4,stdout);
+						//fwrite(p_rx_dat,1,4,stdout);
 						index = 0;
 					}
+					sampleCount++;
 				}
+				printf("*************%d***************\n", sampleCount);
+				sampleCount = 0;
 			}
 			/**
 			 * Output the recovered data
@@ -1168,7 +1191,7 @@ int main (int argc, char **argv){
 			for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
 				if (p_tx_dat > p_tx_end) {
 					if (verbose)
-						printf("m Error - header was larger than remaining buffer size (this should not happen)");
+						printf("m Error - Initial padding was larger than remaining buffer size (this should not happen)");
 					break;
 				}
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
@@ -1237,7 +1260,7 @@ int main (int argc, char **argv){
 				for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
 					if (p_tx_dat > p_tx_end) {
 						if (verbose)
-							printf("m Error - header was larger than remaining buffer size (this should not happen)");
+							printf("m Error - End padding was larger than remaining buffer size (this should not happen)");
 						break;
 					}
 					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
@@ -1255,12 +1278,12 @@ int main (int argc, char **argv){
 			emptyBuffer = false;
 
 			// Schedule TX buffer
-			memcpy(membuf, txbuf, 1200*20);
+			memcpy(membuf, txbuf, txSize);
 			nbytes_tx = iio_buffer_push(txbuf);
 			bufferSendCount++;
 			firstCycle = false;
 		} else if ((bufferSendCount < (TIMES_TO_SEND_MESSAGE)) && (!firstCycle)) {
-				memcpy(txbuf, membuf, 1200*20);
+				memcpy(txbuf, membuf, txSize);
 				nbytes_tx = iio_buffer_push(txbuf);
 				if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
 				bufferSendCount++;
