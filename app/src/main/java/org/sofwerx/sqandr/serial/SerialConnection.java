@@ -626,6 +626,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         plaintext[i] = preserveHeader[i];
                     }*/
                     //handleRawDatalinkInput(data);
+                    handleRawDatalinkInput(data);
                     handleRawDatalinkInput(separateEscapedCharacters(data));
                 }
             });

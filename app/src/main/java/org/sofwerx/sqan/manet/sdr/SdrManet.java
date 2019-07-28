@@ -19,11 +19,11 @@ import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqandr.SqANDRListener;
 import org.sofwerx.sqandr.SqANDRService;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
+import org.sofwerx.sqandr.sdr.SdrConfig;
+import org.sofwerx.sqandr.sdr.SdrMode;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.SerialConnection;
-
-import java.util.ArrayList;
 
 /**
  * MANET built for including hops over SDR
@@ -42,6 +42,8 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     private SqANDRService sqANDRService;
     private long[] DEDUP_LIST = new long[10]; //used to prevent handling duplicate messages but still allow messages out of order (within a small group)
     private int dedupIndex = 0;
+    private final static long SUPPLEMENTAL_HEARTBEAT_INTERVAL = 1000l;
+    private long nextSupplementalHeartbeat = Long.MIN_VALUE;
 
     public SdrManet(Handler handler, Context context, ManetListener listener) {
         super(handler, context, listener);
@@ -63,6 +65,10 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
 
     @Override
     public boolean checkForSystemIssues() {
+        if (SdrConfig.getMode() == SdrMode.P2P) {
+            if (SdrConfig.getRxFreq() == SdrConfig.getTxFreq())
+                return false;
+        }
         boolean passed = super.checkForSystemIssues();
         passed = true; //TODO actually check for SDR issues
         return passed;
@@ -91,19 +97,6 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
         Log.d(TAG,"SDR Manet init()");
         isRunning.set(true);
         setStatus(Status.OFF);
-
-        /*TODO for testing: HeartbeatPacket pkt = new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM);
-        ArrayList<Segment> segs = Segmenter.wrapIntoSegments(pkt.toByteArray());
-        Segmenter menter = new Segmenter(segs.get(0).getPacketId());
-
-        for (Segment seg:segs) {
-            Segment newSeg = new Segment();
-            byte[] data = seg.toBytes();
-            newSeg.parse(data);
-            menter.add(newSeg);
-        }
-        if (menter.isComplete())
-            Log.d(TAG,"Complete");*/
     }
 
     private void burst(final byte[] bytes, final int destination, final int origin) {
@@ -188,6 +181,15 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             nextOldDeviceCheck = System.currentTimeMillis() + OLD_DEVICE_CHECK_INTERVAL;
             //TODO remove unresponsive connections
             SqAnDevice.cullOldDevices();
+        }
+
+        if (System.currentTimeMillis() > nextSupplementalHeartbeat) {
+            nextSupplementalHeartbeat = System.currentTimeMillis() + SUPPLEMENTAL_HEARTBEAT_INTERVAL;
+            try {
+                burst(new HeartbeatPacket(Config.getThisDevice(),HeartbeatPacket.DetailLevel.MEDIUM));
+            } catch (ManetException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -310,5 +312,16 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
         if (sqANDRService != null)
             sqANDRService.setPeripheralStatusListener(listener);
+    }
+
+    public String getSystemIssues() {
+        String issues = null;
+
+        if (SdrConfig.getMode() == SdrMode.P2P) {
+            if (SdrConfig.getRxFreq() == SdrConfig.getTxFreq())
+                return "In P2P mode, the transmit (tx) freq and the receive (rx) freq should be different, otherwise some transmissions may step on each other. To connect, the tx freq on Device A should match the rx freq on Device B and the tx freq on Device B should match the rx freq on Device A.";
+        }
+
+        return issues;
     }
 }

@@ -43,6 +43,7 @@ import org.sofwerx.sqan.manet.common.SqAnDevice;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.common.StatusHelper;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
+import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.util.PermissionsHelper;
 import org.sofwerx.sqan.util.StringUtil;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
@@ -507,6 +508,19 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         if (nagAboutPreferredManet) {
             if ((sqAnService != null) && (sqAnService.getManetOps() != null)) {
                 AbstractManet manet = sqAnService.getManetOps().getBtManet();
+                SdrManet sdrManet = sqAnService.getManetOps().getSdrManet();
+                if (sdrManet != null) {
+                    final String issues = sdrManet.getSystemIssues();
+                    if (issues != null) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("SDR Configuration")
+                                .setMessage("Your SDR Configuration is not recommended. "+issues)
+                                .setPositiveButton("Change", (dialog, which) -> {
+                                    startActivity(new Intent(this, SettingsActivity.class));
+                                })
+                                .setNegativeButton("Ignore", (dialog, which) -> dialog.cancel()).create().show();
+                    }
+                }
                 if ((manet == null) || (manet instanceof BtManetV2)) {
                     //ignore as this is the recommended option
                 } else {
