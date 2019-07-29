@@ -8,4 +8,5 @@ public interface DataConnectionListener {
     void onConnectionError(String message);
     void onPacketDropped();
     void onOperational();
+    void onHighNoise();
 }

@@ -54,15 +54,14 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private final static long MAX_INTERVAL_BETWEEN_COMMS = 1000l * 7l;
     private final static long INTERVAL_BETWEEN_DEVICES_CLEANUP = 1000l * 15l;
     private final static long INTERVAL_BETWEEN_HEALTH_CHECK = 1000l * 60l;
-    private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 2l;
-    private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 20l;
+    private final static long MIN_TIME_BETWEEN_HEARTBEATS = 1000l * 1l;
+    private final static long MAX_TIME_BETWEEN_HEARTBEATS = 1000l * 7l;
     public final static String ACTION_STOP = "STOP";
     public final static String EXTRA_KEEP_ACTIVITY = "keepActivity";
     private final static int SQAN_NOTIFICATION_ID = 60;
     private final static int SQAN_NOTIFICATION_VPN_ACTIVITY_BUT_NOT_ON = 71;
     private final static long HELPER_INTERVAL = 1000l * 5l;
     private final static String NOTIFICATION_CHANNEL = "sqan_notify";
-    private Random random = new Random();
 
     private PowerManager.WakeLock wakeLock;
     private PowerManager powerManager;
@@ -87,6 +86,8 @@ public class SqAnService extends Service implements LocationService.LocationUpda
     private LocationService locationService;
     private SqAnVpnService vpnService;
     private int missedVpnPacketCount = 0;
+    private long nextNoiseNotificationWindow = Long.MIN_VALUE;
+    private final static long TIME_BETWEEN_NOISE_NOTIFICATIONS = 1000l * 60l * 5l;
 
     private static ArrayList<AbstractManetIssue> issues = null; //issues currently blocking or degrading the MANET
 
@@ -696,6 +697,15 @@ public class SqAnService extends Service implements LocationService.LocationUpda
                 return !manetOps.isBtManetSelected() && !manetOps.isWiFiDirectManetSelected() && !manetOps.isWiFiAwareManetSelected();
         }
         return false;
+    }
+
+    public void handleHighNoise() {
+        if (System.currentTimeMillis() > nextNoiseNotificationWindow) {
+            nextNoiseNotificationWindow = System.currentTimeMillis() + TIME_BETWEEN_NOISE_NOTIFICATIONS;
+            if (listener != null)
+                listener.onHighNoise();
+            notifyStatusChange("SqAN is receiving an unusually large amount of corrupted data. Check connections and RF environment.");
+        }
     }
 
     public class SqAnServiceBinder extends Binder {

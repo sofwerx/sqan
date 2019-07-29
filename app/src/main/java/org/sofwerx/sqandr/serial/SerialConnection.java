@@ -36,6 +36,8 @@ import java.util.concurrent.Executors;
 
 public class SerialConnection extends AbstractDataConnection implements SerialInputOutputManager.Listener {
     private final static String TAG = Config.TAG+".Serial";
+    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    //private final static String OPTIMAL_FLAGS = "-transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3";
     private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -96,8 +98,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                +" -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3"
-                +"\n").getBytes(StandardCharsets.UTF_8);//*/
+                + " " + OPTIMAL_FLAGS
+                +"\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
             @Override
             protected void onLooperPrepared() {
@@ -364,6 +366,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
 
     //private final static String PADDING_BYTE = "00112233445566778899";
     private final static String PADDING_BYTE = "00000000000000000000";
+    //private final static String PADDING_BYTE = "";
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
@@ -601,12 +604,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (heartbeat) {
                     if (heartbeatReportedReceived > 0)
                         Log.d(TAG, ((heartbeatReportedReceived == (byte)255)?">=255":heartbeatReportedReceived) + "b transmitted by SqANDR app");
-                    else
-                        Log.d(TAG,"Heartbeat received from SqANDR app");
+                    //else
+                    //    Log.d(TAG,"Heartbeat received from SqANDR app");
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
-                    //TODO temp for testing
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         //if ((data[0] == (byte)42) || (data[0] == (byte)100) || (data[0] == (byte)109))
                         if ((data[0] == (byte) 54)) // 6 - like the start of the SqAN header
@@ -626,7 +628,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                         plaintext[i] = preserveHeader[i];
                     }*/
                     //handleRawDatalinkInput(data);
-                    handleRawDatalinkInput(data);
                     handleRawDatalinkInput(separateEscapedCharacters(data));
                 }
             });

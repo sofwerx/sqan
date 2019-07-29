@@ -410,24 +410,28 @@ public class TestService implements TestListener {
             }
 
             int index = pkt.getIndex();
-            boolean unique = true;
-            for (Integer one:current) {
-                if (one.intValue() == index)
-                    unique = false;
-            }
-            if (unique) {
-                statsToUse.incrementUnique();
-                statsToUse.addBytes(data.length);
-                current.add(new Integer(index));
-                if (current.size() > 40)
-                    current.remove(0);
-            }
+            if (index > 0) {
+                boolean unique = true;
+                for (Integer one : current) {
+                    if (one.intValue() == index)
+                        unique = false;
+                }
+                if (unique) {
+                    statsToUse.incrementUnique();
+                    statsToUse.addBytes(data.length);
+                    current.add(new Integer(index));
+                    if (current.size() > 40)
+                        current.remove(0);
+                    statsToUse.incrementTotalSent();
+                }
 
-            if ((pkt.getIndex() < statsToUse.getTotal() + 100) && (pkt.getIndex() > statsToUse.getTotal()))
-                statsToUse.setTotal(pkt.getIndex());
-            //else
-            //    statsToUse.incrementTotalSent();
-            statsToUse.incrementComplete();
+                if ((index < statsToUse.getTotal() + 100) && (index > statsToUse.getTotal()))
+                    statsToUse.setTotal(index);
+                //else
+                //    statsToUse.incrementTotalSent();
+                statsToUse.incrementComplete();
+            } else
+                statsToUse.incrementTotalSent();
 
             Log.d(TAG,"TestService received: "+StringUtils.toHex(data));
             if (listener != null)

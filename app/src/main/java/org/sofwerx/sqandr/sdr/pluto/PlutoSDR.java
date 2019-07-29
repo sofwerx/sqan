@@ -39,6 +39,11 @@ public class PlutoSDR extends AbstractSdr {
     }
 
     @Override
+    public void onHighNoise() {
+        //ignore
+    }
+
+    @Override
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
         peripheralStatusListener = listener;
         if (dataConnection != null)

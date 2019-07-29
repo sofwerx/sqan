@@ -156,4 +156,9 @@ public class Terminal extends LinearLayout implements DataConnectionListener {
     public void onOperational() {
         status("SDR app is running");
     }
+
+    @Override
+    public void onHighNoise() {
+        //ignore
+    }
 }

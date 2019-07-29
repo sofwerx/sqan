@@ -386,7 +386,7 @@ int main (int argc, char **argv){
 	const unsigned short SHORT_FLAG[] =         {0b0000000000000001,0b0000000000000010,0b0000000000000100,0b0000000000001000,0b0000000000010000,0b0000000000100000,0b0000000001000000,0b0000000010000000,0b0000000100000000,
 	0b0000001000000000,0b0000010000000000,0b0000100000000000,0b0001000000000000,0b0010000000000000,0b0100000000000000,0b1000000000000000};
 	
-	const int HEARTBEAT_INTERVAL = 280; //how many cycles between heartbeats;
+	const int HEARTBEAT_INTERVAL = 2; //how many cycles between heartbeats;
 	
 	const char COMMAND_EXIT = 0b110101011;
 	
@@ -413,15 +413,15 @@ int main (int argc, char **argv){
 	const int16_t TRANSMIT_SIGNAL_NEG_Q = -30000;
 	const int MAX_BYTES_PER_LINE = 250;
 	const float DEFAULT_FREQ = 800; //in MHz
-	const float DEFAULT_SAMPLE_RATE = 6; //FIXME switch back to 4.5
-	const float DEFAULT_BANDWIDTH = 7; //in MHz
+	const float DEFAULT_SAMPLE_RATE = 3; //FIXME switch back to 4.5
+	const float DEFAULT_BANDWIDTH = 5; //in MHz
 	const unsigned char MOST_SIG_BIT = 0b10000000;
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
 	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
-	int TIMES_TO_COPY_MESSAGE = 8;
-	int rxSize = 2048;
-	int txSize = 50000;
+	int TIMES_TO_COPY_MESSAGE = 20;
+	int rxSize = 100000;
+	int txSize = 108000;
 	char dataout[512]; //the received bytes to report back to the Android
 	int dataoutIndex = 0;
 	const int MAX_DATA_IN = 2048;
@@ -444,7 +444,7 @@ int main (int argc, char **argv){
 	bool isSignalInverted = false;
 	bool timingFound = false;
 	int bytesSentThisLine = 0;
-	int gainTypeVal = 2;
+	int gainTypeVal = 3;
 	//struct timespec start, end; //used to measure elapsed time
 	bool testDataSent = false;
 	bool superVerbose = false;
@@ -832,10 +832,11 @@ int main (int argc, char **argv){
 	int a = 0;
 	int index = 0;
 	bool activityThisCycle = false; //did something happen (Rx or Tx) this cycle
-	int sampleCount = 0;
 
 	int iLast = 0;
 	int qLast = 0;
+	
+	char *p_tx_dat_safety;
 
 	int count = 0; // a counter just used in the binary test pattern
 	int bestMatch = 0; //a counter used to keep track of the best match returned during a test pattern
@@ -1024,7 +1025,7 @@ int main (int argc, char **argv){
 					}
 					if (fwrite(p_rx_dat,1,4,stdout) != 4) {
 						ferror(stdout);
-						printf("****************************\n");
+						printf("******************************\n");
 					}
 					index++;
 					if (index == 256) {
@@ -1032,10 +1033,7 @@ int main (int argc, char **argv){
 						//fwrite(p_rx_dat,1,4,stdout);
 						index = 0;
 					}
-					sampleCount++;
 				}
-				printf("*************%d***************\n", sampleCount);
-				sampleCount = 0;
 			}
 			/**
 			 * Output the recovered data
@@ -1181,6 +1179,7 @@ int main (int argc, char **argv){
 			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 			p_tx_inc = iio_buffer_step(txbuf);
 			p_tx_end = iio_buffer_end(txbuf);
+			p_tx_dat_safety = p_tx_end - p_tx_inc; //this provides a safety margin before the end of the buffer so that the buffer isnt overwritter
 			activityThisCycle = true;
 			bufferCycleCount = 0;
 			bufferSendCount = 0;
@@ -1189,9 +1188,9 @@ int main (int argc, char **argv){
 			//Send leading "no signal" bytes
 			//for (int i=0;i<510;i++) {
 			for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
-				if (p_tx_dat > p_tx_end) {
+				if (p_tx_dat > p_tx_dat_safety) {
 					if (verbose)
-						printf("m Error - Initial padding was larger than remaining buffer size (this should not happen)");
+						printf("Initial padding was larger than remaining buffer size, ignoring");
 					break;
 				}
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
@@ -1201,9 +1200,9 @@ int main (int argc, char **argv){
 			while (bufferCycleCount < TIMES_TO_COPY_MESSAGE) {
 				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
 					for (int i=headerLength;i>=0;i--) { //send header 12 bits
-						if (p_tx_dat > p_tx_end) {
+						if (p_tx_dat > p_tx_dat_safety) {
 							if (verbose)
-								printf("m Error - header was larger than remaining buffer size (this should not happen)");
+								printf("Header was larger than remaining buffer size, ignoring");
 							break;
 						}
 						if (((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) && !shortHeader) {
@@ -1227,7 +1226,7 @@ int main (int argc, char **argv){
 
 					//send actual byte
 					for (int bitPlace=7;bitPlace>=0;bitPlace--) {
-						if (p_tx_dat > p_tx_end) {
+						if (p_tx_dat > p_tx_dat_safety) {
 							if (verbose)
 								printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
 							break;
@@ -1258,7 +1257,7 @@ int main (int argc, char **argv){
 				}
 
 				for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
-					if (p_tx_dat > p_tx_end) {
+					if (p_tx_dat > p_tx_dat_safety) {
 						if (verbose)
 							printf("m Error - End padding was larger than remaining buffer size (this should not happen)");
 						break;
@@ -1303,12 +1302,6 @@ int main (int argc, char **argv){
 				emptyBuffer = true;
 			}
 		}
-		//FIXME for texting
-		//if (countToClose == 0) {
-		//	shutdown();
-		//}
-		//FIXME for texting
-		
 		if (verbose && activityThisCycle) {
 			stopTime = clock();
 			printf("Cycle time: %.3f ms, rx pointer end %p, tx pointer end %p\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,p_rx_end,p_tx_end);

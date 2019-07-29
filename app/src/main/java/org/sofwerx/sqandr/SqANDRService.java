@@ -434,4 +434,11 @@ public class SqANDRService implements DataConnectionListener {
         if (listener != null)
             listener.onSdrReady(true);
     }
+
+    @Override
+    public void onHighNoise() {
+        Log.d(TAG,"onHighNoise()");
+        if (listener != null)
+            listener.onHighNoise();
+    }
 }

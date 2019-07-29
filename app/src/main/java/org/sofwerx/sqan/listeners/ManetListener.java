@@ -52,4 +52,8 @@ public interface ManetListener {
      * Called once this device has been authenticated on a new net
      */
     void onAuthenticatedOnNet();
+
+    void onPacketDropped();
+
+    void onHighNoise();
 }

@@ -237,7 +237,7 @@ public abstract class AbstractDataConnection {
             if (segmenter.isComplete()) {
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
                 if (listener != null)
-                    listener.onDataReassembled(segmenter.reassemble());
+                    listener.onDataReassembled(Crypto.decrypt(segmenter.reassemble()));
                 segmenters.remove(segmenter);
             }
         }

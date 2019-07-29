@@ -37,6 +37,10 @@ public abstract class AbstractDataConnection {
     protected long rfCongestedUntil = Long.MIN_VALUE;
     private final static long TIME_FOR_RF_ACTIVITY_TO_ADD_TO_CONGESTION = 100l; //ms to wait if data is flowing in via RF on the bulk data channel
 
+    private int goodData = 0;
+    private int badData = 0;
+    private final static int ACCEPTABLE_BAD_TO_GOOD = 80;
+
     private class PartialHeaderData {
         public PartialHeaderData(int size, boolean inverted) {
             this.size = size;
@@ -81,8 +85,16 @@ public abstract class AbstractDataConnection {
                                         segmenters.remove(i);
                                         if (listener != null)
                                             listener.onPacketDropped();
-                                    } else
-                                        i++;
+                                    } else {
+                                        if (segmenters.get(i).isComplete()) {
+                                            goodData++;
+                                            Log.d(TAG,"Packet with "+segmenters.get(i).getSegmentCount()+" segments successfully reassembled");
+                                            if (listener != null)
+                                                listener.onReceiveDataLinkData(Crypto.decrypt(segmenters.get(i).reassemble()));
+                                            segmenters.remove(segmenters.get(i));
+                                        } else
+                                            i++;
+                                    }
                                 }
                                 nextStaleCheck = System.currentTimeMillis() + TIME_BETWEEN_STALE_SEGMENTATION_CHECKS;
                             } else
@@ -238,6 +250,7 @@ public abstract class AbstractDataConnection {
         } else {
             segmenter.add(segment);
             if (segmenter.isComplete()) {
+                goodData++;
                 Log.d(TAG,"Packet with "+segmenter.getSegmentCount()+" segments successfully reassembled");
                 if (listener != null)
                     listener.onReceiveDataLinkData(Crypto.decrypt(segmenter.reassemble()));
@@ -247,7 +260,6 @@ public abstract class AbstractDataConnection {
     }
 
     private byte[] readPacketData() {
-        //Log.d(TAG,"readPacketData()");
         if (dataBuffer == null) {
             Log.w(TAG,"dataBuffer is null, ignoring readPacketData()");
             return null;
@@ -269,20 +281,43 @@ public abstract class AbstractDataConnection {
             segment.parseRemainder(rest);
             if (segment.isValid()) {
                 if (segment.isStandAlone()) {
+                    goodData++;
                     Log.d(TAG,"Standalone packet recovered ("+headerData.size+"b)");
                     return Crypto.decrypt(segment.getData());
                 } else
                     handleSegment(segment);
             } else {
+                badData++;
                 dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
                 Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped");
-                if (listener != null)
-                    listener.onPacketDropped();
+                checkDataRatio();
             }
         } catch (IOException e) {
             Log.e(TAG,"Unable to read packet: "+e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Checks to see if the ration of good packets to bad packets is acceptable
+     */
+    private void checkDataRatio() {
+        Log.d(TAG,"Ratio of bad data to good, "+badData+":"+goodData);
+        if ((badData == 0) && (goodData == 0))
+            return;
+        boolean problem;
+        if (goodData == 0)
+            problem = (badData > ACCEPTABLE_BAD_TO_GOOD);
+        else {
+            problem = badData / goodData > ACCEPTABLE_BAD_TO_GOOD;
+        }
+        if (problem) {
+            Log.w(TAG,"High ratio of corrupted packets received");
+            badData = 0;
+            goodData = 0;
+            if (peripheralStatusListener != null)
+                peripheralStatusListener.onHighNoise();
+        }
     }
 
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {

@@ -34,4 +34,9 @@ public class LimeSDR extends AbstractSdr {
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
         //TODO
     }
+
+    @Override
+    public void onHighNoise() {
+        //ignore
+    }
 }

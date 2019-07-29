@@ -30,6 +30,8 @@ import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
 
+import static androidx.constraintlayout.widget.Constraints.TAG;
+
 /**
  * This class handles all of the SqAnService's interaction with the MANET itself. It primarily exists
  * to bring the MANET code out of the SqAnService to improve readability.
@@ -54,6 +56,12 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     private static long totalMeshUpTime = 0l;
     private static long totalMeshDegradedTime = 0l;
     private static long totalMeshDownTime = 0l;
+
+    private long noiseReported = Long.MIN_VALUE;
+    private int droppedPackets = 0;
+    private long dropStartTime = Long.MIN_VALUE;
+    private final static long INTERVAL_TO_MEASURE_NOISE = 1000l * 1l;
+    private final static int DROP_THRESHOLD = 10;
 
     public ManetOps(SqAnService sqAnService) {
         this.sqAnService = sqAnService;
@@ -489,6 +497,19 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     public void onAuthenticatedOnNet() {
         if (handler != null)
             handler.post(() -> {if (sqAnService != null) sqAnService.requestHeartbeat(true);});
+    }
+
+    @Override
+    public void onPacketDropped() {
+        //ignore
+    }
+
+    @Override
+    public void onHighNoise() {
+        Log.d(TAG,"onHighNoise");
+        if (handler != null) {
+            handler.post(() -> sqAnService.handleHighNoise());
+        }
     }
 
     public Status getStatus() {

@@ -38,4 +38,6 @@ public interface SqAnStatusListener {
      * @param conflictingDevice
      */
     void onConflict(SqAnDevice conflictingDevice);
+
+    void onHighNoise();
 }

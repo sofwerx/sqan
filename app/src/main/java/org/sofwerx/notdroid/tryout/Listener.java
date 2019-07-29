@@ -34,6 +34,11 @@ public class Listener implements SqANDRListener, ManetListener {
     }
 
     @Override
+    public void onHighNoise() {
+
+    }
+
+    @Override
     public void onStatus(Status status) {
 
     }

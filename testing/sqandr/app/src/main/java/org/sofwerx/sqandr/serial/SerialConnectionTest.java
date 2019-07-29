@@ -112,10 +112,10 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         handlerThread.start();
     }
 
-    //TODO for testing
     private final static byte[] OPTIMAL_COMMANDS =
-            (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION+
-            " -binO -transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3\n").getBytes();
+            (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION+" "+
+            "-transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3"+
+            "\n").getBytes();
 
     public void setCommandFlags(String flags) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
@@ -392,8 +392,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             Log.d(TAG,"Dropping "+data.length+"b packet as SqANDR is not yet running on the SDR");
     }
 
-    //private final static String PADDING_BYTE = "00112233445566778899";
-    private final static String PADDING_BYTE = "00000000000000000000";
+    //private final static String PADDING_BYTE = "00000000000000000000";
+    private final static String PADDING_BYTE = "";
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
@@ -625,8 +625,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 if (heartbeat) {
                     if (heartbeatReportedReceived > 0)
                         Log.d(TAG, ((heartbeatReportedReceived == (byte)255)?">=255":heartbeatReportedReceived) + "b transmitted by SqANDR app");
-                    else
-                        Log.d(TAG,"Heartbeat received from SqANDR app");
+                    //else
+                    //    Log.d(TAG,"Heartbeat received from SqANDR app");
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
@@ -882,10 +882,12 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             final String message = "Starting SDR companion app (SqANDR)";
             Log.d(TAG,message);
             attempts = 0;
-
-            //FIXME testing
-            SDR_START_COMMAND = OPTIMAL_COMMANDS;
-
+            /*Log.d(TAG,"Initiating SDR App with command: "+new String(OPTIMAL_COMMANDS,StandardCharsets.UTF_8));
+            try {
+                port.write(OPTIMAL_COMMANDS,1000);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }*/
             Log.d(TAG,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             try {
                 port.write(SDR_START_COMMAND,1000);

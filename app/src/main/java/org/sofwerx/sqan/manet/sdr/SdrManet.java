@@ -21,7 +21,6 @@ import org.sofwerx.sqandr.SqANDRService;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.SdrMode;
-import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.SerialConnection;
 
@@ -252,6 +251,15 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     @Override
     public void onPacketDropped() {
         CommsLog.log(CommsLog.Entry.Category.PROBLEM,"Error parsing data, packet dropped");
+        if (listener != null)
+            listener.onPacketDropped();
+    }
+
+    @Override
+    public void onHighNoise() {
+        Log.d(TAG,"onHighNoise()");
+        if (listener != null)
+            listener.onHighNoise();
     }
 
     @Override

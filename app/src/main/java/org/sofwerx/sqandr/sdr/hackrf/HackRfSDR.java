@@ -117,4 +117,9 @@ public class HackRfSDR extends AbstractSdr {
     public void setPeripheralStatusListener(PeripheralStatusListener listener) {
         //TODO
     }
+
+    @Override
+    public void onHighNoise() {
+        //ignore
+    }
 }

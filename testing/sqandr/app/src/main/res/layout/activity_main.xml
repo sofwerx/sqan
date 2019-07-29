@@ -135,7 +135,8 @@
         android:showText="true"
         android:text="Mode"
         android:textOff="RAW"
-        android:textOn="PROCESSED" />
+        android:textOn="PROCESSED"
+        android:visibility="gone"/>
 
     <TableLayout
         android:id="@+id/mainTableSpecs"

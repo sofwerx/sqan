@@ -55,6 +55,7 @@ import java.util.TimerTask;
 import static org.sofwerx.sqan.SqAnService.ACTION_STOP;
 
 public class MainActivity extends AppCompatActivity implements SqAnStatusListener, PeripheralStatusListener {
+    private final static String TAG = Config.TAG+".UI";
     protected static final int REQUEST_DISABLE_BATTERY_OPTIMIZATION = 401;
     private final static long REPORT_PROBLEMS_DURATION = 1000l * 60l;
     private final static long PERIODIC_REFRESH_INTERVAL = 1000l * 5l;
@@ -137,6 +138,7 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
         statusPeriphProgress = findViewById(R.id.mainStatusPeripheralProgress);
         iconPeriphProblem = findViewById(R.id.mainStatusPeripheralWarning);
         pingAnimation = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ping);
+        statusPeripheralView.setOnClickListener(v -> statusPeripheralView.setVisibility(View.GONE));
 
         if (statusMarquee != null) {
             statusMarquee.setOnClickListener(view -> {
@@ -778,6 +780,12 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     public void onConflict(SqAnDevice conflictingDevice) {
         //FIXME do something other than toast this
         Toast.makeText(this,"Error: this device has the same identifier as "+conflictingDevice.getCallsign(),Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onHighNoise() {
+        Log.d(TAG,"onHighNoise()");
+        runOnUiThread(() -> updatePeripheralStatus("SqAN is receiving large amounts of corrupted data. Check connections and RF environment.",false,true));
     }
 
     @Override
