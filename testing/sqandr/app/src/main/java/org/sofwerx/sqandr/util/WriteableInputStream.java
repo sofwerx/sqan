@@ -55,6 +55,32 @@ public class WriteableInputStream extends InputStream {
         return read(out,0,out.length);
     }
 
+    /**
+     * reads from the writeable input stream with the option to block until the full data is read
+     * @param out
+     * @param blockTillFull true == will block until all of the data is read
+     * @return
+     * @throws IOException
+     */
+    public int read(byte[] out, boolean blockTillFull) throws IOException {
+        if ((out == null) || (out.length == 0))
+            return 0;
+        if (blockTillFull) {
+            int bytesRead = 0;
+            final int maxRead = out.length;
+            while (bytesRead < maxRead) {
+                blockTillData();
+                synchronized (blockingSync) {
+                    out[bytesRead] = readNext();
+                }
+                bytesRead++;
+            }
+            return bytesRead;
+
+        } else
+            return read(out,0,out.length);
+    }
+
     public int read(long position, byte[] out, int offset, int length)  throws IOException {
         if ((position <0l) || (position > BUFFER_SIZE))
             throw new IOException("RoverStream asked to read from an illegal position: "+Long.toString(position));

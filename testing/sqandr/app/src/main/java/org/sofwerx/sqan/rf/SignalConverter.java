@@ -2,11 +2,6 @@ package org.sofwerx.sqan.rf;
 
 import android.util.Log;
 
-import org.sofwerx.sqan.util.StringUtil;
-import org.sofwerx.sqandr.util.StringUtils;
-
-import java.util.ArrayList;
-
 /**
  * Holds the logic to convert raw IQ values into a byte
  */

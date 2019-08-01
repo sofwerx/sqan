@@ -42,6 +42,8 @@ import java.util.concurrent.Executors;
  */
 public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener, SignalProcessingListener {
     private final static String TAG = Config.TAG+".Serial";
+    //FIXME this is the good setting: private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 2 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
     private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -89,11 +91,11 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
 
-    private final static boolean USE_BIN_USB_IN = false; //send binary input to Pluto
+    private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
 
-
-    private boolean processOnPluto = true;
+    private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
+    private boolean processOnPluto = false;
     private SignalProcessor signalProcessor;
 
     public SerialConnectionTest(String commands) {
@@ -111,11 +113,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         };
         handlerThread.start();
     }
-
-    private final static byte[] OPTIMAL_COMMANDS =
-            (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION+" "+
-            "-transmitRepeat 1 -messageRepeat 20 -txsrate 3 -rxsrate 3 -txbandwidth 5 -rxbandwidth 5 -txSize 105000 -rxSize 100000 -rxtype 3"+
-            "\n").getBytes();
 
     public void setCommandFlags(String flags) {
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
@@ -299,7 +296,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 segment.setStandAlone();
                 if (USE_BIN_USB_IN) {
                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
-                    write(segment.toBytes());
+                    write(toSerialLinkBinFormat(segment.toBytes()));
                 } else
                     write(toSerialLinkFormat(segment.toBytes()));
             } else {
@@ -328,7 +325,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                                 concatted.get(currentSegBytes);
                                 if (USE_BIN_USB_IN) {
                                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(currentSegBytes));
-                                    write(currentSegBytes);
+                                    write(toSerialLinkBinFormat(currentSegBytes));
                                 } else
                                     write(toSerialLinkFormat(currentSegBytes));
                                 concatted.clear();
@@ -337,7 +334,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     } else {
                         if (USE_BIN_USB_IN) {
                             Log.d(TAG, "Outgoing: " + StringUtils.toHex(currentSegBytes));
-                            write(currentSegBytes);
+                            write(toSerialLinkBinFormat(currentSegBytes));
                         } else {
                             write(toSerialLinkFormat(currentSegBytes));
                         }
@@ -351,7 +348,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                         concatted.get(currentSegBytes);
                         if (USE_BIN_USB_IN) {
                             Log.d(TAG,"Outgoing: *"+StringUtils.toHex(currentSegBytes));
-                            write(currentSegBytes);
+                            write(toSerialLinkBinFormat(currentSegBytes));
                         } else
                             write(toSerialLinkFormat(currentSegBytes));
                         concatted.clear();
@@ -386,14 +383,20 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 }*/
                 //write(KEEP_ALIVE_MESSAGE); //TODO for testing
             }
-            if (signalProcessor != null)
-                signalProcessor.turnOnDetailedIq();
+            //if (signalProcessor != null)
+            //    signalProcessor.turnOnDetailedIq();
         } else
             Log.d(TAG,"Dropping "+data.length+"b packet as SqANDR is not yet running on the SDR");
     }
 
     //private final static String PADDING_BYTE = "00000000000000000000";
     private final static String PADDING_BYTE = "";
+
+    /**
+     * Provides a text output format that SqANDR will intake and translate into binary
+     * @param data
+     * @return
+     */
     private byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
@@ -402,10 +405,46 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     }
 
     /**
-     * Converts from the format sent over the serial connection into the actual byte array
-     * @param raw
+     * Provides a binary output format that adjusts the stream based on the restrictions
+     * Pluto has on specific byte values in stdin
+     * @param data
      * @return
      */
+    private byte[] toSerialLinkBinFormat(byte[] data) {
+        if (data == null)
+            return null;
+        byte[] out;
+        int values = 0;
+        serialFormatBuf.clear();
+
+        //Look for illegal byte values and then provide an escaped value and marking. Specifically,
+        //anything below 32 is considered illegal. 64 is used as a marker that the next byte
+        //has been altered from an illegal byte value. For consistency, marking illegal bytes
+        //is done by adding 64 to the byte. This is a work-around to Pluto intercepting some
+        //byte values (like 13, which is ASCII for carriage return) and then alterning the
+        //stream in response to those values
+        for (int i=0;i<data.length;i++) {
+            if (data[i] < 64) {
+                serialFormatBuf.put((byte)64);
+                serialFormatBuf.put((byte)(64+data[i]));
+            } else
+                serialFormatBuf.put(data[i]);
+            values++;
+        }
+
+        serialFormatBuf.flip();
+        if (values == 0)
+            return null;
+        out = new byte[values];
+        serialFormatBuf.get(out);
+        return out;
+    }
+
+        /**
+         * Converts from the format sent over the serial connection into the actual byte array
+         * @param raw
+         * @return
+         */
     private byte[] parseSerialLinkFormat(byte[] raw) {
         if ((raw == null) || (raw.length < 3))
             return null;
@@ -882,12 +921,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             final String message = "Starting SDR companion app (SqANDR)";
             Log.d(TAG,message);
             attempts = 0;
-            /*Log.d(TAG,"Initiating SDR App with command: "+new String(OPTIMAL_COMMANDS,StandardCharsets.UTF_8));
-            try {
-                port.write(OPTIMAL_COMMANDS,1000);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }*/
+            setCommandFlags(OPTIMAL_FLAGS); //FIXME for testing
             Log.d(TAG,"Initiating SDR App with command: "+new String(SDR_START_COMMAND,StandardCharsets.UTF_8));
             try {
                 port.write(SDR_START_COMMAND,1000);

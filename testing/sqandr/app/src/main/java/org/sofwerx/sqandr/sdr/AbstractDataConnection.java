@@ -256,7 +256,7 @@ public abstract class AbstractDataConnection {
                 throw new IOException("Unable to read packet - invalid size " + headerData.size + "b - this condition should never happen unless the link is shutting down");
             }
             byte[] rest = new byte[headerData.size+2]; //2 added to get the rest of the header
-            dataBuffer.read(rest);
+            dataBuffer.read(rest,true);
             //Log.d(TAG,"Rest of packet read");
             if (headerData.inverted) {
                 Log.d(TAG,"Packet header was inverted, inverting data...");

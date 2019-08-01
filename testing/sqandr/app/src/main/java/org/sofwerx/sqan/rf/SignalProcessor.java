@@ -26,8 +26,8 @@ public class SignalProcessor {
     private int nextOverflowCheck = CYCLES_BETWEEN_OVERFLOW_CHECKS;
     private AtomicBoolean keepGoing = new AtomicBoolean(true);
     private int maxToShow = 4;
-    private final static boolean DETAILED_IQ = true;
-    private final static boolean FORCE_DETAILED_IQ = true;
+    private final static boolean DETAILED_IQ = false;
+    private final static boolean FORCE_DETAILED_IQ = false;
     private final static byte[] SQAN_HEADER = {(byte)0b01100110,(byte)0b10011001};
 
     /**
@@ -150,10 +150,10 @@ public class SignalProcessor {
     //FIXME trying a synchronous approach to parsing all the incoming data
     private int turnOnIqRemaining = 0;
 
-    public void turnOnDetailedIq() {
-        turnOnIqRemaining = 200;
-        Log.d(TAG,"Detailed IQ reporting turned on");
-    }
+    //public void turnOnDetailedIq() {
+    //    turnOnIqRemaining = 1000;
+    //    Log.d(TAG,"Detailed IQ reporting turned on");
+    //}
 
     private int sqanHeaderIndex = 0;
     private SignalConverter converter = new SignalConverter();
@@ -181,7 +181,7 @@ public class SignalProcessor {
                 } else
                     Log.d(TAG, "Consuming " + incoming.length + "b: " + new String(incoming, StandardCharsets.UTF_8));
             } else {
-                if (incoming.length != 1024)
+                if ((incoming.length % 1024) != 0)
                     Log.d(TAG, "Consuming unexpected size " + incoming.length + "b");
             }
             maxToShow--;
@@ -195,26 +195,20 @@ public class SignalProcessor {
         }
 
         int asterisksInARow = 0;
-        int len = incoming.length-4;
+        int len = incoming.length-3;
         for (int i=0;i<len;i+=4) {
-            //valueI = incoming[i] << 8 | (incoming[i+1] & 0xFF);
-            //valueQ = incoming[i+2] << 8 | (incoming[i+3] & 0xFF);
-
-            //valueI = (incoming[i] << 8 | (incoming[i+1] & 0xFF));
-            //valueQ = (incoming[i+2] << 8 | (incoming[i+3] & 0xFF));
-
             //switching endianness
-            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4; //FIXME <<4 for testing
+            valueI = (incoming[i+1] << 8 | (incoming[i] & 0xFF))<<4;
             valueQ = (incoming[i+3] << 8 | (incoming[i+2] & 0xFF))<<4;
 
             SignalConverter.IqResult iqResult = converter.onNewIQ(valueI,valueQ);
             if (iqResult.headerFound) {
-                Log.d(TAG,"header found");
-                if (turnOnIqRemaining < 10) {
+                //Log.d(TAG,"header found");
+                /*if (turnOnIqRemaining < 10) {
                     if (turnOnIqRemaining == 0)
                         Log.d(TAG, "Consuming size " + incoming.length + "b");
                     turnOnIqRemaining = 10;
-                }
+                }*/
             }
             byte valueByte = 0;
             boolean showByteValue = false;
@@ -229,7 +223,7 @@ public class SignalProcessor {
                     } else if (sqanHeaderIndex == 1) {
                         if (valueByte == SQAN_HEADER[1]) {
                             sqanHeaderIndex = 2;
-                            turnOnIqRemaining = 200;
+                            turnOnIqRemaining = 1000;
                             Log.d(TAG, "SqAN header found, beginning detailed IQ reporting");
                         } else {
                             sqanHeaderIndex = 0;
@@ -237,7 +231,7 @@ public class SignalProcessor {
                     }
                 }
                 out.put(valueByte);
-                if (out.position() == limit) {
+                if (out.position() > limit) {
                     byte[] outBytes = out.array();
                     Log.d(TAG,"From SDR: "+ StringUtils.toHex(outBytes));
                     if (listener != null)
