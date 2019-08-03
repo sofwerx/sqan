@@ -422,13 +422,12 @@ public class TestService implements TestListener {
                     current.add(new Integer(index));
                     if (current.size() > 40)
                         current.remove(0);
-                    statsToUse.incrementTotalSent();
                 }
 
-                if ((index < statsToUse.getTotal() + 100) && (index > statsToUse.getTotal()))
+                if (index < statsToUse.getTotal() + 100)
                     statsToUse.setTotal(index);
-                //else
-                //    statsToUse.incrementTotalSent();
+                else
+                    statsToUse.incrementTotalSent();
                 statsToUse.incrementComplete();
             } else
                 statsToUse.incrementTotalSent();

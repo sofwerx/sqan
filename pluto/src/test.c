@@ -221,7 +221,7 @@ int main (int argc, char **argv)
 		perror("Could not create RX buffer");
 		shutdown();
 	}
-	txbuf = iio_device_create_buffer(tx, 4096, false);
+	txbuf = iio_device_create_buffer(tx, 2048, false);
 	if (!txbuf) {
 		perror("Could not create TX buffer");
 		shutdown();

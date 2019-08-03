@@ -390,7 +390,7 @@ int main (int argc, char **argv){
 	
 	const int HEARTBEAT_INTERVAL = 2; //how many cycles between heartbeats;
 	
-	const char COMMAND_EXIT = 0b110101011;
+	const char COMMAND_EXIT = 0b00010000;
 	
 	const char SQAN_HEADER[] = {0b01100110,0b10011001};
 	const int SQAN_HEADER_LEN = (int)(sizeof(SQAN_HEADER)/sizeof(SQAN_HEADER[0])) ;
@@ -847,9 +847,9 @@ int main (int argc, char **argv){
 	} else {
 		fcntl(0, F_SETFL, !O_NONBLOCK); //switch stdin to blocking
 	}
-	if (binIn) {
-		freopen("", "rb", stdin); //open stdin in "read binary" mode
-	}
+	//if (binIn) { //FIXME this is not working so stdin is actually being used in text mode
+	//	freopen("", "rb", stdin); //open stdin in "read binary" mode
+	//}
 	
 	int countToClose = 2; //FIXME testing
 	
@@ -1095,48 +1095,41 @@ int main (int argc, char **argv){
 			//int exitHeaderIndexMatched = 0;
 			//char ch;
 			
-			//bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin);
-			bytesInput = read(STDIN_FILENO,bytein,MAX_DATA_IN);
-			if (bytesInput < 0)
+			//FIXME for testing: trying fgets instead of fread
+			if (fgets(bytein, 1024, stdin) == NULL)
 				bytesInput = 0;
-			/*if (bytesInput == 0) {
-				if (emptyBuffersSent != MAX_EMPTY_BUFFERS_SENT) {
-					emptyBuffersSent++;
-					bytein[0] = (char)0;
-					bytesInput = 1;
-				}
-			} else
-				emptyBuffersSent = 0;*/
-			//while(read(0, &ch, 1) > 0)) { // 0 == STDIN_FILENO
-			//while((read(0, &ch, 1) > 0) && (bytesInput < MAX_DATA_IN)) { // 0 == STDIN_FILENO
-				/*bytein[bytesInput] = ch;
-				if (bytesInput < EXIT_HEADER_LEN) { //check for exit command
-					if (EXIT_HEADER[exitHeaderIndexMatched] == ch) {
-						exitHeaderIndexMatched++;
-						if (exitHeaderIndexMatched == EXIT_HEADER_LEN) {
-							printf("m Shutdown command received\n");
-							shutdown();
+			else {
+				bytesInput = strlen(bytein)-1; //drop the end byte that was sent to mark the end of the transmission
+			}
+			
+			//bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin); //does not work
+			//bytesInput = read(STDIN_FILENO,bytein,MAX_DATA_IN); //does not work
+			if (bytesInput < 0) {
+				printf("m Error reading bytes from stdin\n");
+				bytesInput = 0;
+			} else {
+				if (bytesInput > 1) {
+					activityThisCycle = true;
+					if ((bytein[0] == COMMAND_EXIT) && (bytein[1] == COMMAND_EXIT)) {
+						printf("m Shutdown commnd received...\n");
+						stop = true;
+						break;
+					} else {
+						printf("m Received input (%db): ",bytesInput); //FIXME temp for testing
+						char tempByte;
+						for (int i=0;i<bytesInput;i++) {
+							tempByte = bytein[i];
+							char *a = "0123456789abcdef"[tempByte >> 4];
+							char *b = "0123456789abcdef"[tempByte & 0x0F];
+							printf("%c%c",a,b);
 						}
+						printf("\n");
 					}
 				}
-				bytesInput++;
-			}*/	
-			
-			/*if (bytesInput > 0) { //TODO temp for testing
-				printf("m Received input (%db): ",bytesInput);
-				char tempByte;
-				for (int i=0;i<bytesInput;i++) {
-					tempByte = bytein[i];
-					char *a = "0123456789abcdef"[tempByte >> 4];
-					char *b = "0123456789abcdef"[tempByte & 0x0F];
-					printf("%c%c",a,b);
-				}
-
-				printf("\n");
-			}*/
+			}
 		} else {
 			/**
-			 * Blocking hex input
+			 * Hex input
 			 */
 				if (listenOnlyMode) {
 					hexin[0] = '\n';
@@ -1203,10 +1196,17 @@ int main (int argc, char **argv){
 			
 			char byteToSend;
 			
+			int bytesSent;
+			
+			//FIXME for testing:
+			//printf("\nSent: ");
+			
 			while (bufferCycleCount < TIMES_TO_COPY_MESSAGE) {
+				bytesSent = 0;
+
 				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
 					if (binIn) {
-						if ((bytein[bytePayloadIndex] & BYTE_64) == BYTE_64) {// this signals that the next character is a special character so this character should be ignored
+						if (bytein[bytePayloadIndex] == BYTE_64) {// this signals that the next character is a special character so this character should be ignored
 							escNextChar = true;
 							continue;
 						}
@@ -1243,6 +1243,7 @@ int main (int argc, char **argv){
 							byteToSend = BYTE_64;
 						else
 							byteToSend = byteToSend & LESS_THAN_32;
+						escNextChar = false;
 					}
 
 					//send actual byte
@@ -1252,7 +1253,7 @@ int main (int argc, char **argv){
 								printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
 							break;
 						}
-						if ((bytein[bytePayloadIndex] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
+						if ((byteToSend & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
 							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
 							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
 						} else {
@@ -1261,7 +1262,18 @@ int main (int argc, char **argv){
 						}
 						p_tx_dat += p_tx_inc;
 					}
+					//FIXME for testing
+					//char *a = "0123456789abcdef"[byteToSend >> 4];
+					//char *b = "0123456789abcdef"[byteToSend & 0x0F];
+					//printf("(%d)%c%c",bytePayloadIndex,a,b);
+					
+					
+					bytesSent++;
 				}
+				
+				//FIXME for testing
+				//printf("\n");
+
 			
 				if (binOut) {
 					if (bytesInput < 255)
@@ -1318,11 +1330,13 @@ int main (int argc, char **argv){
 				emptyBuffer = true;
 			}
 		}
-		if (verbose && activityThisCycle) {
-			stopTime = clock();
-			printf("Cycle time: %.3f ms, rx pointer end %p, tx pointer end %p\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,p_rx_end,p_tx_end);
-			activityThisCycle = false;
-		}
+		//FIXME for testing: if (verbose) {
+			if (activityThisCycle) {
+				stopTime = clock();
+				printf("Cycle time: %.3f ms, rx pointer end %p, tx pointer end %p\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,p_rx_end,p_tx_end);
+				activityThisCycle = false;
+			}
+		//}
 	}
  	shutdown();
 	return 0;

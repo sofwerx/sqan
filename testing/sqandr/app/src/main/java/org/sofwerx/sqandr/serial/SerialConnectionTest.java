@@ -42,8 +42,10 @@ import java.util.concurrent.Executors;
  */
 public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener, SignalProcessingListener {
     private final static String TAG = Config.TAG+".Serial";
-    //FIXME this is the good setting: private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
-    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 2 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
+    private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
+    //TODO this is the good setting: private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
     private final static int MAX_BYTES_PER_SEND = 240;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -70,13 +72,13 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private final static byte HEADER_SEND_COMMAND = (byte)99; //c
     private final static byte HEADER_DEBUG_MESSAGE = (byte)100; //d
     private final static char HEADER_SHUTDOWN_CHAR = 'e'; //e
-    private final static byte[] SHUTDOWN_BYTES = {(byte)0b10010110,(byte)0b01101001,(byte)0b00100010,(byte)0b01000100};
+    private final static byte[] SHUTDOWN_BYTES = {(byte)0b00010000,(byte)0b00010000,(byte)0b00010000,(byte)0b00010000};
     private final static byte[] NO_DATA_HEARTBEAT = {(byte)0b00000001,(byte)0b00000010,(byte)0b00000011,(byte)0b00000100};
+    private final static byte LESS_THAN_32 = 0b00011111;
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte HEADER_BUSYBOX = (byte)'b';
     //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR +"\n").getBytes(StandardCharsets.UTF_8);
     private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00" +"\n").getBytes(StandardCharsets.UTF_8);
-    //private final static byte[] KEEP_ALIVE_MESSAGE = (HEADER_DATA_PACKET_OUTGOING_CHAR + "00112233445566778899aabbccddeeff" +"\n").getBytes(StandardCharsets.UTF_8);
 
     private final static boolean CONCAT_SEGMENT_BURSTS = true; //true == try to send as many segments as possible to the SDR on each write
 
@@ -90,9 +92,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
 
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
-
-    private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
-    private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
 
     private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
     private boolean processOnPluto = false;
@@ -208,6 +207,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         Log.d(TAG,"Stopping SqANDR...");
         sdrAppStatus = SdrAppStatus.OFF;
         byte[] exitCommand;
+
         if (USE_BIN_USB_IN) {
             exitCommand = SHUTDOWN_BYTES;
         } else {
@@ -295,8 +295,9 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 segment.setData(cipherData);
                 segment.setStandAlone();
                 if (USE_BIN_USB_IN) {
-                    Log.d(TAG,"Outgoing: *"+StringUtils.toHex(segment.toBytes()));
-                    write(toSerialLinkBinFormat(segment.toBytes()));
+                    byte[] outgoingBytes = segment.toBytes();
+                    Log.d(TAG,"Outgoing (burst, standalone): *"+StringUtils.toHex(outgoingBytes));
+                    write(toSerialLinkBinFormat(outgoingBytes));
                 } else
                     write(toSerialLinkFormat(segment.toBytes()));
             } else {
@@ -421,22 +422,28 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         //anything below 32 is considered illegal. 64 is used as a marker that the next byte
         //has been altered from an illegal byte value. For consistency, marking illegal bytes
         //is done by adding 64 to the byte. This is a work-around to Pluto intercepting some
-        //byte values (like 13, which is ASCII for carriage return) and then alterning the
+        //byte values (like 13, which is ASCII for carriage return) and then altering the
         //stream in response to those values
         for (int i=0;i<data.length;i++) {
-            if (data[i] < 64) {
+            if ((data[i] & LESS_THAN_32) == data[i]) {
                 serialFormatBuf.put((byte)64);
                 serialFormatBuf.put((byte)(64+data[i]));
+                values++;
             } else
                 serialFormatBuf.put(data[i]);
             values++;
         }
+
+        //serialFormatBuf.put((byte)0b00001010); //new line character
+        serialFormatBuf.put("\n".getBytes(StandardCharsets.UTF_8)); //new line character
+        values++;
 
         serialFormatBuf.flip();
         if (values == 0)
             return null;
         out = new byte[values];
         serialFormatBuf.get(out);
+        Log.d(TAG,"Outgoing(serialFormatBuf): "+StringUtils.toHex(out));
         return out;
     }
 
@@ -528,7 +535,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 //    ioManager.writeAsync(data);
                 nextKeepAliveMessage = System.currentTimeMillis() + TIME_BETWEEN_KEEP_ALIVE_MESSAGES;
 
-                Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
+                if (!USE_BIN_USB_IN)
+                    Log.d(TAG,"Outgoing: "+new String(data,StandardCharsets.UTF_8));
 
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
                 if (bytesWritten < data.length)
@@ -949,7 +957,6 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
             sdrAppStatus = SdrAppStatus.CHECKING_FOR_UPDATE;
             if (listener != null)
                 listener.onSqandrStatus(SqandrStatus.PENDING,"Checking if current version of SqANDR is installed...");
-            //FIXME removed for testing: startSdrApp();
         } else if (sdrAppStatus == SdrAppStatus.NEED_START) {
             if (listener != null)
                 listener.onSqandrStatus(SqandrStatus.OFF,null);
@@ -1004,6 +1011,5 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     @Override
     public void onSignalDataOverflow() {
         Log.w(TAG,"Signal Processor is unable to keep up with data intake");
-        //FIXME report the overflow
     }
 }
