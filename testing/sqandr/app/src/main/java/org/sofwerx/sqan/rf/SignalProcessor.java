@@ -29,6 +29,7 @@ public class SignalProcessor {
     private final static boolean DETAILED_IQ = false;
     private final static boolean FORCE_DETAILED_IQ = false;
     private final static byte[] SQAN_HEADER = {(byte)0b01100110,(byte)0b10011001};
+    private boolean leanMode = false; //in Lean mode, only the SqAN header is present and that is used to sync up reading the following bytes; there are no byte headers between individual bytes
 
     /**
      * Creates a new signal processor that will intake IQ values and then output processed
@@ -156,7 +157,7 @@ public class SignalProcessor {
     //}
 
     private int sqanHeaderIndex = 0;
-    private SignalConverter converter = new SignalConverter();
+    private SignalConverter converter = new SignalConverter(leanMode);
     private ByteBuffer out = ByteBuffer.allocate(16);
     private StringBuilder iiqoffsetTest = new StringBuilder();
     public void consumeIqData(byte[] incoming) {
@@ -273,9 +274,11 @@ public class SignalProcessor {
      * bytes to the listener. The processor will wait until either 1) it fills its buffer
      * or 2) timeout (ms) after it first receives the next chunk of data.
      * @param listener
+     * @param leanMode true == only thr SqAN header is being provided; no byte headers are provided between individual bytes
      */
-    public SignalProcessor(SignalProcessingListener listener) {
+    public SignalProcessor(SignalProcessingListener listener, boolean leanMode) {
         this(DEFAULT_BUFFER_SIZE,DEFAULT_TIMEOUT,listener);
+        this.leanMode = leanMode;
     }
 
     public void setListener(SignalProcessingListener listener) { this.listener = listener; }

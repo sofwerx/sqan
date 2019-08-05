@@ -77,7 +77,7 @@ public class TestService implements TestListener {
     }
 
     private final static void testIqParsing() {
-        SignalConverter conv = new SignalConverter();
+        SignalConverter conv = new SignalConverter(false);
         class PairIQ {
             int i,q;
             PairIQ(int i, int q) {

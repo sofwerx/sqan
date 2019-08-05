@@ -14,6 +14,8 @@ public class SignalConverter {
     private final static int SHORT_HEADER            = 0b00000000000000000000000101010011; //this is the 9 bit header that signals coming data
     private final static int INVERSE_HEADER          = 0b00000000000000000000010010101100;
     private final static int INVERSE_SHORT_HEADER    = 0b00000000000000000000000010101100;
+    private final static int SQAN_AS_HEADER          = 0b00000000000000000110011010011001;
+    private final static int INVERSE_SQAN_AS_HEADER  = 0b00000000000000000001100101100110;
     private final static int HEADER_MASK             = 0b00000000000000000000111111111111;
     private final static int SHORT_HEADER_MASK       = 0b00000000000000000000000111111111;
     private final static byte MOST_SIG_BIT  = (byte)0b10000000;
@@ -33,10 +35,17 @@ public class SignalConverter {
     private boolean ignoreHeaders = false;
     private boolean waitingOnHeader = true;
     private int headerLength = 7;
-
-    private StringBuilder out = new StringBuilder(); //FIXME temp for testing
+    private boolean sqanHeaderOnly = false;
 
     private boolean isSignalInverted;
+
+    /**
+     *
+     * @param sqanHeaderOnly true == no individual byte headers are provided, but only the SqAN header serves as the actual header to sync the following bytes as well
+     */
+    public SignalConverter(boolean sqanHeaderOnly) {
+        this.sqanHeaderOnly = sqanHeaderOnly;
+    }
 
     public void setShortHeader(boolean shortHeader) {
         this.shortHeader = shortHeader;
@@ -46,8 +55,6 @@ public class SignalConverter {
             headerLength = 11;
     }
 
-
-    StringBuilder outNewIQ = new StringBuilder(); //FIXME for testing
 
     public class IqResult {
         public boolean bitOn = false;
@@ -70,66 +77,70 @@ public class SignalConverter {
             Log.w(TAG, "SignalConverter is attempting to consume another IQ value, but the last byte hasn't been read. Be sure to call hasByte() to see if a byte is ready then popByte() to remove the byte from the converter");
             return new IqResult(false,false);
         }
-
-        //straight port of the current Pluto logic
-        amplitude = valueI; // Real (I)
-
-        IqResult iqResult = new IqResult();
-        if (isReadingHeader) {
-            boolean headerComplete = false;
-            tempHeader = tempHeader << 1; //move bits over to make room for new bit
-
-            if (amplitude >= amplitudeLast) {
-                tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
-                bitOn = true;
-            } else {
-                bitOn = false;
-            }
-            if (shortHeader)
-                tempHeader = tempHeader & SHORT_HEADER_MASK;
-            else
-                tempHeader = tempHeader & HEADER_MASK;
-
-            if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
-                headerComplete = true;
-                isSignalInverted = false;
-            } else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
-                headerComplete = true;
-                isSignalInverted = true;
-            }
-
-            if (headerComplete) {
-                tempHeader = 0;
-                isReadingHeader = false;
-                bitIndex = 0;
-                tempByte = 0;
-                iqResult.headerFound = true;
-            }
+        if (sqanHeaderOnly) {
+            //FIXME use the SqAN header (or inverse) to get the timing to read the bytes
+            return null;
         } else {
-            bitIndex++;
-            tempByte = (byte)(tempByte << 1);
-            if (isSignalInverted) {
-                if (amplitude <= amplitudeLast){
-                    tempByte = (byte)(tempByte | LEAST_SIG_BIT);
-                    bitOn = true;
-                } else
-                    bitOn = false;
-            } else {
-                if (amplitude >= amplitudeLast){
-                    tempByte = (byte)(tempByte | LEAST_SIG_BIT);
-                    bitOn = true;
-                } else
-                    bitOn = false;
-            }
+            //straight port of the current Pluto logic
+            amplitude = valueI; // Real (I)
 
-            if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
-                dataPt = tempByte;
-                dataPtIsReady = true;
+            IqResult iqResult = new IqResult();
+            if (isReadingHeader) {
+                boolean headerComplete = false;
+                tempHeader = tempHeader << 1; //move bits over to make room for new bit
+
+                if (amplitude >= amplitudeLast) {
+                    tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+                    bitOn = true;
+                } else {
+                    bitOn = false;
+                }
+                if (shortHeader)
+                    tempHeader = tempHeader & SHORT_HEADER_MASK;
+                else
+                    tempHeader = tempHeader & HEADER_MASK;
+
+                if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
+                    headerComplete = true;
+                    isSignalInverted = false;
+                } else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
+                    headerComplete = true;
+                    isSignalInverted = true;
+                }
+
+                if (headerComplete) {
+                    tempHeader = 0;
+                    isReadingHeader = false;
+                    bitIndex = 0;
+                    tempByte = 0;
+                    iqResult.headerFound = true;
+                }
+            } else {
+                bitIndex++;
+                tempByte = (byte) (tempByte << 1);
+                if (isSignalInverted) {
+                    if (amplitude <= amplitudeLast) {
+                        tempByte = (byte) (tempByte | LEAST_SIG_BIT);
+                        bitOn = true;
+                    } else
+                        bitOn = false;
+                } else {
+                    if (amplitude >= amplitudeLast) {
+                        tempByte = (byte) (tempByte | LEAST_SIG_BIT);
+                        bitOn = true;
+                    } else
+                        bitOn = false;
+                }
+
+                if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+                    dataPt = tempByte;
+                    dataPtIsReady = true;
+                }
             }
+            amplitudeLast = amplitude * PERCENT_LAST / 100;
+            iqResult.bitOn = bitOn;
+            return iqResult;
         }
-        amplitudeLast = amplitude*PERCENT_LAST/100;
-        iqResult.bitOn = bitOn;
-        return iqResult;
     }
 
     /**

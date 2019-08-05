@@ -42,6 +42,7 @@ import java.util.concurrent.Executors;
  */
 public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener, SignalProcessingListener {
     private final static String TAG = Config.TAG+".Serial";
+    private final static boolean USE_LEAN_MODE = true; //in Lean mode, sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
     //TODO this is the good setting: private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
@@ -99,7 +100,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
 
     public SerialConnectionTest(String commands) {
         if (!processOnPluto)
-            signalProcessor = new SignalProcessor(this);
+            signalProcessor = new SignalProcessor(this,USE_LEAN_MODE);
 
         setCommandFlags(commands);
         handlerThread = new HandlerThread("SerialCon") {
@@ -114,12 +115,18 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     }
 
     public void setCommandFlags(String flags) {
-        SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
-                +(USE_BIN_USB_IN ?" -binI":"")
-                +(USE_BIN_USB_OUT ?" -binO":"")
-                +((processOnPluto || !USE_BIN_USB_OUT)?"":" -rawOut")
-                +((flags==null)?"":" "+flags)
-                +"\n").getBytes(StandardCharsets.UTF_8);
+        if (USE_LEAN_MODE) {
+            SDR_START_COMMAND = (Loader.SDR_APP_LOCATION + Loader.SQANDR_VERSION
+                    + ((flags == null) ? "" : " " + flags)
+                    + "\n").getBytes(StandardCharsets.UTF_8);
+        } else {
+            SDR_START_COMMAND = (Loader.SDR_APP_LOCATION + Loader.SQANDR_VERSION
+                    + (USE_BIN_USB_IN ? " -binI" : "")
+                    + (USE_BIN_USB_OUT ? " -binO" : "")
+                    + ((processOnPluto || !USE_BIN_USB_OUT) ? "" : " -rawOut")
+                    + ((flags == null) ? "" : " " + flags)
+                    + "\n").getBytes(StandardCharsets.UTF_8);
+        }
     }
 
     public void open(@NonNull Context context, UsbDevice usbDevice) {
