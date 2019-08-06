@@ -22,7 +22,7 @@ import org.sofwerx.sqan.manet.common.packet.AbstractPacket;
 import org.sofwerx.sqan.manet.common.packet.SegmentTool;
 import org.sofwerx.sqan.manet.sdr.SdrManet;
 import org.sofwerx.sqan.manet.wifiaware.WiFiAwareManetV2;
-import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
+//import org.sofwerx.sqan.manet.wifidirect.WiFiDirectManet;
 import org.sofwerx.sqan.util.CommsLog;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -120,8 +120,8 @@ public abstract class AbstractManet {
             case WIFI_AWARE:
                 return new WiFiAwareManetV2(handler.toAndroid(), context.toAndroid(), listener);
 
-            case WIFI_DIRECT:
-                return new WiFiDirectManet(handler.toAndroid(), context.toAndroid(), listener);
+//            case WIFI_DIRECT:
+//                return new WiFiDirectManet(handler.toAndroid(), context.toAndroid(), listener);
 
             case BT_ONLY:
                 return new BtManetV2(handler.toAndroid(), context.toAndroid(), listener);

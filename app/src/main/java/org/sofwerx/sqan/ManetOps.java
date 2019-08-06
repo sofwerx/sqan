@@ -1,7 +1,8 @@
 package org.sofwerx.sqan;
 
-import android.os.Handler;
-import android.os.HandlerThread;
+import org.sofwerx.notdroid.content.Context;
+import org.sofwerx.notdroid.os.Handler;
+import org.sofwerx.notdroid.os.HandlerThread;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
@@ -59,7 +60,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
         this.sqAnService = sqAnService;
         //this.manetOps = this;
         manetThread = new HandlerThread("ManetOps") {
-            @Override
+//            @Override
             protected void onLooperPrepared() {
                 handler = new Handler(manetThread.getLooper());
                 int manetType = 0;
@@ -68,36 +69,36 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 } catch (NumberFormatException e) {
                 }
                 switch (manetType) {
-                    case 1:
-                        wifiManet = new NearbyConnectionsManet(handler,sqAnService,ManetOps.this);
-                        btManet = null;
-                        sdrManet = null;
-                        break;
-
-                    case 2:
-                        wifiManet = new WiFiAwareManetV2(handler,sqAnService,ManetOps.this);
-                        //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
-                        btManet = null; //TODO
-                        sdrManet = null;
-                        break;
-
-                    case 3:
-                        wifiManet = new WiFiDirectManet(handler,sqAnService,ManetOps.this);
-                        //TODO btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
-                        btManet = null; //TODO
-                        sdrManet = null;
-                        break;
-
-                    case 4:
-                        wifiManet = null;
-                        btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
-                        sdrManet = null;
-                        break;
+//                    case 1:
+//                        wifiManet = new NearbyConnectionsManet(handler,sqAnService,ManetOps.this);
+//                        btManet = null;
+//                        sdrManet = null;
+//                        break;
+//
+//                    case 2:
+//                        wifiManet = new WiFiAwareManetV2(handler,sqAnService,ManetOps.this);
+//                        //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
+//                        btManet = null; //TODO
+//                        sdrManet = null;
+//                        break;
+//
+//                    case 3:
+//                        wifiManet = new WiFiDirectManet(handler,sqAnService,ManetOps.this);
+//                        //TODO btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
+//                        btManet = null; //TODO
+//                        sdrManet = null;
+//                        break;
+//
+//                    case 4:
+//                        wifiManet = null;
+//                        btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
+//                        sdrManet = null;
+//                        break;
 
                     case 5:
                         wifiManet = null;
                         btManet = null;
-                        sdrManet = new SdrManet(handler,sqAnService,ManetOps.this);
+                        sdrManet = new SdrManet(handler,new Context(sqAnService),ManetOps.this);
                         break;
 
                     default:

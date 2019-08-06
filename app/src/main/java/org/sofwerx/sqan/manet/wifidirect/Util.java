@@ -1,7 +1,7 @@
 package org.sofwerx.sqan.manet.wifidirect;
 
-import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pManager;
+import sqandroid.net.wifi.p2p.WifiP2pDevice;
+import sqandroid.net.wifi.p2p.WifiP2pManager;
 
 public class Util {
     public static String getFailureStatusString(int reason) {

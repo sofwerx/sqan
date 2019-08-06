@@ -50,11 +50,11 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     }
 
 
-    public SdrManet(android.os.Handler handlerIn, android.content.Context contextIn, ManetListener listener) {
-        super(new Handler(handlerIn), new Context(contextIn), listener);
-        sqANDRService = new SqANDRService(context,this);
-        instance = this;
-    }
+//    public SdrManet(android.os.Handler handlerIn, android.content.Context contextIn, ManetListener listener) {
+//        super(new Handler(handlerIn), new Context(contextIn), listener);
+//        sqANDRService = new SqANDRService(context,this);
+//        instance = this;
+//    }
 
     @Override
     public ManetType getType() { return ManetType.SDR; }

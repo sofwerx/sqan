@@ -1,14 +1,24 @@
 apply plugin: 'com.android.application'
-//apply plugin: 'com.github.dcendents.android-maven'
+
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['../src/main/java', 'src/main/java']
+        }
+    }
+}
 
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "org.sofwerx.sqan"
+        applicationId rootProject.ext.applicationId
+        versionCode rootProject.ext.versionCode
+        versionName rootProject.ext.versionName
+
         minSdkVersion 24
-        targetSdkVersion 28
-        versionCode 10
-        versionName "0.5.1"
+        targetSdkVersion rootProject.ext.compileSdkVersion
+
     }
     buildTypes {
         release {
