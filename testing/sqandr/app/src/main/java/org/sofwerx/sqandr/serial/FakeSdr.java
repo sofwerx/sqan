@@ -255,4 +255,10 @@ public class FakeSdr implements TestListener {
     public void setListener(TestListener listener) {
         this.listener = listener;
     }
+
+    public boolean isCongested() {
+        if (dataConnection == null)
+            return true;
+        return dataConnection.isSdrConnectionCongested();
+    }
 }

@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 32; //Not to exceed SerialConnection.MAX_BYTES_PER_SEND (240 due to Serial line output problem), can't be below 49 (few enough segments to still meet VPN packet size)
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 236; //Not to exceed 236 (Serial line output limit when headers, etc are added), can't be below 49 (few enough segments to still meet VPN packet size) //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
@@ -120,7 +120,7 @@ public class Segment {
         out.put(HEADER_MARKER);
         out.put((byte)data.length);
         out.put(getFlags());
-        out.put(NetUtil.getChecksum(data));
+        out.put((byte)(NetUtil.getChecksum(data)&0xff));
         out.put(data);
         return out.array();
     }

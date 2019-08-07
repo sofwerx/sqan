@@ -42,12 +42,12 @@ import java.util.concurrent.Executors;
  */
 public class SerialConnectionTest extends AbstractDataConnection implements SerialInputOutputManager.Listener, SignalProcessingListener {
     private final static String TAG = Config.TAG+".Serial";
-    private final static boolean USE_LEAN_MODE = true; //in Lean mode, sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
+    private final static boolean USE_LEAN_MODE = false; //TODO in development, Lean mode - sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
     //TODO this is the good setting: private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 22 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
-    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 40000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
-    private final static int MAX_BYTES_PER_SEND = 240;
+    private final static String OPTIMAL_FLAGS = "-txSize 21000 -rxSize 21000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
     private final static long DELAY_BEFORE_BLIND_LOGIN = 1000l * 5l;
@@ -89,7 +89,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private long nextKeepAliveMessage = Long.MIN_VALUE;
     private final static long SQANDR_HEARTBEAT_STALE_TIME = 1000l * 5l;
 
-    private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 200l; //ms to wait if the USB is having problems sending all its data
+    private final static long TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION = 2000l; //ms to wait if the USB is having problems sending all its data
 
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
@@ -97,6 +97,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
     private boolean processOnPluto = false;
     private SignalProcessor signalProcessor;
+
+    private final static long BURST_LAG_WARNING = 1l;
 
     public SerialConnectionTest(String commands) {
         if (!processOnPluto)
@@ -117,6 +119,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
     public void setCommandFlags(String flags) {
         if (USE_LEAN_MODE) {
             SDR_START_COMMAND = (Loader.SDR_APP_LOCATION + Loader.SQANDR_VERSION
+                    + " -lean"
                     + ((flags == null) ? "" : " " + flags)
                     + "\n").getBytes(StandardCharsets.UTF_8);
         } else {
@@ -321,6 +324,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                     concatted = ByteBuffer.allocate(2000);
                     concatted.clear();
                 }
+
                 for (Segment segment : segments) {
                     currentSegBytes = segment.toBytes();
                     if (CONCAT_SEGMENT_BURSTS) {
@@ -328,16 +332,18 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                             concatted.put(currentSegBytes);
                         else {
                             if (concatted.position() > 0) {
-                                currentSegBytes = new byte[concatted.position()];
+                                byte[] bytesToSend = new byte[concatted.position()];
                                 concatted.flip();
-                                concatted.get(currentSegBytes);
+                                concatted.get(bytesToSend);
                                 if (USE_BIN_USB_IN) {
                                     Log.d(TAG,"Outgoing: *"+StringUtils.toHex(currentSegBytes));
-                                    write(toSerialLinkBinFormat(currentSegBytes));
+                                    write(toSerialLinkBinFormat(bytesToSend));
                                 } else
-                                    write(toSerialLinkFormat(currentSegBytes));
+                                    write(toSerialLinkFormat(bytesToSend));
                                 concatted.clear();
-                            }
+                                concatted.put(currentSegBytes);
+                            } else
+                                Log.w(TAG,"Current segment size ("+currentSegBytes.length+"b) > max bytes per send ("+MAX_BYTES_PER_SEND+"b)");
                         }
                     } else {
                         if (USE_BIN_USB_IN) {
@@ -431,6 +437,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         //is done by adding 64 to the byte. This is a work-around to Pluto intercepting some
         //byte values (like 13, which is ASCII for carriage return) and then altering the
         //stream in response to those values
+        if (USE_LEAN_MODE)
+            serialFormatBuf.put(SignalConverter.SQAN_HEADER); //FIXME for testing
         for (int i=0;i<data.length;i++) {
             if ((data[i] & LESS_THAN_32) == data[i]) {
                 serialFormatBuf.put((byte)64);
@@ -537,6 +545,7 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
         }
         handler.post(() -> {
             try {
+                final long start = System.currentTimeMillis();
                 if (port == null)
                     return;
                 //    ioManager.writeAsync(data);
@@ -548,8 +557,12 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 int bytesWritten = port.write(data,SERIAL_TIMEOUT);
                 if (bytesWritten < data.length)
                     sdrConnectionCongestedUntil = System.currentTimeMillis()+TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION;
+                long lag = System.currentTimeMillis() - start;
+                if (lag > BURST_LAG_WARNING)
+                    Log.d(TAG,"WARNING: write lag "+lag+"ms");
             } catch (IOException e) {
                 Log.e(TAG,"Unable to write data: "+e.getMessage());
+                sdrConnectionCongestedUntil = System.currentTimeMillis()+TIME_FOR_USB_BACKLOG_TO_ADD_TO_CONGESTION;
             }
         });
     }
@@ -679,8 +692,8 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                 if (heartbeat) {
                     if (heartbeatReportedReceived > 0)
                         Log.d(TAG, ((heartbeatReportedReceived == (byte)255)?">=255":heartbeatReportedReceived) + "b transmitted by SqANDR app");
-                    //else
-                    //    Log.d(TAG,"Heartbeat received from SqANDR app");
+                    else
+                        Log.d(TAG,"Heartbeat received from SqANDR app");
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                 } else {
@@ -694,50 +707,11 @@ public class SerialConnectionTest extends AbstractDataConnection implements Seri
                         } else {
                             if (signalProcessor != null)
                                 signalProcessor.consumeIqData(data);
-
-                            /*if (!showAsInt16) {
-                                Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                                if (data.length > 3)
-                                    Log.d(TAG, "From SDR: byte " + data[0] + "," + data[1] + "," + data[2] + "," + data[3]);
-                                if (data.length > 3) {
-                                    showAsInt16 = data[0] == 0x2a;
-                                    if (showAsInt16)
-                                        Log.d(TAG, "data[0] == 42");
-                                    showAsInt16 = showAsInt16 && (data[1] == 0x2a);
-                                    if (showAsInt16)
-                                        Log.d(TAG, "data[1] == 42");
-                                    showAsInt16 = showAsInt16 && (data[2] == (byte) 42);
-                                    if (showAsInt16)
-                                        Log.d(TAG, "data[2] == 42");
-                                    showAsInt16 = showAsInt16 && (data[3] == (byte) 42);
-                                    if (showAsInt16)
-                                        Log.d(TAG, "data[3] == 42");
-                                    //showAsInt16 = ((data[0] == (byte) 42) && (data[1] == (byte) 42) && (data[2] == (byte) 42) && (data[3] == (byte) 42));
-                                }
-                                if (showAsInt16)
-                                    Log.d(TAG, "Switching to Int16 mode");
-                            } else {
-                                int i = 0;
-                                final int max = data.length - 2;
-                                StringBuilder out = new StringBuilder();
-                                boolean first = true;
-                                while (i < max) {
-                                    if (first)
-                                        first = false;
-                                    else
-                                        out.append(",");
-                                    int value = data[i] << 8 | (data[i + 1] & 0xFF);
-                                    out.append(value);
-                                    i += 2;
-                                }
-
-                                Log.d(TAG, "From SDR: " + out.toString());
-                            }*/
                         }
                     } else {
                         if (data.length > 1000)
                             reportAppAsRunning();
-                        Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
+                        //Log.d(TAG, "From SDR: " + new String(data, StandardCharsets.UTF_8));
                     }
                 }
             });

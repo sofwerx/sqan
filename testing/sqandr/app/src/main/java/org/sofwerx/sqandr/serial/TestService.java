@@ -124,6 +124,12 @@ public class TestService implements TestListener {
         Log.d(TAG,"test done");
     }
 
+    public boolean isCongested() {
+        if (fakeSdr == null)
+            return true;
+        return fakeSdr.isCongested();
+    }
+
     private long nextTxTime = Long.MIN_VALUE;
     private long intervalBetweenTx = 1000l;
     private int myPacketIndex = 0;

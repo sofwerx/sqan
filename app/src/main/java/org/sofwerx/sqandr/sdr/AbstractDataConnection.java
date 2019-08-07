@@ -33,13 +33,9 @@ public abstract class AbstractDataConnection {
     private int lastHeaderBufferIndex = 0; //used to rewind the buffer a bit when a header turns out to produce an invalid packet
     private final static long TIME_CONGESTION_IS_RECENT = 1000l * 5l; //time in ms to consider any congestion marker as recent
 
-    //TODO implement the below
-    protected long rfCongestedUntil = Long.MIN_VALUE;
-    private final static long TIME_FOR_RF_ACTIVITY_TO_ADD_TO_CONGESTION = 100l; //ms to wait if data is flowing in via RF on the bulk data channel
-
     private int goodData = 0;
     private int badData = 0;
-    private final static int ACCEPTABLE_BAD_TO_GOOD = 80;
+    private final static int ACCEPTABLE_BAD_TO_GOOD = 8;
 
     private class PartialHeaderData {
         public PartialHeaderData(int size, boolean inverted) {

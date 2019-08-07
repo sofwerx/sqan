@@ -415,7 +415,7 @@ int main (int argc, char **argv){
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
 	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
-	int TIMES_TO_COPY_MESSAGE = 20;
+	int TIMES_TO_COPY_MESSAGE = 4;
 	int rxSize = 100000;
 	int txSize = 108000;
 	char dataout[512]; //the received bytes to report back to the Android
@@ -424,7 +424,7 @@ int main (int argc, char **argv){
 	bool shortHeader = false;
 	int bitIndex = 0;
 	bool byteTiming = false;
-	int cyclesToHeartbeat = HEARTBEAT_INTERVAL;
+	int cyclesToHeartbeat = 0;
 	int timingInterval = 20;
 	int headerLength = 11;
 	int bufferSendCount = 0;
@@ -434,7 +434,6 @@ int main (int argc, char **argv){
 	bool isReadingHeader = true;
 	bool isSignalInverted = false;
 	int gainTypeVal = 3;
-	//struct timespec start, end; //used to measure elapsed time
 	bool superVerbose = false;
 	bool screenForHeader = true; //true == only dat sequences that start with the SqAN header will be reported
 	bool binIn = false;
@@ -748,13 +747,13 @@ int main (int argc, char **argv){
 	iio_channel_enable(tx0_q);
 
 	//calculate the max data size based on the tx buffer and the format being sent
-	int MAX_DATA_IN = 2048;
+	int MAX_DATA_IN = 1024;
 	if (lean) {
 		txSize = (1024 << 3) + TX_PADDING;
 		rxSize = 1024 << 4;
 		MAX_DATA_IN = txSize >> 3; //bytes that fix in the tx buffer
-		if (MAX_DATA_IN > 2048)
-			MAX_DATA_IN = 2048;
+		if (MAX_DATA_IN > 1024)
+			MAX_DATA_IN = 1024;
 	}
 	unsigned char bytein[MAX_DATA_IN]; //the data received from serial connecton to be sent OTA
 	unsigned char tempbytes[MAX_DATA_IN]; //used to temporarilty hold data while handling escaped characters
@@ -800,7 +799,7 @@ int main (int argc, char **argv){
 	/**
 	 * Clear out the receive buffer
 	 */
-	if (verbose && screenForHeader)
+	if (verbose && screenForHeader && onboardProcessing && !lean)
 		printf("Waiting for SqAN header....\n");
 	
 	//moving all assignments outside the while to reduce allocation time in the loop
@@ -839,7 +838,7 @@ int main (int argc, char **argv){
 		bytesSent = 0;
 		index = 0;
 		
-		//highly optimized flow for 
+		//highly optimized flow mode
 		if (lean) {
 			//receive
 			nbytes_rx = iio_buffer_refill(rxbuf);
@@ -867,16 +866,30 @@ int main (int argc, char **argv){
 			
 			//transmit
 			index = 0;
-			if (fgets(tempbytes, 1024, stdin) == NULL)
+			/*if (fgets(tempbytes, MAX_DATA_IN, stdin) == NULL) {
 				bytesInput = 0;
-			else
-				bytesInput = strlen(tempbytes)-1; //drop the end byte that was sent to mark the end of the transmission
+				printf("fgets NULL\n");
+			} else
+				bytesInput = strlen(tempbytes)-1; //drop the end byte that was sent to mark the end of the transmission*/
+			bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin);
 			
-			if (bytesInput < 0)
+			if (bytesInput < 0) {
 				bytesInput = 0;
-			else {
+				printf("fread == NULL\n");
+			} else {
 				//prep input for transmission
 				if (bytesInput > 1) {
+					
+					//FIXME for testing
+					printf("m Received input:\n");
+					for (int i=0;i<dataoutIndex;i++) {
+						tempByte = bytein[i];
+						char *a = "0123456789ABCDEF"[tempByte >> 4];
+						char *b = "0123456789abcdef"[tempByte & 0x0F];
+						printf("%c%c",a,b);
+					}
+					printf("\n");
+					
 					activityThisCycle = true;
 					if ((tempbytes[0] == COMMAND_EXIT) && (tempbytes[1] == COMMAND_EXIT)) {
 						printf("m Shutdown commnd received...\n");
@@ -908,8 +921,9 @@ int main (int argc, char **argv){
 				p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 				p_tx_inc = iio_buffer_step(txbuf);
 				p_tx_end = iio_buffer_end(txbuf);
-				p_tx_dat_safety = p_tx_end - p_tx_inc; //this provides a safety margin before the end of the buffer so that the buffer isnt overwritter
+				p_tx_dat_safety = p_tx_end - p_tx_inc; //this provides a safety margin before the end of the buffer so that the buffer isnt overwritten
 				activityThisCycle = true;
+				printf("BytesInput: %d\n",bytesInput);
 				
 				for (int i=0;i<TX_PADDING;i++) { //current testing indicates that this needs to stay above 21
 					if (p_tx_dat > p_tx_dat_safety) {
@@ -921,7 +935,7 @@ int main (int argc, char **argv){
 					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
 					p_tx_dat += p_tx_inc;
 				}
-				for (int times=0;times<TIMES_TO_SEND_MESSAGE;times++) {
+				for (int times=0;times<TIMES_TO_COPY_MESSAGE;times++) {
 					for (int i=0;i<bytesInput;i++) {
 						for (int bitPlace=0;bitPlace<8;bitPlace++) {
 							if ((bytein[i] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
@@ -942,16 +956,25 @@ int main (int argc, char **argv){
 					if (p_tx_dat > p_tx_dat_safety)
 						break;
 				}
+				
+				printf("BytesSent: %d\n",bytesSent);
 
 				// Schedule TX buffer
 				nbytes_tx = iio_buffer_push(txbuf);
-				if (bytesInput < 255)
-					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
+				if (bytesSent < 255)
+					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesSent;
 				else
 					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
 
 				fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
 				fflush(stdout);				
+			} else {
+				if (cyclesToHeartbeat < 1) {
+					fwrite(NO_DATA_HEARTBEAT,1,NO_DATA_HEARTBEAT_LEN,stdout);
+					fflush(stdout);
+					cyclesToHeartbeat = HEARTBEAT_INTERVAL;
+				} else
+					cyclesToHeartbeat--;
 			}
 
 			continue;

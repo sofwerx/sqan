@@ -99,11 +99,14 @@ public class NetUtil {
         int checksum = FNV_OFFSET_BASIS;
         if (bytes != null) {
             for (byte b:bytes) {
-                checksum = checksum ^ b;
-                checksum = checksum * FNV_PRIME;
+                checksum = updateChecksum(checksum,b);
             }
         }
         return (byte)(checksum & 0xFF);
+    }
+    public static byte updateChecksum(int checksum, byte b) {
+        checksum = checksum ^ b;
+        return (byte)(checksum * FNV_PRIME);
     }
 
     public static final byte[] longToByteArray(long value) {
@@ -130,6 +133,12 @@ public class NetUtil {
         if ((bytes == null) || (bytes.length != 4))
             return Integer.MIN_VALUE;
         return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
+    }
+
+    public static final int byteArrayToShort(byte[] bytes) {
+        if ((bytes == null) || (bytes.length != 2))
+            return Integer.MIN_VALUE;
+        return bytes[0] << 8 | (bytes[1] & 0xFF);
     }
 
     /**

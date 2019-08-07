@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
     private TextView pktPartial,pktSegments, outPackets, outBytes;
     private TextView pktMeBandwidth,pktOtherBandwidth;
     private View tableSpecs;
-    private View rawView;
+    private View rawView,congestedWarning;
     private Switch switchMode;
     private Timer autoUpdate;
     private ImageView buttonSend;
@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         buttonSend = findViewById(R.id.mainToggleSend);
         imagePlutoStatus.setVisibility(View.INVISIBLE);
         switchMode = findViewById(R.id.mainToggleMode);
+        congestedWarning = findViewById(R.id.mainCongested);
         switchMode.setChecked(modeProcessed);
         buttonSend.setOnClickListener(v -> {
             if (testService != null) {
@@ -95,27 +96,6 @@ public class MainActivity extends AppCompatActivity implements TestListener {
             if (!systemChangingModeToggle)
                 updateToggleMode();
         });
-
-        /*TestPacket.setPacketSize(105);
-        TestPacket pkt = new TestPacket(1234l,1);
-        byte[] bytes = pkt.toBytes();
-        Log.d(TAG,"pkt = "+ StringUtils.toHex(bytes));
-        byte[] segBytes = Segmenter.wrap(bytes).toBytes();
-        ByteBuffer in = ByteBuffer.wrap(segBytes);
-        byte[] header = new byte[3];
-        header[0] = in.get();
-        header[1] = in.get();
-        header[2] = in.get();
-        int size = header[2] & 0xFF;
-        byte[] rest = new byte[size+2]; //2 added to get the rest of the header
-        in.get(rest);
-        Segment segment = new Segment();
-        segment.parseRemainder(rest);
-        Log.d(TAG,"Seg = "+ StringUtils.toHex(segment.toBytes()));
-        //TestPacket newPkt = new TestPacket(segment.getData());
-        TestPacket newPkt = new TestPacket(StringUtils.toByteArray("33cc31d4f75555555555555187555555547e5457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d457515d5d4d7d1ddc5f595555457515d555555"));
-        Log.d(TAG,"Packet "+newPkt.getIndex()+" from "+newPkt.getDevice());
-        Log.d(TAG,newPkt.isValid()?"Valid":"Invalid");*/
     }
 
     private void updateToggleMode() {
@@ -226,6 +206,7 @@ public class MainActivity extends AppCompatActivity implements TestListener {
         runOnUiThread(() -> {
             if (!modeProcessed)
                 return;
+            congestedWarning.setVisibility(testService.isCongested()?View.VISIBLE:View.INVISIBLE);
             Stats stats = testService.getStats();
             if ((stats == null) || (stats.statsMe == null) || (stats.statsOther == null)) {
                 //tableSpecs.setVisibility(View.INVISIBLE);
