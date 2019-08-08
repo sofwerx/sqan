@@ -814,9 +814,9 @@ int main (int argc, char **argv){
 	int index = 0;
 	bool activityThisCycle = false; //did something happen (Rx or Tx) this cycle
 	bool escNextChar = false; //used to show binIn if the next byte needs to be handled as an escaped value (used to bypass stdin problems with specific byte values
-
-	int bytesSent;	
+	int bytesSent = 0;
 	char *p_tx_dat_safety;
+	char byteToSend;
 
 	if (shortHeader)
 		headerLength = 7;
@@ -957,7 +957,7 @@ int main (int argc, char **argv){
 						break;
 				}
 				
-				printf("BytesSent: %d\n",bytesSent);
+				//printf("BytesSent: %d\n",bytesSent);
 
 				// Schedule TX buffer
 				nbytes_tx = iio_buffer_push(txbuf);
@@ -1014,107 +1014,104 @@ int main (int argc, char **argv){
 						amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
 					}
 	
-					//if ((amplitude < SIGNAL_THRESHOLD) & (amplitude > -SIGNAL_THRESHOLD)) {
-						//drop due to below threshold
-					//} else {
-						if (isReadingHeader) {
-							bool headerComplete = false;
-							tempHeader = tempHeader << 1; //move bits over to make room for new bit
+					if (isReadingHeader) {
+						bool headerComplete = false;
+						tempHeader = tempHeader << 1; //move bits over to make room for new bit
 							
-							if (amplitude >= amplitudeLast) {
-								tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
-								bit = 1;
-							} else {
-								bit = 0;
-							}
-							if (shortHeader)
-								tempHeader = tempHeader & SHORT_HEADER_MASK;
-							else
-								tempHeader = tempHeader & HEADER_MASK;
-	
-							if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
-								headerComplete = true;
-								isSignalInverted = false;
-							} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
-								headerComplete = true;
-								isSignalInverted = true;
-							}
-	
-							if (headerComplete) {
-								tempHeader = 0;
-								isReadingHeader = false;
-								bitIndex = 0;
-								tempByte = 0;
-							}
+						if (amplitude >= amplitudeLast) {
+							tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+							bit = 1;
 						} else {
-							bitIndex++;
-							tempByte = tempByte << 1;
-							if (isSignalInverted) {
-								if (amplitude <= amplitudeLast){
-									tempByte = tempByte | LEAST_SIG_BIT;
-									bit = 1;
-								} else
-									bit = 0;
-							} else {
-								if (amplitude >= amplitudeLast){
-									tempByte = tempByte | LEAST_SIG_BIT;
-									bit = 1;
-								} else
-									bit = 0;
-							}
+							bit = 0;
+						}
+						if (shortHeader)
+							tempHeader = tempHeader & SHORT_HEADER_MASK;
+						else
+							tempHeader = tempHeader & HEADER_MASK;
 	
-							if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
-								if (dataoutIndex < SIZE_OF_DATAOUT) {
-									//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
-									//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
-									//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
-									//64 then 128 would be read as 64
-									if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
-										dataout[dataoutIndex] = 0b01000000;
-										dataoutIndex++;
-										tempByte = tempByte | 0b01000000;
-									} else if (tempByte == 0b01000000) {
-										dataout[dataoutIndex] = 0b01000000;
-										dataoutIndex++;
-										tempByte = 0b10000000;
-									}
-									
-									dataout[dataoutIndex] = tempByte;
+						if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
+							headerComplete = true;
+							isSignalInverted = false;
+						} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
+							headerComplete = true;
+							isSignalInverted = true;
+						}
+	
+						if (headerComplete) {
+							tempHeader = 0;
+							isReadingHeader = false;
+							bitIndex = 0;
+							tempByte = 0;
+						}
+					} else {
+						bitIndex++;
+						tempByte = tempByte << 1;
+						if (isSignalInverted) {
+							if (amplitude <= amplitudeLast){
+								tempByte = tempByte | LEAST_SIG_BIT;
+								bit = 1;
+							} else
+								bit = 0;
+						} else {
+							if (amplitude >= amplitudeLast){
+								tempByte = tempByte | LEAST_SIG_BIT;
+								bit = 1;
+							} else
+								bit = 0;
+						}
+	
+						if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+							if (dataoutIndex < SIZE_OF_DATAOUT) {
+								//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
+								//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
+								//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
+								//64 then 128 would be read as 64
+								if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
+									dataout[dataoutIndex] = 0b01000000;
 									dataoutIndex++;
-									bitIndex = 0;
+									tempByte = tempByte | 0b01000000;
+								} else if (tempByte == 0b01000000) {
+									dataout[dataoutIndex] = 0b01000000;
+									dataoutIndex++;
+									tempByte = 0b10000000;
 								}
-								if (!sqanHeaderFound) {
-									if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
-										sqanHeaderMatchIndex++;
-										if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
-											sqanHeaderFound = true;
-										}
-									} else
-										sqanHeaderMatchIndex = 0;
-								}
+									
+								dataout[dataoutIndex] = tempByte;
+								dataoutIndex++;
+								bitIndex = 0;
+							}
+							if (!sqanHeaderFound) {
+								if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
+									sqanHeaderMatchIndex++;
+									if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
+										sqanHeaderFound = true;
+									}
+								} else
+									sqanHeaderMatchIndex = 0;
+							}
 							
-								if (!binOut && sqanHeaderFound) {
-									if (superVerbose) {
-										char *a = "0123456789abcdef"[tempByte >> 4];
-										char *b = "0123456789abcdef"[tempByte & 0x0F];
-										printf("HEX: %c%c\n",a,b);
-									}
+							if (!binOut && sqanHeaderFound) {
+								if (superVerbose) {
+									char *a = "0123456789abcdef"[tempByte >> 4];
+									char *b = "0123456789abcdef"[tempByte & 0x0F];
+									printf("HEX: %c%c\n",a,b);
 								}
-								if (sqanHeaderFound && byteTiming) {
-									ignoreHeaders = true;
+							}
+							if (sqanHeaderFound && byteTiming) {
+								ignoreHeaders = true;
+							}
+							if (ignoreHeaders) {
+								headerCounter++;
+								if (headerCounter == timingInterval) {
+									headerCounter = 0;
+									isReadingHeader = true;
+									ignoreHeaders = false;
 								}
-								if (ignoreHeaders) {
-									headerCounter++;
-									if (headerCounter == timingInterval) {
-										headerCounter = 0;
-										isReadingHeader = true;
-										ignoreHeaders = false;
-									}
-								} else {
+							} else {
 								isReadingHeader = true; //go back to reading the header
-								}
 							}
 						}
+					}
 					//}
 					if (superVerbose)
 						printf("\tBit: %d, A: %d\n", bit, amplitude);
@@ -1192,35 +1189,43 @@ int main (int argc, char **argv){
 			/**
 			 * Non-blocking Binary stream input
 			 */
-			if (fgets(bytein, 1024, stdin) == NULL)
+			//if (fgets(bytein, 1024, stdin) == NULL)
+			if (fgets(tempbytes, 1024, stdin) == NULL)
 				bytesInput = 0;
 			else
-				bytesInput = strlen(bytein)-1; //drop the end byte that was sent to mark the end of the transmission
+				bytesInput = strlen(tempbytes)-1; //drop the end byte that was sent to mark the end of the transmission			
+
 			
-			//bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin); //does not work
-			//bytesInput = read(STDIN_FILENO,bytein,MAX_DATA_IN); //does not work
 			if (bytesInput < 0) {
-				printf("m Error reading bytes from stdin\n");
+				//printf("m Error reading bytes from stdin\n");
 				bytesInput = 0;
 			} else {
 				if (bytesInput > 1) {
 					activityThisCycle = true;
-					if ((bytein[0] == COMMAND_EXIT) && (bytein[1] == COMMAND_EXIT)) {
+					if ((tempbytes[0] == COMMAND_EXIT) && (tempbytes[1] == COMMAND_EXIT)) {
 						printf("m Shutdown commnd received...\n");
 						stop = true;
 						break;
 					} else {
-						printf("m Received input (%db): ",bytesInput); //FIXME temp for testing
-						char tempByte;
 						for (int i=0;i<bytesInput;i++) {
-							tempByte = bytein[i];
-							char *a = "0123456789abcdef"[tempByte >> 4];
-							char *b = "0123456789abcdef"[tempByte & 0x0F];
-							printf("%c%c",a,b);
+							if (tempbytes[i] == BYTE_64) {// this signals that the next character is a special character so this character should be ignored
+								escNextChar = true;
+								continue;
+							}
+							if (escNextChar) {
+								if ((tempbytes[i] & BYTE_128) == BYTE_128)
+									bytein[index] = BYTE_64;
+								else
+									bytein[index] = tempbytes[i] & LESS_THAN_32;
+								escNextChar = false;
+							} else
+								bytein[index] = tempbytes[i];
+							index++;
 						}
-						printf("\n");
+						//index--;
+						bytesInput = index;
 					}
-				}
+				}				
 			}
 		} else {
 			/**
@@ -1264,7 +1269,7 @@ int main (int argc, char **argv){
 		/**
 		 * Sending the INPUT to the Tx Buffer
 		 */
-		if (bytesInput > 0) { //ignore if there's nothing to send
+		if (bytesInput > 0) { //only send if we have data to send
 			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 			p_tx_inc = iio_buffer_step(txbuf);
 			p_tx_end = iio_buffer_end(txbuf);
@@ -1272,81 +1277,39 @@ int main (int argc, char **argv){
 			activityThisCycle = true;
 			bufferCycleCount = 0;
 			bufferSendCount = 0;
-			//if (verbose)
-			//	printf("dAdding %ib to Tx buffer:\n",bytesInput);
-			//Send leading "no signal" bytes
-			//for (int i=0;i<510;i++) {
-			for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
-				if (p_tx_dat > p_tx_dat_safety) {
-					if (verbose)
-						printf("Initial padding was larger than remaining buffer size, ignoring");
-					break;
-				}
+			/*for (int i=0;i<21;i++) { //current testing indicates that this needs to stay above 21
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
 				((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
 				p_tx_dat += p_tx_inc;
-			}
+			}*/
 			
-			char byteToSend;
-			
-			int bytesSent;
-			
-			//FIXME for testing:
-			//printf("\nSent: ");
-			
-			while (bufferCycleCount < TIMES_TO_COPY_MESSAGE) {
-				bytesSent = 0;
-
-				for (int bytePayloadIndex=0;bytePayloadIndex<bytesInput;bytePayloadIndex++) { //send the data
-					if (binIn) {
-						if (bytein[bytePayloadIndex] == BYTE_64) {// this signals that the next character is a special character so this character should be ignored
-							escNextChar = true;
-							continue;
-						}
-					}
-					for (int i=headerLength;i>=0;i--) { //send header 12 bits
-						if (p_tx_dat > p_tx_dat_safety) {
-							if (verbose)
-								printf("Header was larger than remaining buffer size, ignoring");
-							break;
-						}
-						if (((HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) && !shortHeader) {
-							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-						} else {
-							if (((SHORT_HEADER & SHORT_FLAG[i]) == SHORT_FLAG[i]) && shortHeader) {
+			//for (int times=0;times<TIMES_TO_COPY_MESSAGE;times++) {
+				for (int i=0;i<bytesInput;i++) {	
+					if (!lean) {
+						//send the byte header
+						for (int headIndex=headerLength;headIndex>=0;headIndex--) {
+							if (p_tx_dat > p_tx_dat_safety)
+								break;
+							if (((HEADER & SHORT_FLAG[headIndex]) == SHORT_FLAG[headIndex]) && !shortHeader) {
 								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
 								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
 							} else {
-								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+								if (((SHORT_HEADER & SHORT_FLAG[headIndex]) == SHORT_FLAG[headIndex]) && shortHeader) {
+									((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
+									((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
+								} else {
+									((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
+									((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
+								}
 							}
+							p_tx_dat += p_tx_inc;
 						}
-						//bytesAfterHeaderCounter++;
-						p_tx_dat += p_tx_inc;
-					}
-					//} else {
-						//if (verbose)
-						//	printf(" ");
-
-					byteToSend = bytein[bytePayloadIndex];
-					if (escNextChar) {
-						//we're basically subtracting 64 but trying to do it in the cheapest ways possible
-						if ((byteToSend & BYTE_128) == BYTE_128)
-							byteToSend = BYTE_64;
-						else
-							byteToSend = byteToSend & LESS_THAN_32;
-						escNextChar = false;
-					}
-
-					//send actual byte
-					for (int bitPlace=7;bitPlace>=0;bitPlace--) {
-						if (p_tx_dat > p_tx_dat_safety) {
-							if (verbose)
-								printf("m Error - byte data was larger than remaining buffer size (this should not happen)");
+						if (p_tx_dat > p_tx_dat_safety)
 							break;
-						}
-						if ((byteToSend & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
+					}
+					
+					for (int bitPlace=7;bitPlace>=0;bitPlace--) {
+						if ((bytein[i] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
 							((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
 							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
 						} else {
@@ -1354,41 +1317,16 @@ int main (int argc, char **argv){
 							((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
 						}
 						p_tx_dat += p_tx_inc;
+						if (p_tx_dat > p_tx_dat_safety)
+							break;
 					}
-					//FIXME for testing
-					//char *a = "0123456789abcdef"[byteToSend >> 4];
-					//char *b = "0123456789abcdef"[byteToSend & 0x0F];
-					//printf("(%d)%c%c",bytePayloadIndex,a,b);
-					
-					
 					bytesSent++;
-				}
-				
-				//FIXME for testing
-				//printf("\n");
-
-			
-				if (binOut) {
-					if (bytesInput < 255)
-						SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
-					else
-						SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
-					fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
-					fflush(stdout);
-				}
-
-				for (int i=0;i<48;i++) { //current testing indicates that this needs to stay above 21
-					if (p_tx_dat > p_tx_dat_safety) {
-						if (verbose)
-							printf("m Error - End padding was larger than remaining buffer size (this should not happen)");
+					if (p_tx_dat > p_tx_dat_safety)
 						break;
-					}
-					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
-					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
-					p_tx_dat += p_tx_inc;	
 				}
-				bufferCycleCount++;
-			}
+				if (p_tx_dat > p_tx_dat_safety)
+					break;
+			//}
 
 			while (p_tx_dat < p_tx_end) {
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
@@ -1397,16 +1335,15 @@ int main (int argc, char **argv){
 			}
 			emptyBuffer = false;
 
-			// Schedule TX buffer
-			memcpy(membuf, txbuf, txSize);
-			nbytes_tx = iio_buffer_push(txbuf);
-			bufferSendCount++;
-			firstCycle = false;
-		} else if ((bufferSendCount < (TIMES_TO_SEND_MESSAGE)) && (!firstCycle)) {
-				memcpy(txbuf, membuf, txSize);
-				nbytes_tx = iio_buffer_push(txbuf);
-				if (nbytes_tx < 0) { printf("m Error pushing buf %d\n", (int) nbytes_tx); shutdown(); }
-				bufferSendCount++;
+			if (binOut) {
+				//if (bytesSent < 255)
+				if (bytesInput < 255)
+					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
+				else
+					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
+				fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
+				fflush(stdout);
+			}
 		} else {
 			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 			p_tx_inc = iio_buffer_step(txbuf);
@@ -1420,10 +1357,14 @@ int main (int argc, char **argv){
 				emptyBuffer = true;
 			}
 		}
+
+		// Schedule TX buffer
+		nbytes_tx = iio_buffer_push(txbuf);
+
 		if (verbose) {
 			if (activityThisCycle) {
 				stopTime = clock();
-				printf("Cycle time: %.3f ms, rx pointer end %p, tx pointer end %p\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,p_rx_end,p_tx_end);
+				printf("d Cycle time: %.3f msn",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000);
 				activityThisCycle = false;
 			}
 		}
