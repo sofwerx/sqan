@@ -8,6 +8,7 @@ import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.SdrUtils;
+import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
@@ -69,8 +70,10 @@ public abstract class AbstractDataConnection {
                         if (out != null) {
                             if (listener == null)
                                 Log.d(TAG, "...but ignored as DataConnectionListener in AbstractDataConnection is null");
-                            else
+                            else {
+                            	Log.d(TAG,"reassembled = "+ StringUtils.toHex(out));
                                 listener.onReceiveDataLinkData(out);
+                            }
                         }
                         if (System.currentTimeMillis() > nextStaleCheck) {
                             if ((segmenters != null) && !segmenters.isEmpty()) {
@@ -267,7 +270,7 @@ public abstract class AbstractDataConnection {
                 throw new IOException("Unable to read packet - invalid size " + headerData.size + "b - this condition should never happen unless the link is shutting down");
             }
             byte[] rest = new byte[headerData.size+2]; //2 added to get the rest of the header
-            dataBuffer.read(rest);
+            dataBuffer.read(rest,true);
             //Log.d(TAG,"Rest of packet read");
             if (headerData.inverted) {
                 Log.d(TAG,"Packet header was inverted, inverting data...");
@@ -285,7 +288,7 @@ public abstract class AbstractDataConnection {
             } else {
                 badData++;
                 dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
-                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped");
+                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped; buffer rewinding to "+lastHeaderBufferIndex);
                 checkDataRatio();
             }
         } catch (IOException e) {

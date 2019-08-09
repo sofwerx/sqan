@@ -414,7 +414,6 @@ int main (int argc, char **argv){
 	const float DEFAULT_BANDWIDTH = 5; //in MHz
 	const unsigned char LEAST_SIG_BIT = 0b00000001;
 	unsigned char hexin[1024];
-	int TIMES_TO_SEND_MESSAGE = 1; //trigger sending a packet more than once
 	int TIMES_TO_COPY_MESSAGE = 4;
 	int rxSize = 100000;
 	int txSize = 108000;
@@ -485,8 +484,6 @@ int main (int argc, char **argv){
 				pt = 9;
 			} else if (strcmp("-messageRepeat",argv[j]) == 0) {
 				pt = 10;
-			} else if (strcmp("-transmitRepeat",argv[j]) == 0) {
-				pt = 11;
 			} else if (strcmp("-timingInterval",argv[j]) == 0) {
 				pt = 12;
 			} else if (strcmp("-rxSize",argv[j]) == 0) {
@@ -540,7 +537,7 @@ int main (int argc, char **argv){
 				printf(" -txsrate [rate in MegaSamples/Sec] = sets the tx sample rate\n");
 				printf(" -txgain [absolute value of gain in dB] = sets the tx gain. Note this shall be input as a positive number decibel and will then be converted to a negative decibel.\n");
 				printf(" -lean = uses the configuration that provides the leanest data overhead and highest data speed (switches to binary input and output, off-board processing, no byte headers, adjusts tx and rx buffer sizes\n");
-				printf(" -multiSample [samples per bit as integer] = sets the number of samples sent per bit. Currently governed to 3 or 5. Must be an odd number between 1 and 15.\n");
+				printf(" -multiSample (samples per bit as integer) [DEPRECATED] = sets the number of samples sent per bit. Currently governed to 3 or 5. Must be an odd number between 1 and 15.\n");
 				printf(" -minComms = sets least verbose mode\n");
 				printf(" -listen = runs in a continous listen only mode\n");
 				printf(" -superVerbose = povides detailed I & Q values\n");
@@ -549,9 +546,8 @@ int main (int argc, char **argv){
 				printf(" -useTiming = checks for headers on predefined intervals after SQaN header is found\n");
 				printf(" -rawOut = Skips all onboard sample processing and sends buffer directly to master device. Must be used with -binO.\n");
 				printf(" -rxtype = Sets rx gain type. 1 = Slow Attack, 2 = Hybrid, 3 = Fast Attack. Default: 2\n");
-				printf(" -timingInterval = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
-				printf(" -messageRepeat = Designates number of times to repeat packet and concatenate.\n");
-				printf(" -transmitRepeat = Designates number of times to repeat packet transmission.\n");
+				printf(" -timingInterval [DEPRECATED] = Designates the number of headers to skip when using -useTiming flag. Default: 20\n");
+				printf(" -messageRepeat = Designates number of times to repeat packet (if this makes the total to be transmitted larger than the buffer size, then the packet will only be repeated as often as fits in the buffer).\n");
 				printf(" -binI = switches SqANDR to modified binary input across the USB connection; -nonBlock is also invoked automatically\n");
 				printf(" -binO = switches SqANDR to modified binary output across the USB connection; -minComms is also invoked automatically\n");
 				printf(" -block = switches input to blocking mode\n");
@@ -598,9 +594,6 @@ int main (int argc, char **argv){
 							break;
 						case 10:
 							TIMES_TO_COPY_MESSAGE = val;
-							break;
-						case 11:
-							TIMES_TO_SEND_MESSAGE = val;
 							break;
 						case 12:
 							timingInterval = val;
@@ -786,7 +779,6 @@ int main (int argc, char **argv){
 	}
 
 	int16_t amplitude = 0; //amplitude
-	int cnt = 0;
 	int bufferCycleCount = 0;
 	bool emptyBuffer = true; //does the Tx buffer currently have empty data
 	
@@ -837,16 +829,133 @@ int main (int argc, char **argv){
 		escNextChar = false;
 		bytesSent = 0;
 		index = 0;
-		
-		//highly optimized flow mode
-		if (lean) {
-			//receive
-			nbytes_rx = iio_buffer_refill(rxbuf);
-			p_rx_inc = iio_buffer_step(rxbuf);
-			p_rx_end = iio_buffer_end(rxbuf);
-			
+				
+		// Refill RX buffer
+		nbytes_rx = iio_buffer_refill(rxbuf);
+		if (nbytes_rx < 0) { printf("m Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
+		p_rx_inc = iio_buffer_step(rxbuf);
+		p_rx_end = iio_buffer_end(rxbuf);
+
+		/**
+		 * READING the Rx buffer
+		 */
+		dataoutIndex = 0;
+		if (onboardProcessing) {
 			for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
-				for (a=0;a<4;a++) {
+				if (AMPLITUDE_USE_I) {
+					amplitude = ((int16_t*)p_rx_dat)[0] << 4; // Real (I)
+				} else {
+					amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
+				}
+				fflush(stdout);
+
+				if (isReadingHeader) {
+					bool headerComplete = false;
+					tempHeader = tempHeader << 1; //move bits over to make room for new bit
+						
+					if (amplitude >= amplitudeLast) {
+						tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
+						bit = 1;
+					} else {
+						bit = 0;
+					}
+		
+					if (shortHeader)
+						tempHeader = tempHeader & SHORT_HEADER_MASK;
+					else
+						tempHeader = tempHeader & HEADER_MASK;
+	
+					if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
+						headerComplete = true;
+						isSignalInverted = false;
+					} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
+						headerComplete = true;
+						isSignalInverted = true;
+					}
+	
+					if (headerComplete) {
+						tempHeader = 0;
+						isReadingHeader = false;
+						bitIndex = 0;
+						tempByte = 0;
+					}
+				} else {
+					bitIndex++;
+					tempByte = tempByte << 1;
+					if (isSignalInverted) {
+						if (amplitude <= amplitudeLast){
+							tempByte = tempByte | LEAST_SIG_BIT;
+							bit = 1;
+						} else
+							bit = 0;
+					} else {
+						if (amplitude >= amplitudeLast){
+							tempByte = tempByte | LEAST_SIG_BIT;
+							bit = 1;
+						} else
+							bit = 0;
+					}
+	
+					if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
+						if (dataoutIndex < SIZE_OF_DATAOUT) {
+							//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
+							//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
+							//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
+							//64 then 128 would be read as 64
+							if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
+								dataout[dataoutIndex] = 0b01000000;
+								dataoutIndex++;
+								tempByte = tempByte | 0b01000000;
+							} else if (tempByte == 0b01000000) {
+								dataout[dataoutIndex] = 0b01000000;
+								dataoutIndex++;
+								tempByte = 0b10000000;
+							}
+									
+							dataout[dataoutIndex] = tempByte;
+							dataoutIndex++;
+							bitIndex = 0;
+						}
+						if (!sqanHeaderFound) {
+							if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
+								sqanHeaderMatchIndex++;
+								if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
+									sqanHeaderFound = true;
+								}
+							} else
+								sqanHeaderMatchIndex = 0;
+						}
+							
+						if (!binOut && sqanHeaderFound) {
+							if (superVerbose) {
+								char *a = "0123456789abcdef"[tempByte >> 4];
+								char *b = "0123456789abcdef"[tempByte & 0x0F];
+								printf("HEX: %c%c\n",a,b);
+							}
+						}
+						if (sqanHeaderFound && byteTiming) {
+							ignoreHeaders = true;
+						}
+						if (ignoreHeaders) {
+							headerCounter++;
+							if (headerCounter == timingInterval) {
+								headerCounter = 0;
+								isReadingHeader = true;
+								ignoreHeaders = false;
+							}
+						} else {
+							isReadingHeader = true; //go back to reading the header
+						}
+					}
+				}
+				
+				if (superVerbose)
+					printf("\tBit: %d, A: %d\n", bit, amplitude);
+				amplitudeLast = amplitude*PERCENT_LAST/100;
+			}
+		} else if (!bufLoopback) {
+			for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
+				for (int a=0;a<4;a++) {
 					if (((char*)p_rx_dat)[a] == 0b00001010) //promote all 10s to 11s as Pluto corrects 10s to 13,10 to adjust for line break format
 						((char*)p_rx_dat)[a] = 0b00001011;
 					else if (((char*)p_rx_dat)[a] == 0b00001000) //demote all 8s to 7s
@@ -855,7 +964,7 @@ int main (int argc, char **argv){
 						((char*)p_rx_dat)[a] = 0b00001011;
 				}
 					
-				fwrite(p_rx_dat,1,4,stdout);
+
 				index++;
 				if (index == 256) {
 					fflush(stdout);
@@ -863,322 +972,35 @@ int main (int argc, char **argv){
 				}
 			}
 			fflush(stdout);
-			
-			//transmit
-			index = 0;
-			/*if (fgets(tempbytes, MAX_DATA_IN, stdin) == NULL) {
-				bytesInput = 0;
-				printf("fgets NULL\n");
-			} else
-				bytesInput = strlen(tempbytes)-1; //drop the end byte that was sent to mark the end of the transmission*/
-			bytesInput = fread(bytein, 1, MAX_DATA_IN, stdin);
-			
-			if (bytesInput < 0) {
-				bytesInput = 0;
-				printf("fread == NULL\n");
-			} else {
-				//prep input for transmission
-				if (bytesInput > 1) {
-					
-					//FIXME for testing
-					printf("m Received input:\n");
-					for (int i=0;i<dataoutIndex;i++) {
-						tempByte = bytein[i];
-						char *a = "0123456789ABCDEF"[tempByte >> 4];
-						char *b = "0123456789abcdef"[tempByte & 0x0F];
-						printf("%c%c",a,b);
-					}
-					printf("\n");
-					
-					activityThisCycle = true;
-					if ((tempbytes[0] == COMMAND_EXIT) && (tempbytes[1] == COMMAND_EXIT)) {
-						printf("m Shutdown commnd received...\n");
-						stop = true;
-						break;
-					} else {
-						for (int i=0;i<bytesInput;i++) {
-							if (tempbytes[i] == BYTE_64) {// this signals that the next character is a special character so this character should be ignored
-								escNextChar = true;
-								continue;
-							}
-							if (escNextChar) {
-								if ((tempbytes[i] & BYTE_128) == BYTE_128)
-									bytein[index] = BYTE_64;
-								else
-									bytein[index] = tempbytes[i] & LESS_THAN_32;
-								escNextChar = false;
-							} else
-								bytein[index] = tempbytes[i];
-							index++;
-						}
-						index--;
-						bytesInput = index;
-					}
-				}
-			}
-
-			if (bytesInput > 0) { //only send if we have data to send
-				p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
-				p_tx_inc = iio_buffer_step(txbuf);
-				p_tx_end = iio_buffer_end(txbuf);
-				p_tx_dat_safety = p_tx_end - p_tx_inc; //this provides a safety margin before the end of the buffer so that the buffer isnt overwritten
-				activityThisCycle = true;
-				printf("BytesInput: %d\n",bytesInput);
-				
-				for (int i=0;i<TX_PADDING;i++) { //current testing indicates that this needs to stay above 21
-					if (p_tx_dat > p_tx_dat_safety) {
-						if (verbose)
-							printf("Initial padding was larger than remaining buffer size, ignoring");
-						break;
-					}
-					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
-					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
-					p_tx_dat += p_tx_inc;
-				}
-				for (int times=0;times<TIMES_TO_COPY_MESSAGE;times++) {
-					for (int i=0;i<bytesInput;i++) {
-						for (int bitPlace=0;bitPlace<8;bitPlace++) {
-							if ((bytein[i] & BYTE_FLAG[bitPlace]) == BYTE_FLAG[bitPlace]) {
-								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_POS_I; // Real (I)
-								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_POS_Q; // Imag (Q)
-							} else {
-								((int16_t*)p_tx_dat)[0] = TRANSMIT_SIGNAL_NEG_I; // Real (I)
-								((int16_t*)p_tx_dat)[1] = TRANSMIT_SIGNAL_NEG_Q; // Imag (Q)
-							}
-							p_tx_dat += p_tx_inc;
-							if (p_tx_dat > p_tx_dat_safety)
-								break;
-						}
-						bytesSent++;
-						if (p_tx_dat > p_tx_dat_safety)
-							break;
-					}
-					if (p_tx_dat > p_tx_dat_safety)
-						break;
-				}
-				
-				//printf("BytesSent: %d\n",bytesSent);
-
-				// Schedule TX buffer
-				nbytes_tx = iio_buffer_push(txbuf);
-				if (bytesSent < 255)
-					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesSent;
-				else
-					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
-
-				fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
-				fflush(stdout);				
-			} else {
-				if (cyclesToHeartbeat < 1) {
-					fwrite(NO_DATA_HEARTBEAT,1,NO_DATA_HEARTBEAT_LEN,stdout);
-					fflush(stdout);
-					cyclesToHeartbeat = HEARTBEAT_INTERVAL;
-				} else
-					cyclesToHeartbeat--;
-			}
-
-			continue;
 		}
-		
-		/**
-		 *
-		 * Normal send/receive cycle
-		 *
-		 */
-		
-		//bufferCycleCount = 0;
-		//while (bufferCycleCount < 1) {
-			// Refill RX buffer
-			nbytes_rx = iio_buffer_refill(rxbuf);
-			//stopTime = clock();
-			//if (verbose)
-			//	printf("Refill time: %.3f ms, size %d b\n",(double)((double)(stopTime-startTime) / CLOCKS_PER_SEC) * 1000,nbytes_rx);
-			if (nbytes_rx < 0) { printf("m Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
-			//if (verbose)
-			//	printf("d Refill Rx buffer provided %db\n",(int)nbytes_rx);
-
-			p_rx_inc = iio_buffer_step(rxbuf);
-			p_rx_end = iio_buffer_end(rxbuf);
-
-			/**
-			 * READING the Rx buffer
-			 */
-			dataoutIndex = 0;
-			if (onboardProcessing) {
-				for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
-					//totalSamples++;
-					if (AMPLITUDE_USE_I) {
-						amplitude = ((int16_t*)p_rx_dat)[0] << 4; // Real (I)
-					}
-					else {
-						amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
-					}
-	
-					if (isReadingHeader) {
-						bool headerComplete = false;
-						tempHeader = tempHeader << 1; //move bits over to make room for new bit
-							
-						if (amplitude >= amplitudeLast) {
-							tempHeader = tempHeader | LEAST_SIG_BIT_HEADER;
-							bit = 1;
-						} else {
-							bit = 0;
-						}
-						if (shortHeader)
-							tempHeader = tempHeader & SHORT_HEADER_MASK;
-						else
-							tempHeader = tempHeader & HEADER_MASK;
-	
-						if ((tempHeader == HEADER) || ((tempHeader == SHORT_HEADER) && shortHeader)) {
-							headerComplete = true;
-							isSignalInverted = false;
-						} else if ((tempHeader == INVERSE_HEADER) || ((tempHeader == INVERSE_SHORT_HEADER) && shortHeader)) {
-							headerComplete = true;
-							isSignalInverted = true;
-						}
-	
-						if (headerComplete) {
-							tempHeader = 0;
-							isReadingHeader = false;
-							bitIndex = 0;
-							tempByte = 0;
-						}
-					} else {
-						bitIndex++;
-						tempByte = tempByte << 1;
-						if (isSignalInverted) {
-							if (amplitude <= amplitudeLast){
-								tempByte = tempByte | LEAST_SIG_BIT;
-								bit = 1;
-							} else
-								bit = 0;
-						} else {
-							if (amplitude >= amplitudeLast){
-								tempByte = tempByte | LEAST_SIG_BIT;
-								bit = 1;
-							} else
-								bit = 0;
-						}
-	
-						if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
-							if (dataoutIndex < SIZE_OF_DATAOUT) {
-								//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
-								//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
-								//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
-								//64 then 128 would be read as 64
-								if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
-									dataout[dataoutIndex] = 0b01000000;
-									dataoutIndex++;
-									tempByte = tempByte | 0b01000000;
-								} else if (tempByte == 0b01000000) {
-									dataout[dataoutIndex] = 0b01000000;
-									dataoutIndex++;
-									tempByte = 0b10000000;
-								}
-									
-								dataout[dataoutIndex] = tempByte;
-								dataoutIndex++;
-								bitIndex = 0;
-							}
-							if (!sqanHeaderFound) {
-								if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
-									sqanHeaderMatchIndex++;
-									if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
-										sqanHeaderFound = true;
-									}
-								} else
-									sqanHeaderMatchIndex = 0;
-							}
-							
-							if (!binOut && sqanHeaderFound) {
-								if (superVerbose) {
-									char *a = "0123456789abcdef"[tempByte >> 4];
-									char *b = "0123456789abcdef"[tempByte & 0x0F];
-									printf("HEX: %c%c\n",a,b);
-								}
-							}
-							if (sqanHeaderFound && byteTiming) {
-								ignoreHeaders = true;
-							}
-							if (ignoreHeaders) {
-								headerCounter++;
-								if (headerCounter == timingInterval) {
-									headerCounter = 0;
-									isReadingHeader = true;
-									ignoreHeaders = false;
-								}
-							} else {
-								isReadingHeader = true; //go back to reading the header
-							}
-						}
-					}
-					//}
-					if (superVerbose)
-						printf("\tBit: %d, A: %d\n", bit, amplitude);
-					amplitudeLast = amplitude*PERCENT_LAST/100;
-				}
-			} else if (!bufLoopback) {
-				for (p_rx_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_rx_dat < p_rx_end; p_rx_dat += p_rx_inc) {
-					for (a=0;a<4;a++) {
-						if (((char*)p_rx_dat)[a] == 0b00001010) //promote all 10s to 11s as Pluto corrects 10s to 13,10 to adjust for line break format
-							((char*)p_rx_dat)[a] = 0b00001011;
-						else if (((char*)p_rx_dat)[a] == 0b00001000) //demote all 8s to 7s
-							((char*)p_rx_dat)[a] = 0b00000111;
-						else if (((char*)p_rx_dat)[a] == 0b00001001) //promote all 9s to 11s
-							((char*)p_rx_dat)[a] = 0b00001011;
-					}
-					
-					fwrite(p_rx_dat,1,4,stdout);
-
-					index++;
-					if (index == 256) {
-						fflush(stdout);
-						index = 0;
-					}
-				}
-				fflush(stdout);
-			}
-			/**
-			 * Output the recovered data
-			 **/
 			
-			if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) && onboardProcessing) { //only output if there's something to send
-				activityThisCycle = true;
-				if (binOut) {
-					/**
-					* Output as pure binary
-					**/
-					fwrite(dataout,1,dataoutIndex,stdout);
-					fflush(stdout);
-				} else {
-					/**
-					 * Output as hex text
-					 **/			
-					printf("+");
-					for (int i=0;i<dataoutIndex;i++) {
-						tempByte = dataout[i];
-						char *a = "0123456789abcdef"[tempByte >> 4];
-						char *b = "0123456789abcdef"[tempByte & 0x0F];
-						printf("%c%c",a,b);
-					}
-					printf("\n");
+		/**
+		 * Output the recovered data
+		 **/
+			
+		if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) && onboardProcessing) { //only output if there's something to send
+			activityThisCycle = true;
+			if (binOut) {
+				/**
+				* Output as pure binary
+				**/
+				fwrite(dataout,1,dataoutIndex,stdout);
+				fflush(stdout);
+			} else {
+				/**
+				 * Output as hex text
+				 **/			
+				printf("+");
+				for (int i=0;i<dataoutIndex;i++) {
+					tempByte = dataout[i];
+					char *a = "0123456789abcdef"[tempByte >> 4];
+					char *b = "0123456789abcdef"[tempByte & 0x0F];
+					printf("%c%c",a,b);
 				}
-			} else if (onboardProcessing) {
-				if (binOut) {
-					/**
-					 * Send a heartbeat to let SqAN know the SqANDR app is active
-					 */
-					if (cyclesToHeartbeat < 1) {
-						fwrite(NO_DATA_HEARTBEAT,1,NO_DATA_HEARTBEAT_LEN,stdout);
-						fflush(stdout);
-						cyclesToHeartbeat = HEARTBEAT_INTERVAL;
-					} else
-						cyclesToHeartbeat--;
-				}
-			}				
-		//}
-
-		cnt = cnt + 1;
+				printf("\n");
+			}
+		}			
+		
 		
 		/**
 		 * READING serial input
@@ -1194,7 +1016,6 @@ int main (int argc, char **argv){
 				bytesInput = 0;
 			else
 				bytesInput = strlen(tempbytes)-1; //drop the end byte that was sent to mark the end of the transmission			
-
 			
 			if (bytesInput < 0) {
 				//printf("m Error reading bytes from stdin\n");
@@ -1222,7 +1043,6 @@ int main (int argc, char **argv){
 								bytein[index] = tempbytes[i];
 							index++;
 						}
-						//index--;
 						bytesInput = index;
 					}
 				}				
@@ -1231,16 +1051,16 @@ int main (int argc, char **argv){
 			/**
 			 * Hex input
 			 */
-				if (listenOnlyMode) {
-					hexin[0] = '\n';
-					hexin[1] = '\0';
-				} else {
-					if (verbose && !inNonBlock)
-						printf("d Input:\n");
-					if (fgets(hexin, 1024, stdin) == NULL)	
-						hexin[0] = '\0';
-				}
-			//}
+			if (listenOnlyMode) {
+				hexin[0] = '\n';
+				hexin[1] = '\0';
+			} else {
+				if (verbose && !inNonBlock)
+					printf("d Input:\n");
+				if (fgets(hexin, 1024, stdin) == NULL)	
+					hexin[0] = '\0';
+			}
+			
 			int inputLength = strlen(hexin);
 			if (inputLength > 0) {
 				bytesInput = (inputLength-2)>>1;
@@ -1277,13 +1097,13 @@ int main (int argc, char **argv){
 			activityThisCycle = true;
 			bufferCycleCount = 0;
 			bufferSendCount = 0;
-			/*for (int i=0;i<21;i++) { //current testing indicates that this needs to stay above 21
+			for (int i=0;i<21;i++) { //current testing indicates that this needs to stay above 21
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
 				((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
 				p_tx_dat += p_tx_inc;
-			}*/
+			}
 			
-			//for (int times=0;times<TIMES_TO_COPY_MESSAGE;times++) {
+			for (int times=0;times<TIMES_TO_COPY_MESSAGE;times++) {
 				for (int i=0;i<bytesInput;i++) {	
 					if (!lean) {
 						//send the byte header
@@ -1326,7 +1146,7 @@ int main (int argc, char **argv){
 				}
 				if (p_tx_dat > p_tx_dat_safety)
 					break;
-			//}
+			}
 
 			while (p_tx_dat < p_tx_end) {
 				((int16_t*)p_tx_dat)[0] = 0; // Real (I)
@@ -1335,20 +1155,11 @@ int main (int argc, char **argv){
 			}
 			emptyBuffer = false;
 
-			if (binOut) {
-				//if (bytesSent < 255)
-				if (bytesInput < 255)
-					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
-				else
-					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
-				fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
-				fflush(stdout);
-			}
 		} else {
-			p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
-			p_tx_inc = iio_buffer_step(txbuf);
-			p_tx_end = iio_buffer_end(txbuf);
 			if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
+				p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
+				p_tx_inc = iio_buffer_step(txbuf);
+				p_tx_end = iio_buffer_end(txbuf);
 				while (p_tx_dat < p_tx_end) {
 					((int16_t*)p_tx_dat)[0] = 0; // Real (I)
 					((int16_t*)p_tx_dat)[1] = 0; // Imag (Q)
@@ -1360,6 +1171,22 @@ int main (int argc, char **argv){
 
 		// Schedule TX buffer
 		nbytes_tx = iio_buffer_push(txbuf);
+		
+		if (binOut) {
+			fflush(stdout);
+			if (activityThisCycle) {
+				//if (bytesSent < 255)
+				if (bytesInput < 255)
+					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)bytesInput;
+				else
+					SEND_NOTIFICATION[SEND_NOTIFICATION_LEN-1] = (char)255;
+				fwrite(SEND_NOTIFICATION,1,SEND_NOTIFICATION_LEN,stdout);
+			} else {
+				fwrite(NO_DATA_HEARTBEAT,1,NO_DATA_HEARTBEAT_LEN,stdout);
+			}
+			fflush(stdout);
+		}
+
 
 		if (verbose) {
 			if (activityThisCycle) {

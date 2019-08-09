@@ -262,7 +262,7 @@ public class SignalProcessor {
                     out.put(valueByte);
                     if (out.position() > limit) {
                         byte[] outBytes = out.array();
-                        //Log.d(TAG,"From SDR: "+ StringUtils.toHex(outBytes));
+                        Log.d(TAG,"From SDR: "+ StringUtils.toHex(outBytes));
                         if (listener != null)
                             listener.onSignalDataExtracted(outBytes);
                         out.clear();

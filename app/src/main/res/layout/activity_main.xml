@@ -289,15 +289,20 @@
             android:id="@+id/mainStatusMarquee"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:fadingEdge="vertical"
-            android:fadingEdgeLength="40dp"
             android:gravity="bottom"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
-            android:requiresFadingEdge="vertical"
             android:textColor="@color/white_hint_green"
             android:textSize="10sp"
             app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- provides a fading edge illusion on only one edge -->
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/fading_bottom"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -6,6 +6,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -42,7 +43,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_LEAN_MODE = false; //TODO in development, Lean mode - sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
-    private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 180000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    //private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 180000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
+    //private final static String OPTIMAL_FLAGS = "-txSize 8192 -rxSize 17284 -messageRepeat 2 -rxsrate 3.2 -txsrate 3.2 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static String OPTIMAL_FLAGS = "-txSize 8192 -rxSize 17284 -messageRepeat 2 -rxsrate 3.2 -txsrate 3.2 -txbandwidth 2.3 -rxbandwidth 2.3";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -90,8 +93,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
 
     private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
-	private boolean processOnPluto = false;
+	private boolean processOnPluto = true;
 	private SignalProcessor signalProcessor;
+	private long lastCycleTime = Long.MAX_VALUE;
 
     private final static long BURST_LAG_WARNING = 1l;
 
@@ -679,6 +683,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     //    Log.d(TAG,"Heartbeat received from SqANDR app");
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
+                    if (lastCycleTime < System.currentTimeMillis()) {
+                        Log.d(TAG, "Cycle: " + (System.currentTimeMillis() - lastCycleTime) + "ms");
+                    }
+                    lastCycleTime = System.currentTimeMillis();
                 } else {
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         if (processOnPluto) {
