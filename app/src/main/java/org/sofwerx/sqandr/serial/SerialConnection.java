@@ -6,7 +6,6 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -43,9 +42,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_LEAN_MODE = false; //TODO in development, Lean mode - sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
-    //private final static String OPTIMAL_FLAGS = "-txSize 120000 -rxSize 180000 -messageRepeat 4 -rxsrate 3.3 -txsrate 3.3 -txbandwidth 2.3 -rxbandwidth 2.3";
-    //private final static String OPTIMAL_FLAGS = "-txSize 8192 -rxSize 17284 -messageRepeat 2 -rxsrate 3.2 -txsrate 3.2 -txbandwidth 2.3 -rxbandwidth 2.3";
-    private final static String OPTIMAL_FLAGS = "-txSize 8192 -rxSize 17284 -messageRepeat 2 -rxsrate 3.2 -txsrate 3.2 -txbandwidth 2.3 -rxbandwidth 2.3";
+    private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
+    private final static float SAMPLE_RATE = 1.0f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
+    private final static int RX_BUFFER_SIZE = 17284;
+    private final static int TX_BUFFER_SIZE = 8192;
+    private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
+
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 2 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -93,7 +96,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
 
     private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
-	private boolean processOnPluto = true;
 	private SignalProcessor signalProcessor;
 	private long lastCycleTime = Long.MAX_VALUE;
 
@@ -102,7 +104,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public SerialConnection(String username, String password) {
         this.username = username;
         this.password = password;
-		if (!processOnPluto)
+		if (!PROCESS_ON_PLUTO)
             signalProcessor = new SignalProcessor(this,USE_LEAN_MODE);
 
         SDR_START_COMMAND = (Loader.SDR_APP_LOCATION+Loader.SQANDR_VERSION
@@ -110,7 +112,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 +" -rx "+String.format("%.2f",SdrConfig.getRxFreq())
                 +(USE_BIN_USB_IN ?" -binI":"")
                 +(USE_BIN_USB_OUT ?" -binO":"")
-                + ((processOnPluto || !USE_BIN_USB_OUT) ? "" : " -rawOut")
+                + ((PROCESS_ON_PLUTO || !USE_BIN_USB_OUT) ? "" : " -rawOut")
                 + " " + OPTIMAL_FLAGS
                 +"\n").getBytes(StandardCharsets.UTF_8);
         handlerThread = new HandlerThread("SerialCon") {
@@ -181,7 +183,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 handler.postDelayed(() -> restartFromError(), 2000);
                 return;
             }
-            if (USE_BIN_USB_OUT && processOnPluto) {
+            if (USE_BIN_USB_OUT && PROCESS_ON_PLUTO) {
                 if (lastSqandrHeartbeat > 0l) {
                     if (System.currentTimeMillis() > (lastSqandrHeartbeat + SQANDR_HEARTBEAT_STALE_TIME)) {
                         if (sdrAppStatus != SdrAppStatus.OFF) {
@@ -275,6 +277,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return (port != null);
     }
 
+    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME testing
+
     /**
      * Burst adds any wrapping needed to communicate the data and then conducts
      * a write
@@ -283,6 +287,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void burstPacket(byte[] data) {
         if (data == null)
             return;
+
+        //FIXME testing
+        if (TESTING_LISTEN_ONLY)
+            return;
+
         //Log.d(TAG,"burstPacket wrapping "+StringUtils.toHex(data));
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
             final byte[] cipherData = Crypto.encrypt(data);
@@ -491,9 +500,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 index++;
             }
         } catch (Exception e) {
-            Log.e(TAG,"Error removing escaped characters from data stream: "+StringUtils.toHex(data));
+            Log.e(TAG,"Error removing escaped characters from data stream ("+e.getMessage()+"): "+StringUtils.toHex(data));
         }
-        Log.d(TAG,"Removed "+escapeBytes+" escape bytes in "+StringUtils.toHex(data)+" to "+StringUtils.toHex(out));
+        //Log.d(TAG,"Removed "+escapeBytes+" escape bytes in "+StringUtils.toHex(data)+" to "+StringUtils.toHex(out));
         return out;
     }
     private byte[] parseSerialLinkFormat(String raw) {
@@ -684,13 +693,16 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     reportAppAsRunning();
                     lastSqandrHeartbeat = System.currentTimeMillis();
                     if (lastCycleTime < System.currentTimeMillis()) {
-                        Log.d(TAG, "Cycle: " + (System.currentTimeMillis() - lastCycleTime) + "ms");
+                        long cycledTime = System.currentTimeMillis() - lastCycleTime;
+                        if (cycledTime > MAX_CYCLE_TIME)
+                            Log.w(TAG, "Pluto is cycling slower than required, data is being lost: " + (System.currentTimeMillis() - lastCycleTime) + "ms");
                     }
                     lastCycleTime = System.currentTimeMillis();
                 } else {
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
-                        if (processOnPluto) {
-                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
+                        if (PROCESS_ON_PLUTO) {
+                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
+                            //Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
                             if (USE_ESC_BYTES)
                                 handleRawDatalinkInput(separateEscapedCharacters(data));
                             else

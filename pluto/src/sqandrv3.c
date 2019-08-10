@@ -404,7 +404,7 @@ int main (int argc, char **argv){
 	int16_t SIGNAL_THRESHOLD = 100;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
 	const bool AMPLITUDE_USE_I = true; //true == amplitude is I, false == amplitude is Q
-	const int16_t PERCENT_LAST = 5; //percent of last amplitude to consider as threshold
+	const int16_t PERCENT_LAST = 50; //percent of last amplitude to consider as threshold; default is 5
 	const int16_t TRANSMIT_SIGNAL_POS_I = 30000;
 	const int16_t TRANSMIT_SIGNAL_NEG_I = -30000;
 	const int16_t TRANSMIT_SIGNAL_POS_Q = 30000;
@@ -819,6 +819,9 @@ int main (int argc, char **argv){
 		fcntl(0, F_SETFL, !O_NONBLOCK); //switch stdin to blocking
 	}
 	
+	//if (!onboardProcessing)
+	//	setvbuf(stdout, NULL, _IONBF, 0); //switch stdout to non-buffer mode
+	
 	while (!stop) {
 		startTime = clock();
 		sqanHeaderFound = false;
@@ -963,14 +966,15 @@ int main (int argc, char **argv){
 					else if (((char*)p_rx_dat)[a] == 0b00001001) //promote all 9s to 11s
 						((char*)p_rx_dat)[a] = 0b00001011;
 				}
-					
-
-				index++;
-				if (index == 256) {
-					fflush(stdout);
-					index = 0;
-				}
+				
+				//index++;
+				//if (index == 256) {
+				//	fwrite(p_rx_dat,1,4,stdout);
+				//	fflush(stdout);
+				//	index = 0;
+				//}
 			}
+			fwrite(p_rx_dat,1,txSize,stdout);
 			fflush(stdout);
 		}
 			
