@@ -48,7 +48,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static int TX_BUFFER_SIZE = 8192;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 2 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 4 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -98,6 +98,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
 	private SignalProcessor signalProcessor;
 	private long lastCycleTime = Long.MAX_VALUE;
+
+	private final static long TIME_TO_CHECK_FOR_ECHO = 5l; //if something is received under this time since our last transmission, check to see if its an echo and ignore it
+	private long echoSentTime = Long.MIN_VALUE;
+    private byte[] lastSentData;
 
     private final static long BURST_LAG_WARNING = 1l;
 
@@ -531,6 +535,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     public void write(final byte[] data) {
         if (data == null)
             return;
+        echoSentTime = System.currentTimeMillis() + TIME_TO_CHECK_FOR_ECHO;
+        lastSentData = data;
         //if ((port == null) || (ioManager == null)) {
         if (port == null) {
             Log.e(TAG,"Unable to write data - serial port not open");
@@ -695,18 +701,33 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                     if (lastCycleTime < System.currentTimeMillis()) {
                         long cycledTime = System.currentTimeMillis() - lastCycleTime;
                         if (cycledTime > MAX_CYCLE_TIME)
-                            Log.w(TAG, "Pluto is cycling slower than required, data is being lost: " + (System.currentTimeMillis() - lastCycleTime) + "ms");
+                            Log.w(TAG, "Pluto is cycling slower (" + (System.currentTimeMillis() - lastCycleTime)+ "ms) than required ("+MAX_CYCLE_TIME+"ms), data is being lost");
                     }
                     lastCycleTime = System.currentTimeMillis();
                 } else {
                     if (sdrAppStatus == SdrAppStatus.RUNNING) {
                         if (PROCESS_ON_PLUTO) {
-                            Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
-                            //Log.d(TAG, "From SDR: " + StringUtils.toHex(data) + ":" + new String(data));
-                            if (USE_ESC_BYTES)
-                                handleRawDatalinkInput(separateEscapedCharacters(data));
-                            else
-                                handleRawDatalinkInput(data);
+                            boolean isEcho = false;
+                            if (System.currentTimeMillis() < echoSentTime) {
+                                if (lastSentData != null) {
+                                    if (lastSentData.length == data.length-1) {
+                                        isEcho = true;
+                                        for (int i=0;i<lastSentData.length-1;i++) {
+                                            if (lastSentData[i] != data[i])
+                                                isEcho = false;
+                                        }
+                                    }
+                                }
+                            }
+                            if (isEcho)
+                                Log.d(TAG, "From SDR (echo): " + StringUtils.toHex(data));
+                            else {
+                                Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
+                                if (USE_ESC_BYTES)
+                                    handleRawDatalinkInput(separateEscapedCharacters(data));
+                                else
+                                    handleRawDatalinkInput(data);
+                            }
                         } else {
                             if (signalProcessor != null)
                                 signalProcessor.consumeIqData(data);

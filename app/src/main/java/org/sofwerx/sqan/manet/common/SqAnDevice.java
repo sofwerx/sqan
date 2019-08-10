@@ -18,6 +18,7 @@ import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.StringUtil;
+import org.sofwerx.sqan.util.UuidUtil;
 
 import java.net.Inet6Address;
 import java.net.UnknownHostException;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
+    private final static int FIRST_VALID_UUID = 1645000000; //no SqAN device should have a UUID below this
     private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static long TIME_TO_STALE = 1000l * 60l;
     //private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
@@ -73,6 +75,10 @@ public class SqAnDevice {
     private MacAddress directMac;
     private MacAddress awareMac;
     private Inet6Address awareServerIp;
+
+    public static boolean isValidUuid(int origin) {
+        return (origin > FIRST_VALID_UUID) && (origin < UuidUtil.getNewUUID());
+    }
     //private boolean awareServer = false;
     //private Inet6Address ipv6 = null;
 

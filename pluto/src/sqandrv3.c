@@ -404,7 +404,7 @@ int main (int argc, char **argv){
 	int16_t SIGNAL_THRESHOLD = 100;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
 	const bool AMPLITUDE_USE_I = true; //true == amplitude is I, false == amplitude is Q
-	const int16_t PERCENT_LAST = 50; //percent of last amplitude to consider as threshold; default is 5
+	const int16_t PERCENT_LAST = 25; //percent of last amplitude to consider as threshold; default is 5
 	const int16_t TRANSMIT_SIGNAL_POS_I = 30000;
 	const int16_t TRANSMIT_SIGNAL_NEG_I = -30000;
 	const int16_t TRANSMIT_SIGNAL_POS_Q = 30000;

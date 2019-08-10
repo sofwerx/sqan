@@ -236,6 +236,11 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             Log.d(TAG,packet.getClass().getSimpleName()+" is circular; ignoring");
             return;
         }
+        if (!SqAnDevice.isValidUuid(packet.getOrigin())) {
+            Log.w(TAG,packet.getOrigin()+" is not a valid UUID, packet dropped");
+            onPacketDropped();
+            return;
+        }
         SqAnDevice dev = SqAnDevice.findByUUID(packet.getOrigin());
         if (dev == null)
             Log.d(TAG,packet.getClass().getSimpleName()+" packet received from unknown device");
