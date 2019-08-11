@@ -48,7 +48,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static int TX_BUFFER_SIZE = 8192;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 4 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 4 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3"; //TODO include "-noHeader"
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -281,7 +281,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return (port != null);
     }
 
-    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME testing
+    private final static boolean TESTING_LISTEN_ONLY = true; //FIXME testing
 
     /**
      * Burst adds any wrapping needed to communicate the data and then conducts
