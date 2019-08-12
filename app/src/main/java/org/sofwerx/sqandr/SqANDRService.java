@@ -16,6 +16,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
+import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.sdr.SdrManet;

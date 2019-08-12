@@ -109,7 +109,6 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
             handler.post(() -> {
                 Log.d(TAG, "burst() - " + bytes.length + "b");
                 sqANDRService.burst(bytes);
-                ManetOps.addBytesToTransmittedTally(bytes.length);
                 if (listener != null)
                     listener.onTx(bytes);
             });

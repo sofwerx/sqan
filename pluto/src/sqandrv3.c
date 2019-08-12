@@ -788,9 +788,6 @@ int main (int argc, char **argv){
 
 	unsigned char tempByte = (unsigned char)0; //using char since C doesn't have a byte type
 
-	/**
-	 * Clear out the receive buffer
-	 */
 	if (verbose && screenForHeader && onboardProcessing && !lean)
 		printf("Waiting for SqAN header....\n");
 	
@@ -841,7 +838,7 @@ int main (int argc, char **argv){
 		if (nbytes_rx < 0) { printf("m Error refilling buf %d\n",(int) nbytes_rx); shutdown(); }
 		p_rx_inc = iio_buffer_step(rxbuf);
 		p_rx_end = iio_buffer_end(rxbuf);
-
+		
 		/**
 		 * READING the Rx buffer
 		 */
@@ -922,7 +919,7 @@ int main (int argc, char **argv){
 							dataoutIndex++;
 							bitIndex = 0;
 						}
-						if (!sqanHeaderFound) {
+						if (!sqanHeaderFound && screenForHeader) {
 							if (SQAN_HEADER[sqanHeaderMatchIndex] == tempByte) {
 								sqanHeaderMatchIndex++;
 								if (sqanHeaderMatchIndex >= SQAN_HEADER_LEN) {
@@ -984,7 +981,6 @@ int main (int argc, char **argv){
 		/**
 		 * Output the recovered data
 		 **/
-			
 		if (((dataoutIndex > 0) && (!screenForHeader || sqanHeaderFound)) && onboardProcessing) { //only output if there's something to send
 			activityThisCycle = true;
 			if (binOut) {
@@ -1163,7 +1159,7 @@ int main (int argc, char **argv){
 			emptyBuffer = false;
 
 		} else {
-			if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
+			//if (!emptyBuffer) { //only change the Tx buffer if it's not already filled with empty data
 				p_tx_dat = (char *)iio_buffer_first(txbuf, tx0_i);
 				p_tx_inc = iio_buffer_step(txbuf);
 				p_tx_end = iio_buffer_end(txbuf);
@@ -1173,7 +1169,7 @@ int main (int argc, char **argv){
 					p_tx_dat += p_tx_inc;
 				}
 				emptyBuffer = true;
-			}
+			//}
 		}
 
 		// Schedule TX buffer
