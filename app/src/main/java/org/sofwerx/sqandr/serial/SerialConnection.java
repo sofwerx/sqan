@@ -46,10 +46,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
     private final static float SAMPLE_RATE = 3.4f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
     private final static int RX_BUFFER_SIZE = 17284;
-    private final static int TX_BUFFER_SIZE = 9800;
+    private final static int TX_BUFFER_SIZE = 17284;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 4 -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 6 -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
