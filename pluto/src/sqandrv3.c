@@ -404,7 +404,7 @@ int main (int argc, char **argv){
 	int16_t SIGNAL_THRESHOLD = 100;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
 	const bool AMPLITUDE_USE_I = true; //true == amplitude is I, false == amplitude is Q
-	const int16_t PERCENT_LAST = 25; //percent of last amplitude to consider as threshold; default is 5
+	const int16_t PERCENT_LAST = 5; //percent of last amplitude to consider as threshold; default is 5
 	const int16_t TRANSMIT_SIGNAL_POS_I = 30000;
 	const int16_t TRANSMIT_SIGNAL_NEG_I = -30000;
 	const int16_t TRANSMIT_SIGNAL_POS_Q = 30000;
@@ -832,6 +832,9 @@ int main (int argc, char **argv){
 		escNextChar = false;
 		bytesSent = 0;
 		index = 0;
+		
+		activityThisCycle = false;
+		fflush(stdout);
 				
 		// Refill RX buffer
 		nbytes_rx = iio_buffer_refill(rxbuf);
@@ -850,7 +853,7 @@ int main (int argc, char **argv){
 				} else {
 					amplitude = ((int16_t*)p_rx_dat)[1] << 4; // Imag (Q)
 				}
-				fflush(stdout);
+				//fflush(stdout);
 
 				if (isReadingHeader) {
 					bool headerComplete = false;

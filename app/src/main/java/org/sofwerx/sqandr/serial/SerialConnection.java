@@ -43,12 +43,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
     private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
-    private final static float SAMPLE_RATE = 1.0f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
+    private final static float SAMPLE_RATE = 3.4f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
     private final static int RX_BUFFER_SIZE = 17284;
     private final static int TX_BUFFER_SIZE = 8192;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 4 -fir -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3"; //TODO include "-noHeader"
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 2 -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -281,7 +281,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return (port != null);
     }
 
-    private final static boolean TESTING_LISTEN_ONLY = true; //FIXME testing
+    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME testing
 
     /**
      * Burst adds any wrapping needed to communicate the data and then conducts
@@ -722,11 +722,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             if (isEcho)
                                 Log.d(TAG, "From SDR (echo): " + StringUtils.toHex(data));
                             else {
-                                Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
-                                if (USE_ESC_BYTES)
-                                    handleRawDatalinkInput(separateEscapedCharacters(data));
-                                else
+                                if (USE_ESC_BYTES) {
+                                    byte[] processData = separateEscapedCharacters(data);
+                                    Log.d(TAG, "From SDR: " + StringUtils.toHex(processData));
+                                    handleRawDatalinkInput(processData);
+                                } else {
+                                    Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
                                     handleRawDatalinkInput(data);
+                                }
                             }
                         } else {
                             if (signalProcessor != null)

@@ -12,6 +12,7 @@ import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,6 +46,14 @@ public abstract class AbstractDataConnection {
         }
         protected int size;
         protected boolean inverted;
+
+        public byte[] toBytes() {
+            byte[] out = new byte[3];
+            out[0] = Segment.HEADER_MARKER[0];
+            out[1] = Segment.HEADER_MARKER[1];
+            out[2] = (byte)(size & 0xFF);
+            return out;
+        }
     }
 
     protected void handleRawDatalinkInput(final byte[] raw) {
@@ -71,7 +80,7 @@ public abstract class AbstractDataConnection {
                             if (listener == null)
                                 Log.d(TAG, "...but ignored as DataConnectionListener in AbstractDataConnection is null");
                             else {
-                            	Log.d(TAG,"reassembled = "+ StringUtils.toHex(out));
+                            	//Log.d(TAG,"reassembled = "+ StringUtils.toHex(out));
                                 listener.onReceiveDataLinkData(out);
                             }
                         }
@@ -288,7 +297,7 @@ public abstract class AbstractDataConnection {
             } else {
                 badData++;
                 dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
-                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped; buffer rewinding to "+lastHeaderBufferIndex);
+                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped invalid data was: "+StringUtils.toHex(headerData.toBytes())+StringUtils.toHex(rest));
                 checkDataRatio();
             }
         } catch (IOException e) {
@@ -304,16 +313,17 @@ public abstract class AbstractDataConnection {
         Log.d(TAG,"Ratio of bad data to good, "+badData+":"+goodData);
         if ((badData == 0) && (goodData == 0))
             return;
-        boolean problem;
-        if (goodData == 0)
-            problem = (badData > ACCEPTABLE_BAD_TO_GOOD);
-        else {
-            problem = badData / goodData > ACCEPTABLE_BAD_TO_GOOD;
+        boolean problem = false;
+        if ((badData % ACCEPTABLE_BAD_TO_GOOD) == 0) {
+            if (goodData == 0)
+                problem = (badData > ACCEPTABLE_BAD_TO_GOOD);
+            else
+                problem = badData / goodData > ACCEPTABLE_BAD_TO_GOOD;
         }
         if (problem) {
             Log.w(TAG,"High ratio of corrupted packets received");
-            badData = 0;
-            goodData = 0;
+            //badData = 0;
+            //goodData = 0;
             if (peripheralStatusListener != null)
                 peripheralStatusListener.onHighNoise();
         }
