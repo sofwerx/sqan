@@ -297,7 +297,7 @@ public abstract class AbstractDataConnection {
             } else {
                 badData++;
                 dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
-                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+") and was dropped invalid data was: "+StringUtils.toHex(headerData.toBytes())+StringUtils.toHex(rest));
+                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+", size "+headerData.size+" b) and was dropped invalid data was: "+StringUtils.toHex(headerData.toBytes())+StringUtils.toHex(rest));
                 checkDataRatio();
             }
         } catch (IOException e) {

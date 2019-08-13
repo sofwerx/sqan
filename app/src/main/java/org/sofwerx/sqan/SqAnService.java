@@ -43,7 +43,6 @@ import org.sofwerx.sqan.vpn.SqAnVpnService;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Random;
 
 /**
  * SqAnService is the main service that keeps SqAN running and coordinates all other actions

@@ -44,12 +44,14 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
     private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
-    private final static float SAMPLE_RATE = 3.4f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
+    private final static float SAMPLE_RATE = 3.2f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
     private final static int RX_BUFFER_SIZE = 17284;
     private final static int TX_BUFFER_SIZE = 17284;
+    private final static int PERCENT_OF_LAST_AMPLITUDE = 5;
+    private final static int MESSAGE_REPEAT = 4;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat 6 -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -noHeader";
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat "+MESSAGE_REPEAT+" -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -perLast "+PERCENT_OF_LAST_AMPLITUDE+" -noHeader";
     private final static int MAX_BYTES_PER_SEND = 252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -79,6 +81,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static byte[] SHUTDOWN_BYTES = {(byte)0b00010000,(byte)0b00010000,(byte)0b00010000,(byte)0b00010000};
     private final static byte[] NO_DATA_HEARTBEAT = {(byte)0b00000001,(byte)0b00000010,(byte)0b00000011,(byte)0b00000100};
     private final static byte LESS_THAN_32 = 0b00011111;
+    private final static byte CHAR_128 = (byte)0b10000000;
+    private final static byte CHAR_127 = (byte)0b01111111;
+    private final static byte CHAR_255 = (byte)0b11111111;
+    private final static byte CHAR_64 = (byte)0b01000000;
     private final static byte HEADER_SHUTDOWN = (byte) HEADER_SHUTDOWN_CHAR; //e
     private final static byte HEADER_BUSYBOX = (byte)'b';
     private final static boolean USE_ESC_BYTES = true;
@@ -282,7 +288,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return (port != null);
     }
 
-    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME testing
+    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME for testing purposes only
 
     /**
      * Burst adds any wrapping needed to communicate the data and then conducts
@@ -412,7 +418,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
      * @param data
      * @return
      */
-    private byte[] toSerialLinkFormat(byte[] data) {
+    private static byte[] toSerialLinkFormat(byte[] data) {
         if (data == null)
             return null;
         String formattedData = HEADER_DATA_PACKET_OUTGOING_CHAR + PADDING_BYTE +StringUtils.toHex(data)+"\n";
@@ -435,23 +441,22 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         //Look for illegal byte values and then provide an escaped value and marking. Specifically,
         //anything below 32 is considered illegal. 64 is used as a marker that the next byte
         //has been altered from an illegal byte value. For consistency, marking illegal bytes
-        //is done by adding 64 to the byte. This is a work-around to Pluto intercepting some
-        //byte values (like 13, which is ASCII for carriage return) and then altering the
-        //stream in response to those values
+        //is done by flipping the 64 bit. If 64 is provided as the value, then it is sent as
+        //64 then 128. This is a work-around to Pluto intercepting some byte values (like 13,
+        //which is ASCII for carriage return) and then altering the stream in response to those values
         if (USE_LEAN_MODE)
             serialFormatBuf.put(SignalConverter.SQAN_HEADER);
         for (int i=0;i<data.length;i++) {
-            if ((data[i] & LESS_THAN_32) == data[i]) {
-                serialFormatBuf.put((byte)64);
-                serialFormatBuf.put((byte)(64+data[i]));
+            if (((data[i] & LESS_THAN_32) == data[i]) || (data[i] == CHAR_64) || (data[i] == CHAR_127)) {
+                serialFormatBuf.put(CHAR_64);
+                serialFormatBuf.put((byte)(data[i]^CHAR_255));
                 values++;
             } else
                 serialFormatBuf.put(data[i]);
             values++;
         }
 
-        //serialFormatBuf.put((byte)0b00001010); //new line character
-        serialFormatBuf.put("\n".getBytes(StandardCharsets.UTF_8)); //new line character
+        serialFormatBuf.put((byte)0b00001010); //new line character
         values++;
 
         serialFormatBuf.flip();
@@ -493,20 +498,18 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             return data;
         byte[] out = new byte[data.length-escapeBytes];
         int index = 0;
-        try {
-            for (int i = 0; i < data.length; i++) {
-                if (data[i] == ESCAPE_BYTE) {
-                    i++;
-                    if (i < data.length)
-                        out[index] = (byte)(data[i] - ESCAPE_BYTE);
-                    else
-                        Log.w(TAG,"An escape byte was detected at the end of the data stream; this should not happen but means that the next byte stream received will start with a character that is incorrect");
+        boolean escNext = false;
+        for (int i = 0; i < data.length; i++) {
+            if (data[i] == ESCAPE_BYTE)
+                escNext = true;
+            else {
+                if (escNext) {
+                    out[index] = (byte)(data[i] ^ CHAR_255);
+                    escNext = false;
                 } else
                     out[index] = data[i];
                 index++;
             }
-        } catch (Exception e) {
-            Log.e(TAG,"Error removing escaped characters from data stream ("+e.getMessage()+"): "+StringUtils.toHex(data));
         }
         //Log.d(TAG,"Removed "+escapeBytes+" escape bytes in "+StringUtils.toHex(data)+" to "+StringUtils.toHex(out));
         return out;

@@ -384,6 +384,8 @@ int main (int argc, char **argv){
 	const char LESS_THAN_32  = 0b00011111; //used to mask to only the values below 32 as part of the invalid char escape mechanism
 	const char BYTE_64 = 0b01000000; //used to promote/demote a byte by 64 as part of the invalid char escape mechanism
 	const char BYTE_128 = 0b10000000; //used to promote/demote a byte by 64 as part of the invalid char escape mechanism
+	const char CHAR_127 = 0b01111111; //used as part of thw invalid char escape mechanism
+	const char CHAR_255 = 0b11111111; //used as part of thw invalid char escape mechanism
 	
 	const int TX_PADDING = 48;
 	
@@ -404,7 +406,7 @@ int main (int argc, char **argv){
 	int16_t SIGNAL_THRESHOLD = 100;
 	//const int16_t TRANSMIT_SIGNAL_VALUE = 2000; //TODO AD9361 bus-width is 12-bit so maybe shift left by 4?
 	const bool AMPLITUDE_USE_I = true; //true == amplitude is I, false == amplitude is Q
-	const int16_t PERCENT_LAST = 5; //percent of last amplitude to consider as threshold; default is 5
+	int16_t PERCENT_LAST = 5; //percent of last amplitude to consider as threshold; default is 5
 	const int16_t TRANSMIT_SIGNAL_POS_I = 30000;
 	const int16_t TRANSMIT_SIGNAL_NEG_I = -30000;
 	const int16_t TRANSMIT_SIGNAL_POS_Q = 30000;
@@ -490,6 +492,8 @@ int main (int argc, char **argv){
 				pt = 13;
 			} else if (strcmp("-txSize",argv[j]) == 0) {
 				pt = 14;
+			} else if (strcmp("-perLast",argv[j]) == 0) {
+				pt = 15;
 			} else if (strcmp("-binI",argv[j]) == 0) {
 				binIn = true;
 				inNonBlock = true;
@@ -552,6 +556,7 @@ int main (int argc, char **argv){
 				printf(" -binO = switches SqANDR to modified binary output across the USB connection; -minComms is also invoked automatically\n");
 				printf(" -block = switches input to blocking mode\n");
 				printf(" -shortHeader = Use short byte header\n");
+				printf(" -perLast = sets the percent of last amplitude (0 to 100) to consider when looking at a change in bit value\n");
 				printf(" -verbose = force verbose mode (usually used to check -binO messages)\n");
 				exit(0);
 			} else if (pt > 0) {
@@ -603,6 +608,9 @@ int main (int argc, char **argv){
 							break;
 						case 14:
 							txSize = val;
+							break;
+						case 15:
+							PERCENT_LAST = val;
 							break;
 					}
 					pt = 0;
@@ -901,18 +909,14 @@ int main (int argc, char **argv){
 	
 					if (((bitIndex == 8) && !ignoreHeaders) || ((bitIndex == 20) && ignoreHeaders) || ((bitIndex == 17) && shortHeader && ignoreHeaders)) {
 						if (dataoutIndex < SIZE_OF_DATAOUT) {
-							//8s, 9s, and 10s are problematic over binOut when Pluto fails to switch stdout to binary mode
+							//below 32 and the value 127 are problematic over binOut when Pluto fails to switch stdout to binary mode
 							//the work around is to use 64 as a special byte. When 64 is read, then 64 is dropped and the 
-							//next byte read is read as it's actual value minus 64 (i.e. 64 then 74 would be read as 10, likewise
-							//64 then 128 would be read as 64
-							if ((tempByte == 0b00001010) || (tempByte == 0b00001000) || (tempByte == 0b00001001)) {
-								dataout[dataoutIndex] = 0b01000000;
+							//next byte read is read as the XOR of the value
+							
+							if ((tempByte == CHAR_127) || (tempByte == BYTE_64) || ((tempByte & LESS_THAN_32) == tempByte)) {
+								dataout[dataoutIndex] = BYTE_64;
 								dataoutIndex++;
-								tempByte = tempByte | 0b01000000;
-							} else if (tempByte == 0b01000000) {
-								dataout[dataoutIndex] = 0b01000000;
-								dataoutIndex++;
-								tempByte = 0b10000000;
+								tempByte = tempByte ^ CHAR_255;
 							}
 									
 							dataout[dataoutIndex] = tempByte;
@@ -965,6 +969,8 @@ int main (int argc, char **argv){
 						((char*)p_rx_dat)[a] = 0b00000111;
 					else if (((char*)p_rx_dat)[a] == 0b00001001) //promote all 9s to 11s
 						((char*)p_rx_dat)[a] = 0b00001011;
+					else if (((char*)p_rx_dat)[a] == CHAR_127) //demote all 127s to 126s
+						((char*)p_rx_dat)[a] = 0b01111110;
 				}
 				
 				//index++;
@@ -1037,10 +1043,10 @@ int main (int argc, char **argv){
 								continue;
 							}
 							if (escNextChar) {
-								if ((tempbytes[i] & BYTE_128) == BYTE_128)
-									bytein[index] = BYTE_64;
-								else
-									bytein[index] = tempbytes[i] & LESS_THAN_32;
+								//if ((tempbytes[i] & BYTE_128) == BYTE_128)
+								//	bytein[index] = BYTE_64;
+								//else
+									bytein[index] = tempbytes[i] ^ CHAR_255;
 								escNextChar = false;
 							} else
 								bytein[index] = tempbytes[i];

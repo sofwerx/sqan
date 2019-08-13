@@ -489,7 +489,7 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
 
     @Override
     public void updateDeviceUi(SqAnDevice device) {
-        if (sqAnService.listener != null)
+        if ((sqAnService != null) && sqAnService.listener != null)
             sqAnService.listener.onNodesChanged(device);
     }
 
