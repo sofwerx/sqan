@@ -29,6 +29,11 @@ public class NetUtil {
     public static String INTENT_CONNECTIVITY_CHANGED = "android.net.conn.CONNECTIVITY_CHANGE";
     public static String INTENT_WIFI_CHANGED = "android.net.wifi.WIFI_STATE_CHANGED";
 
+    private final static int IVP4_HEADER_OFFSET_PROTOCOL = 9;
+    private final static int IVP4_HEADER_OFFSET_CHECKSUM = 10;
+    private final static int IPV4_HEADER_OFFSET_SRC_IP = 12;
+    private final static int IPV4_HEADER_OFFSET_DST_IP = 16;
+
     public static ConnectionType getConnectivityStatus(Context context) {
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
 
@@ -129,16 +134,22 @@ public class NetUtil {
                 (byte)value};
     }
 
+    public static final byte[] shortToByteArray(short value) {
+        return new byte[] {
+                (byte)(value >>> 8),
+                (byte)value};
+    }
+
     public static final int byteArrayToInt(byte[] bytes) {
         if ((bytes == null) || (bytes.length != 4))
             return Integer.MIN_VALUE;
         return bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
     }
 
-    public static final int byteArrayToShort(byte[] bytes) {
+    public static final short byteArrayToShort(byte[] bytes) {
         if ((bytes == null) || (bytes.length != 2))
-            return Integer.MIN_VALUE;
-        return bytes[0] << 8 | (bytes[1] & 0xFF);
+            return Short.MIN_VALUE;
+        return (short)(bytes[0] << 8 | (bytes[1] & 0xFF));
     }
 
     /**
@@ -185,7 +196,7 @@ public class NetUtil {
      * @return
      */
     public static int getSourceIpFromIpPacket(byte[] packet) {
-        int ip = getIntInIpPacket(packet,12);
+        int ip = getIntInIpPacket(packet,IPV4_HEADER_OFFSET_SRC_IP);
         if (ip == Integer.MIN_VALUE)
             return SqAnDevice.BROADCAST_IP;
         return ip;
@@ -197,7 +208,7 @@ public class NetUtil {
      * @return
      */
     public static int getDestinationIpFromIpPacket(byte[] packet) {
-        int ip = getIntInIpPacket(packet,16);
+        int ip = getIntInIpPacket(packet,IPV4_HEADER_OFFSET_DST_IP);
         if (ip == Integer.MIN_VALUE)
             return SqAnDevice.BROADCAST_IP;
         return ip;
@@ -289,12 +300,84 @@ public class NetUtil {
         return (byte)(dscpByte & MASK_DSCP);
     }
 
+    /**
+     * Change the IPV4 header packet to reflect a new source ip address (this
+     * will also change the packet checksum)
+     * @param data
+     * @param src Source IPV4 address
+     */
+    public static void changeIpv4HeaderSrc(byte[] data, int src) {
+        changeIpv4Header(data,intToByteArray(src),null);
+    }
+
+    /**
+     * Change the IPV4 header packet to reflect a new destination ip address (this
+     * will also change the packet checksum)
+     * @param data
+     * @param dst destination IPV4 address
+     */
+    public static void changeIpv4HeaderDst(byte[] data, int dst) {
+        changeIpv4HeaderDst(data,intToByteArray(dst));
+    }
+
+    /**
+     * Change the IPV4 header packet to reflect a new destination ip address (this
+     * will also change the packet checksum)
+     * @param data
+     * @param dst
+     */
+    public static void changeIpv4HeaderDst(byte[] data, byte[] dst) {
+        changeIpv4Header(data,null,dst);
+    }
+
+    /**
+     * Swaps out IVP4 header information. Useful when using VPN to forward traffic
+     * @param data
+     * @param src source IP address to set
+     * @param dst destination IP address to set
+     */
+    public static void changeIpv4Header(byte[] data, byte[] src, byte[] dst) {
+        if ((data == null) || (data.length < 20)) {
+            Log.w(Config.TAG,"ByteArray too small for an IPV4 header; cannot change header");
+            return;
+        }
+        if (src != null) {
+            for (int i = 0; i < src.length; i++) {
+                data[i + IPV4_HEADER_OFFSET_SRC_IP] = src[i];
+            }
+        }
+        if (dst != null) {
+            for (int i = 0; i < dst.length; i++) {
+                data[i + IPV4_HEADER_OFFSET_SRC_IP] = dst[i];
+            }
+        }
+        updateIpv4Checksum(data);
+    }
+
+    public static void updateIpv4Checksum(byte[] data) {
+        if ((data == null) || (data.length < 20))
+            return;
+        int headerLength = getHeaderLength(data);
+        byte[] checkSum;
+        int sum = 0;
+        for (int i = 0; i < headerLength; i += 2) {
+            if (i == IVP4_HEADER_OFFSET_CHECKSUM)
+                continue;
+            sum += (data[i] << 8 & 0xFF00) + (data[i + 1] & 0xFF);
+        }
+        int carry = sum >> 16 & 0xFF;
+        int finalSum = (sum & 0xFFFF) + carry;
+        checkSum = shortToByteArray((short) ~((short) finalSum & 0xFFFF));
+        data[IVP4_HEADER_OFFSET_CHECKSUM] = checkSum[0];
+        data[IVP4_HEADER_OFFSET_CHECKSUM+1] = checkSum[1];
+    }
+
     public enum PacketType {TCP,UDP,OTHER};
 
     public static PacketType getPacketType(byte[] packet) {
         if ((packet == null) || (packet.length < 10))
             return PacketType.OTHER;
-        switch(packet[9]) {
+        switch(packet[IVP4_HEADER_OFFSET_PROTOCOL]) {
             case 17:
                 return PacketType.UDP;
 
@@ -308,7 +391,7 @@ public class NetUtil {
 
     private final static byte MASK_IPV4_IHL = 0b00001111;
 
-    private static int getHeaderLength(byte[] packet) {
+    public static int getHeaderLength(byte[] packet) {
         if ((packet == null) || (packet.length < 1))
             return -1;
         byte ihl = (byte)(packet[0] & MASK_IPV4_IHL);

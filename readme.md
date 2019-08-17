@@ -36,7 +36,7 @@ include some dynamic IP allocation scheme within that block to avoid the need fo
 Nearby Connections is currently utilized in the cluster configuration. A few modifications have been made to help heal broken connections. All devices in Nearby Connections remain active on advertising and discovering although future work will probably stop advertisement and discovery once the network members appear to have been identified in order to reduce the significant stability costs of continous advertising/discovery. Based on testing to date, Nearby Connections does not seem stable or performant enough to be a viable option long term.
 
 Performance so far:
- - connections typically are taking around 1 min to stabalize
+ - connections typically are taking around 1 min to stabilize
  - latency tends to be around 300ms, but a large portion of the connections so far appear to be utilizing access via a shared connection to the same WiFi router
  - high bandwidth traffic (like video) lags and becomes increasingly buffered over time
  - at or above 3 devices, the Nearby Connections mesh fragments or otherwise becomes unstable
@@ -48,8 +48,8 @@ WiFi Aware connections begin by simultaneously advertising and discovering. Mesh
 
 Performance so far:
  - like Nearby Connections, high bandwidth traffic lags and becomes increasingly buffered over time
- - Connectivity with more than 2 devices not yet tested
-_** WiFi Aware is not a recommended MANET approach at this time **_
+ - Due to poor P2P performance, connectivity with more than 2 devices not heavily tested
+_** WiFi Aware is not a recommended MANET approach **_
 
 ### WiFi Direct approach
 
@@ -60,13 +60,14 @@ Performance so far:
  - Server/Client connections typically occur rapidly with the mesh forming often in under 3 seconds
  - Mesh tends to perform fairly well with high bandwidth traffic like video to include supporting one hop between producer and consumer or in supporting more than one producer
  - Stability problems appear to be mostly addressed
+ - Mesh reforms automatically
  - All connected devices must be within the same WiFi Direct network (i.e. there is one hub and many spokes). Spokes communicate with each other relatively seemlessly but are still dependant on connection to the same hub (which may be reassigned over time)
 _** WiFi Direct is the highest performing mesh so far for high bandwidth applications**_
 
 
 ### Augmenting WiFi Aware and Direct
 
-Since only Nearby Connections organically uses both WiFi and Bluetooth, a seperate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled.
+Since only Nearby Connections organically uses both WiFi and Bluetooth, a separate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled.
 
 
 ### Bluetooth
@@ -113,9 +114,11 @@ The SOFWERX Swe-Library project (which provides for the ability to send SOS-T co
  
 ## Sending data via TCP/IP
  
-SqAN includes a VPN capability. This capability has been marginally tested with both text and high bandwidth traffic (like video) and appears stable and performant. The VPN feature allows SqAN to route any TCP/IP traffic to another SqAN node as long as that traffic is within the forwarded IP block 169.254.x.x and also includes multicast capability for IP addresses in the 224.x.x.x, 225.x.x.x, 226.x.x.x and 239.x.x.x blocks. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN, so the IPV4 of any connected SqAN device can be found remotely.
+SqAN includes a VPN capability. This capability has been marginally tested with both text and high bandwidth traffic (like video) and appears stable and performant. The VPN feature allows SqAN to route any TCP/IP traffic to another SqAN node as long as that traffic is within the forwarded IP block 169.x.x.x and also includes multicast capability for IP addresses in the 224.x.x.x, 225.x.x.x, 226.x.x.x and 239.x.x.x blocks. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN, so the IPV4 of any connected SqAN device can be found remotely.
 
 SqAN also provides a web server and hosts a page at the SqAN device's 169.254.x.x IP address for testing connections. If you application requires accessing web traffic, it is recommended that you disable the "Host a VPN page" setting.
+
+SqAN addresses in 169.254.x.x are reserved for actual SqAN nodes, while devices in 169.x.x.x other than those reserved addresses are used for forwarding of devices connected to a SqAN node.
 
 ## Connecting an outside (non-Android) Bluetooth Device
 

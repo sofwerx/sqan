@@ -299,11 +299,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         if (data == null)
             return;
 
-        //FIXME testing
-        if (TESTING_LISTEN_ONLY)
-            return;
-
-        //Log.d(TAG,"burstPacket wrapping "+StringUtils.toHex(data));
         if (sdrAppStatus == SdrAppStatus.RUNNING) {
             ManetOps.addBytesToTransmittedTally(data.length);
             final byte[] cipherData = Crypto.encrypt(data);

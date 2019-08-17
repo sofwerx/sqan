@@ -4,8 +4,8 @@ import android.util.Log;
 
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.VpnForwardValue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
-import org.sofwerx.sqan.util.NetUtil;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -56,20 +56,58 @@ public class AddressUtil {
     }
 
     /**
-     * Creates the 169.254.x.x address for this device on the VPN
+     * Gets the 169.x.x.x address for a given SqAN device on the VPN
      * @param sqanId
+     * @param index
      * @return
      */
-    public static int getSqAnVpnIpv4Address(int sqanId) {
+    public static int getSqAnVpnIpv4Address(int sqanId, byte index) {
         byte[] ipv4 = new byte[4];
         ipv4[0] = (byte)0xA9; //169
-        ipv4[1] = (byte)0xFE; //254
+        ipv4[1] = index;
         byte[] idBytes = NetUtil.intToByteArray(sqanId);
         ipv4[2] = idBytes[2];
         ipv4[3] = idBytes[3];
         return NetUtil.byteArrayToInt(ipv4);
     }
 
-    public final static String VPN_NET_MASK = "169.254.0.0";
+    /**
+     * Gets the 169.254.x.x address for a given SqAN device on the VPN
+     * @param sqanId
+     * @return
+     */
+    public static int getSqAnVpnIpv4Address(int sqanId) {
+        return getSqAnVpnIpv4Address(sqanId,(byte)0xFE); //get the 254 address which is the SqAN device itself
+    }
+
+    public static SqAnDevice getSqAnDeviceForForwardAddress(int ip) {
+        byte[] ipAddress = NetUtil.intToByteArray(ip);
+        if (ipAddress[0] == (byte)0xA9) {
+            ipAddress[1] = (byte)0xFE; //254
+            return SqAnDevice.findByIpv4IP(NetUtil.byteArrayToInt(ipAddress));
+        } else
+            return null;
+    }
+
+    /**
+     * Creates the 169.x.x.x address that corresponds to a forwarded IP address attached
+     * to this device on the VPN
+     * @param sqanId
+     * @param forwardValue
+     * @return
+     */
+    public static int getSqAnVpnIpvForwardingAddress(int sqanId, VpnForwardValue forwardValue) {
+        if (forwardValue == null)
+            return getSqAnVpnIpv4Address(sqanId);
+        byte[] ipv4 = new byte[4];
+        ipv4[0] = (byte)0xA9; //169
+        ipv4[1] = forwardValue.getForwardIndex();
+        byte[] idBytes = NetUtil.intToByteArray(sqanId);
+        ipv4[2] = idBytes[2];
+        ipv4[3] = idBytes[3];
+        return NetUtil.byteArrayToInt(ipv4);
+    }
+
+    public final static String VPN_NET_MASK = "169.0.0.0";
     public final static String[] VPN_MULTICAST_MASK = {"224.0.0.0","225.0.0.0","226.0.0.0","239.0.0.0"};
 }

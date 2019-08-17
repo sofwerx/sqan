@@ -70,6 +70,20 @@
             android:defaultValue="1500"/>
 
         <CheckBoxPreference
+            android:key="vpnfwd"
+            android:dependency="vpnmode"
+            android:title="Forward Connected IPs"
+            android:summary="Allow VPN to forward any connected IP device."
+            android:defaultValue="true"/>
+
+        <CheckBoxPreference
+            android:key="vpnautoadd"
+            android:dependency="vpnfwd"
+            android:title="Auto forward IPs"
+            android:summary="Allow VPN to automatically start forwarding any device that broadcasts or tries to hit a SqAN IP address."
+            android:defaultValue="true"/>
+
+        <CheckBoxPreference
             android:key="multicast"
             android:dependency="vpnmode"
             android:title="Forward multicast"

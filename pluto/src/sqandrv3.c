@@ -1043,10 +1043,7 @@ int main (int argc, char **argv){
 								continue;
 							}
 							if (escNextChar) {
-								//if ((tempbytes[i] & BYTE_128) == BYTE_128)
-								//	bytein[index] = BYTE_64;
-								//else
-									bytein[index] = tempbytes[i] ^ CHAR_255;
+								bytein[index] = tempbytes[i] ^ CHAR_255;
 								escNextChar = false;
 							} else
 								bytein[index] = tempbytes[i];

@@ -10,6 +10,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.sofwerx.sqan.manet.common.MacAddress;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.VpnForwardValue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.UuidUtil;
@@ -39,6 +40,9 @@ public class Config {
     public final static String PREFS_LARGE_DATA_WIFI_ONLY = "bigpipesonly";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
     public final static String PREFS_VPN_MTU = "mtu";
+    public final static String PREFS_VPN_FORWARD = "vpnfwd";
+    public final static String PREFS_VPN_AUTO_ADD = "vpnautoadd";
+    public final static String PREFS_VPN_FORWARDED_IPS = "vpnfwdips";
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
     public final static String PREFS_SDR_SETTINGS = "sdrsettings";
@@ -48,6 +52,8 @@ public class Config {
     private static boolean broadcastSa = true;
     private static boolean includeConnections = false;
     private static boolean vpnMode = true;
+    private static boolean vpnForward = true;
+    private static boolean vpnAutoAdd = true;
     private static boolean multicast = true;
     private static boolean vpnLandingPage = true;
     private static boolean writeLog = true;
@@ -130,6 +136,56 @@ public class Config {
         return prefs.getString(PREFS_CALLSIGN,null);
     }
 
+    public static ArrayList<VpnForwardValue> getStoredVpnForwarding(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String values = prefs.getString(PREFS_VPN_FORWARDED_IPS,null);
+        ArrayList<VpnForwardValue> out = null;
+        if (values != null) {
+            try {
+                JSONArray array = new JSONArray(values);
+                for (int i=0;i<array.length();i++) {
+                    JSONObject obj = array.getJSONObject(i);
+                    int trueIp = obj.optInt("trueip",0);
+                    int forwaredAs = obj.optInt("fwdas",0);
+                    if ((trueIp !=0 ) && (forwaredAs != 0))
+                        thisDevice.addVpnForwardValue(new VpnForwardValue((byte)(forwaredAs&0xFF),trueIp));
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return out;
+    }
+
+    public static void loadVpnForwardingIps(Context context) {
+        if (thisDevice == null)
+            return;
+        ArrayList<VpnForwardValue> values = getStoredVpnForwarding(context);
+        if (values != null) {
+            for (VpnForwardValue value:values)
+                thisDevice.addVpnForwardValue(value);
+        }
+    }
+
+    public static void saveVpnForwardingIps(Context context, ArrayList<VpnForwardValue> values) {
+        if (values == null)
+            return;
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor edit = prefs.edit();
+        JSONArray array = new JSONArray();
+        for (VpnForwardValue value:values) {
+            try {
+                JSONObject obj = new JSONObject();
+                obj.put("trueip", value.getAddress());
+                obj.put("fwdas",(int)value.getForwardIndex());
+            } catch (JSONException e) {
+                Log.d(TAG,"Unable to save VPN forwarding IPs: "+e.getMessage());
+            }
+        }
+        edit.putString(PREFS_VPN_FORWARDED_IPS,array.toString());
+        edit.apply();
+    }
+
     public static void recheckPreferences(Context context) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         debugMode = prefs.getBoolean(PREFS_DEBUG_MODE,true);
@@ -137,6 +193,8 @@ public class Config {
         broadcastSa = prefs.getBoolean(PREFS_ALLOW_SA_BROADCAST,true);
         includeConnections = prefs.getBoolean(PREFS_DEBUG_MODE,true);
         vpnMode = prefs.getBoolean(PREFS_VPN_MODE,true);
+        vpnForward = prefs.getBoolean(PREFS_VPN_FORWARD, true);
+        vpnAutoAdd = prefs.getBoolean(PREFS_VPN_AUTO_ADD,true);
         multicast = prefs.getBoolean(PREFS_VPN_MULTICAST,true);
         vpnLandingPage = prefs.getBoolean(PREFS_VPN_MODE,true);
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
@@ -154,6 +212,10 @@ public class Config {
     public static boolean isVpnEnabled() {
         return vpnMode;
     }
+
+    public static boolean isVpnForwardIps() { return vpnForward; }
+
+    public static boolean isVpnAutoAdd() { return vpnAutoAdd; }
 
     public static boolean isVpnHostLandingPage() {
         return vpnLandingPage;
@@ -434,5 +496,5 @@ public class Config {
     public static boolean isLargeDataWiFiOnly() { return largeDataWiFiOnly; }
     public static boolean isMulticastEnabled() { return multicast; }
     public static int getMtuSize() { return mtuSize; }
-    public static boolean portForwardingEnabled() { return true; /*TODO*/}
+    //public static boolean portForwardingEnabled() { return true; /*TODO*/}
 }

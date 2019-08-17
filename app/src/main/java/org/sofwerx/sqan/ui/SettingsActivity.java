@@ -64,6 +64,10 @@ public class SettingsActivity extends Activity {
                     SqAnService.getInstance().requestShutdown(false);
             });*/
             dialog.show();
+        } else if (Config.PREFS_VPN_FORWARD.equalsIgnoreCase(key)) {
+            Config.recheckPreferences(this);
+        } else if (Config.PREFS_VPN_AUTO_ADD.equalsIgnoreCase(key)) {
+            Config.recheckPreferences(this);
         } else if (Config.PREFS_VPN_MTU.equalsIgnoreCase(key)) {
             Config.recheckPreferences(this);
             AlertDialog.Builder builder = new AlertDialog.Builder(SettingsActivity.this);

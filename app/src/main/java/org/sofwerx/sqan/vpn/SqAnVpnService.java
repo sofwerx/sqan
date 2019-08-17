@@ -18,7 +18,11 @@ import android.widget.Toast;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.R;
 import org.sofwerx.sqan.SqAnService;
+import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.VpnForwardValue;
 import org.sofwerx.sqan.ui.SettingsActivity;
+import org.sofwerx.sqan.util.AddressUtil;
+import org.sofwerx.sqan.util.NetUtil;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -35,12 +39,17 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
     private FileOutputStream out;
     private Handler mHandler;
     private int lastMessage = R.string.disconnected;
+    private static SqAnDevice thisDevice;
+    private static int thisDeviceIp;
 
     public static void start(final Context context) {
         if (context != null) {
             Intent intent = new Intent(context, SqAnVpnService.class);
             intent.setAction(SqAnVpnService.ACTION_CONNECT);
             context.startService(intent);
+            thisDevice = Config.getThisDevice();
+            if (thisDevice != null)
+                thisDeviceIp = AddressUtil.getSqAnVpnIpv4Address(thisDevice.getUUID());
         }
     }
 
@@ -49,6 +58,7 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
             Intent intent = new Intent(context, SqAnVpnService.class);
             intent.setAction(SqAnVpnService.ACTION_DISCONNECT);
             context.startService(intent);
+            thisDevice = null;
         }
     }
 
@@ -58,6 +68,18 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
         if (out != null) {
             Log.d(TAG,data.length+"b VpnPacket data received from SqAN");
             try {
+                if (Config.isVpnForwardIps() && (thisDevice != null)) {
+                    int dest = NetUtil.getDestinationIpFromIpPacket(data);
+                    byte[] destBytes = NetUtil.intToByteArray(dest);
+                    if (dest != thisDeviceIp) {
+                        VpnForwardValue forward = thisDevice.getIpForwardAddress(destBytes[1]);
+                        if (forward != null) {
+                            byte[] actualDest = NetUtil.intToByteArray(forward.getAddress());
+                            NetUtil.changeIpv4HeaderDst(data,actualDest);
+                            SqAnVpnConnection.swapIpInPayload(data,destBytes,actualDest);
+                        }
+                    }
+                }
                 out.write(data);
             } catch (IOException e) {
                 Log.e(TAG,"Unable to forward VpnPacket from SqAN to the VPN:"+e.getMessage());

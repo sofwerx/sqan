@@ -8,6 +8,7 @@ import android.util.Log;
 import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.SqAnService;
 import org.sofwerx.sqan.manet.common.SqAnDevice;
+import org.sofwerx.sqan.manet.common.VpnForwardValue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.util.AddressUtil;
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqAnVpnConnection implements Runnable {
+    private final static String TAG = Config.TAG+".Vpn";
     //private final static int MTU_SIZE = 1500;
     private static final int SIZE_TO_ROUTE_WIFI_ONLY = 256; //byte size to be considered too large and should be sent over broad pipes only
     private static final int MAX_PACKET_SIZE = Short.MAX_VALUE; //Max packet size cannot exceed MTU constraint of Short
@@ -28,6 +30,7 @@ public class SqAnVpnConnection implements Runnable {
     private final VpnService vpnService;
     private SqAnService sqAnService;
     private SqAnDevice thisDevice;
+    private int thisDeviceIp;
     private final int id;
     private PendingIntent configureIntent;
     private OnEstablishListener listener;
@@ -41,6 +44,10 @@ public class SqAnVpnConnection implements Runnable {
         vpnService = service;
         sqAnService = SqAnService.getInstance();
         thisDevice = Config.getThisDevice();
+        if (thisDevice == null)
+            thisDeviceIp = 0;
+        else
+            thisDeviceIp = AddressUtil.getSqAnVpnIpv4Address(thisDevice.getUUID());
         id = connectionId;
     }
 
@@ -75,27 +82,46 @@ public class SqAnVpnConnection implements Runnable {
                     packet.get(rawBytes);
                     VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
                     int destinationIp = NetUtil.getDestinationIpFromIpPacket(rawBytes);
+                    SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
                     if (!Config.isIgnoringPacketsTo0000() || (destinationIp != 0)) {
-                        NetUtil.PacketType type = NetUtil.getPacketType(rawBytes);
-                        byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
-                        if (destinationIp != SqAnDevice.BROADCAST_IP) {
-                            SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
-                            if (device == null)
-                                Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
-                            else {
-                                if (Config.portForwardingEnabled()) {
-                                    int port = NetUtil.getPort(rawBytes);
-                                    Log.d(getTag(),"Port "+port+" found for forwarding...");
+                        if (Config.isVpnForwardIps()) {
+                            int sourceIp = NetUtil.getSourceIpFromIpPacket(rawBytes);
+                            if (sourceIp != thisDeviceIp) {
+                                VpnForwardValue forwardValue = thisDevice.getOrAddIpForwardAddress(sourceIp,Config.isVpnAutoAdd());
+                                if (forwardValue == null) {
+                                    Log.d(getTag(),"Packet from "+AddressUtil.intToIpv4String(sourceIp)+" was blocked from forwarding traffic as it is not on the list of forwarding IP addresses.");
+                                    outgoing = null;
+                                } else {
+                                    outgoing.setForwardValue(forwardValue);
+                                    int newSource = AddressUtil.getSqAnVpnIpvForwardingAddress(thisDevice.getUUID(), forwardValue);
+                                    NetUtil.changeIpv4HeaderSrc(rawBytes, newSource);
+                                    Log.d(getTag(), "Forwarding a packet from " + AddressUtil.intToIpv4String(sourceIp) + " (altering to appear from " + AddressUtil.intToIpv4String(newSource) + ")");
+                                    if (device == null)
+                                        swapIpInPayload(rawBytes, sourceIp, newSource);
                                 }
-                                Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name()+", "+ type.name() + ") being sent to " + device.getLabel());
-                                outgoing.setDestination(device.getUUID());
                             }
                         }
-                        outgoing.setData(rawBytes);
-                        if (Config.isLargeDataWiFiOnly() && (length > SIZE_TO_ROUTE_WIFI_ONLY))
-                            outgoing.setHighPerformanceNeeded(true);
-                        //Log.d(getTag(), "Outgoing bytes: " + NetUtil.getStringOfBytesForDebug(rawBytes));
-                        sqAnService.burst(outgoing);
+
+                        if (outgoing != null) {
+                            NetUtil.PacketType type = NetUtil.getPacketType(rawBytes);
+                            byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
+                            if (destinationIp != SqAnDevice.BROADCAST_IP) {
+                                if (device == null) {
+                                    Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
+                                } else {
+                                /*if (Config.portForwardingEnabled()) {
+                                    int port = NetUtil.getPort(rawBytes);
+                                    Log.d(getTag(),"Port "+port+" found for forwarding...");
+                                }*/
+                                    Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ", " + type.name() + ") being sent to " + device.getLabel());
+                                    outgoing.setDestination(device.getUUID());
+                                }
+                            }
+                            outgoing.setData(rawBytes);
+                            if (Config.isLargeDataWiFiOnly() && (length > SIZE_TO_ROUTE_WIFI_ONLY))
+                                outgoing.setHighPerformanceNeeded(true);
+                            sqAnService.burst(outgoing);
+                        }
                     }
 
                     packet.clear();
@@ -126,6 +152,65 @@ public class SqAnVpnConnection implements Runnable {
         }
     }
 
+    /**
+     * Looks for the original IP address in the data from a packet and swaps any
+     * occurrence out with the newIp. Used to adjust broadcast messages from connected
+     * devices whos IP addresses are being altered to support SqAN transmission
+     * @param packet
+     * @param toFind the IP address to find
+     * @param replacement the new IP address to replace the found IP
+     */
+    public static void swapIpInPayload(byte[] packet, byte[] toFind, byte[] replacement) {
+        if ((packet == null) || (toFind == null) || (replacement == null) || (toFind.length != replacement.length))
+            return;
+        int len = NetUtil.getHeaderLength(packet);
+        byte[] compare = {(byte)0,(byte)0,(byte)0,(byte)0};
+        int max = packet.length - len;
+        if (max > 3) {
+            //its an arbitrary number, but only consider the first 96 bytes of the payload
+            //as there is where any discovery related IP address information is likely
+            //to be. If we look further into the packet: 1) it takes more time and
+            //2) it becomes more likely that the IP address we are looking for occurs
+            //randomly in data
+            if (max > 96) //only consider the first 96 bytes of the payload
+                max = 96;
+            max += len;
+            boolean match;
+            for (int i = len + 3;i<max;i++) {
+                compare[0] = compare[1];
+                compare[1] = compare[2];
+                compare[2] = compare[3];
+                compare[3] = packet[i];
+                match = true;
+                for (int b=0;b<4;b++) {
+                    if (compare[b] != toFind[b]) {
+                        match = false;
+                        continue;
+                    }
+                }
+                if (match) {
+                    Log.d(TAG,"IP address swapped in broadcast packet");
+                    packet[i-3] = replacement[0];
+                    packet[i-2] = replacement[1];
+                    packet[i-1] = replacement[2];
+                    packet[i-0] = replacement[3];
+                }
+            }
+        }
+    }
+
+    /**
+     * Looks for the original IP address in the data from a packet and swaps any
+     * occurrence out with the newIp. Used to adjust broadcast messages from connected
+     * devices whos IP addresses are being altered to support SqAN transmission
+     * @param packet
+     * @param originalIp
+     * @param newIp
+     */
+    public static void swapIpInPayload(byte[] packet, int originalIp, int newIp) {
+        swapIpInPayload(packet,NetUtil.intToByteArray(originalIp),NetUtil.intToByteArray(newIp));
+    }
+
     private ParcelFileDescriptor configure() {
         if (thisDevice == null) {
             Log.e(getTag(),"Cannot configure VPN as SqAnDevice is null");
@@ -134,7 +219,7 @@ public class SqAnVpnConnection implements Runnable {
         VpnService.Builder builder = vpnService.new Builder();
         builder.setMtu(Config.getMtuSize());
         builder.addAddress(thisDevice.getVpnIpv4AddressString(),16);
-        builder.addRoute(AddressUtil.VPN_NET_MASK,16);
+        builder.addRoute(AddressUtil.VPN_NET_MASK,8);
         if (Config.isMulticastEnabled()) {
             for (String route:AddressUtil.VPN_MULTICAST_MASK) {
                 builder.addRoute(route, 8);
@@ -152,6 +237,6 @@ public class SqAnVpnConnection implements Runnable {
     }
 
     private final String getTag() {
-        return Config.TAG + "[" + id + "]";
+        return TAG + "[" + id + "]";
     }
 }

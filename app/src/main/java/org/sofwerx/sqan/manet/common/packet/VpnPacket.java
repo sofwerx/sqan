@@ -1,21 +1,40 @@
 package org.sofwerx.sqan.manet.common.packet;
 
+import org.sofwerx.sqan.manet.common.VpnForwardValue;
+
 import java.nio.ByteBuffer;
 
 /**
- * The most basic type of packet which just consists of raw data
+ * VPN intercepted data
  */
 public class VpnPacket extends AbstractPacket {
     private byte[] data;
+    private VpnForwardValue forwardValue;
 
     public VpnPacket(PacketHeader packetHeader) {
         super(packetHeader);
         data = null;
+        forwardValue = null;
     }
+
+    /**
+     * Is this packet being forwarded to/from an IP address behind the connected SqAN device
+     * @return true == packet is being forwarded
+     */
+    public boolean isForwarded() { return forwardValue != null; }
 
     @Override
     public void parse(byte[] bytes) {
-        data = bytes;
+        if (bytes == null)
+            return;
+        ByteBuffer in = ByteBuffer.wrap(bytes);
+        forwardValue = new VpnForwardValue(in.get());
+        if (!forwardValue.isForwarded())
+            forwardValue = null;
+        if (in.remaining() > 0) {
+            data = new byte[in.remaining()];
+            in.get(data);
+        }
     }
 
     @Override
@@ -23,11 +42,15 @@ public class VpnPacket extends AbstractPacket {
         byte[] superBytes = super.toByteArray();
         int len;
         if (data == null)
-            len = 0;
+            len = 1;
         else
-            len = data.length;
+            len = data.length + 1;
         ByteBuffer out = ByteBuffer.allocate(superBytes.length + len);
         out.put(superBytes);
+        if ((forwardValue == null) || !forwardValue.isForwarded())
+            out.put(VpnForwardValue.NOT_FORWARDED);
+        else
+            out.put(forwardValue.getForwardIndex());
         if (len > 0)
             out.put(data);
         return out.array();
@@ -49,4 +72,6 @@ public class VpnPacket extends AbstractPacket {
 
     @Override
     public boolean isAdminPacket() { return false; }
+
+    public void setForwardValue(VpnForwardValue forwardValue) { this.forwardValue = forwardValue; }
 }

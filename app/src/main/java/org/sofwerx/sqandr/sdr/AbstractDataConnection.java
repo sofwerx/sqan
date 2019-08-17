@@ -162,7 +162,7 @@ public abstract class AbstractDataConnection {
             header[1] = header[2];
             header[2] = (byte)dataBuffer.read();
             if (Segment.isQuickValidCheck(header)) {
-                //Log.d(TAG,"readPartialHeader() validity test passed");
+                Log.d(TAG,"readPartialHeader() validity test passed");
                 size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
                 lastHeaderBufferIndex = dataBuffer.getReadPosition();
                 return new PartialHeaderData(size,false);

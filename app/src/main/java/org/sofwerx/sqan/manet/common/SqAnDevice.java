@@ -11,12 +11,14 @@ import org.sofwerx.sqan.manet.common.issues.PacketDropIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiConnectivityIssue;
 import org.sofwerx.sqan.manet.common.issues.WiFiIssue;
 import org.sofwerx.sqan.manet.common.packet.PacketHeader;
+import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.manet.common.pnt.NetworkTime;
 import org.sofwerx.sqan.manet.common.pnt.SpaceTime;
 import org.sofwerx.sqan.manet.common.sockets.TransportPreference;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.ui.DeviceSummary;
 import org.sofwerx.sqan.util.CommsLog;
+import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.util.StringUtil;
 import org.sofwerx.sqan.util.UuidUtil;
 
@@ -75,6 +77,7 @@ public class SqAnDevice {
     private MacAddress directMac;
     private MacAddress awareMac;
     private Inet6Address awareServerIp;
+    private ArrayList<VpnForwardValue> forwarding;
 
     public static boolean isValidUuid(int origin) {
         return (origin > FIRST_VALID_UUID) && (origin < UuidUtil.getNewUUID());
@@ -565,6 +568,110 @@ public class SqAnDevice {
     public void clearAwareServerIp() { awareServerIp = null; }
 
     public void setWiFiDirectMac(MacAddress mac) { directMac = mac; }
+
+    public VpnForwardValue getIpForwardAddress(final byte index) {
+        if (forwarding != null) {
+            for (int i=0;i<forwarding.size();i++) {
+                if (forwarding.get(i).getForwardIndex() == index)
+                    return forwarding.get(i);
+            }
+        }
+        Log.w(Config.TAG,"Unable to find forwarding address; no device at index "+index);
+        return null;
+    }
+
+    private void sortForwarding() {
+        if ((forwarding == null) || (forwarding.size() < 2))
+            return;
+        boolean complete = false;
+        VpnForwardValue temp;
+        while (!complete) {
+            complete = true;
+            for (int i=1;i<forwarding.size();i++) {
+                if (forwarding.get(i).getForwardIndex() < forwarding.get(i-1).getForwardIndex()) {
+                    temp = forwarding.get(i);
+                    forwarding.set(i,forwarding.get(i-1));
+                    forwarding.set(i-1,temp);
+                    complete = false;
+                }
+            }
+        }
+    }
+
+    private byte getNextFowardingIndex() {
+        if (forwarding == null)
+            return 0;
+        sortForwarding();
+        int last = 1;
+        for (int i=0;i<forwarding.size();i++) {
+            if (forwarding.get(i).getForwardIndex() > last)
+                break;
+            last = forwarding.get(i).getForwardIndex() + 1;
+        }
+        return (byte)(last & 0xFF);
+    }
+
+    public void addVpnForwardValue(VpnForwardValue value) {
+        if (value == null)
+            return;
+        if (forwarding == null) {
+            forwarding = new ArrayList<>();
+            forwarding.add(value);
+        }
+
+        //move any forwarding record currently in this index to another place
+        byte indexToInsert = value.getForwardIndex();
+        for (int i=0;i<forwarding.size();i++) {
+            if (forwarding.get(i).getForwardIndex() == indexToInsert) {
+                if (forwarding.get(i).getAddress() == value.getAddress())
+                    return; //this record already exists and is in the right index
+                Log.d(Config.TAG,AddressUtil.intToIpv4String(forwarding.get(i).getAddress())+" was being forwarded as "
+                        +AddressUtil.intToIpv4String(AddressUtil.getSqAnVpnIpv4Address(uuid,indexToInsert))
+                        +" but is being moved so "+AddressUtil.intToIpv4String(value.getAddress())
+                        +" can be reached at that IP");
+                forwarding.get(i).setIndex(getNextFowardingIndex());
+            }
+        }
+
+        for (int i=0;i<forwarding.size();i++) {
+            if (forwarding.get(i).getAddress() == value.getAddress()) {
+                forwarding.set(i,value); //update any index issue and close
+                return;
+            }
+        }
+        forwarding.add(value);
+    }
+
+    /**
+     * Gets the forward value for this IP address or adds it if not already on the list
+     * @param ipv4
+     * @param addIfNotPresent
+     * @return
+     */
+    public VpnForwardValue getOrAddIpForwardAddress(final int ipv4, boolean addIfNotPresent) {
+        VpnForwardValue value = null;
+        if (forwarding == null) {
+            if (addIfNotPresent) {
+                forwarding = new ArrayList<>();
+                value = new VpnForwardValue(getNextFowardingIndex(), ipv4);
+                forwarding.add(value);
+            }
+        } else {
+            for (int i=0;i<forwarding.size();i++) {
+                if (forwarding.get(i).getAddress() == ipv4)
+                    return forwarding.get(i);
+            }
+            if (forwarding.size() > 254) {
+                Log.w(Config.TAG,"A SqAN node can only forward 254 IPV4 addresses; "+AddressUtil.intToIpv4String(ipv4)+" is being ignored");
+                return null;
+            }
+            if (addIfNotPresent) {
+                value = new VpnForwardValue(getNextFowardingIndex(), ipv4);
+                forwarding.add(value);
+            }
+        }
+        return value;
+    }
 
     public enum NodeRole { HUB, SPOKE, OFF, BOTH }
 
