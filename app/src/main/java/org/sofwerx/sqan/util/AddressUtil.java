@@ -9,6 +9,7 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.util.regex.Pattern;
 
 public class AddressUtil {
     /**
@@ -53,6 +54,24 @@ public class AddressUtil {
                 ((i >> 16 ) & 0xFF) + "." +
                 ((i >>  8 ) & 0xFF) + "." +
                 ( i        & 0xFF);
+    }
+
+    public static int stringToIpv4Int(String ipAddress) {
+        int result = 0;
+        if (ipAddress != null) {
+            String[] values = ipAddress.split(Pattern.quote("."));
+            if (values.length == 4) {
+                for (String value:values) {
+                    result = result << 8;
+                    try {
+                        result |= Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        return 0;
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     /**

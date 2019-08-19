@@ -52,7 +52,7 @@
         <CheckBoxPreference
             android:key="vpnmode"
             android:title="VPN Mode"
-            android:summary="SqAN will capture all data going to IP addresses that start with 169.254.x.x and forward them in the mesh."
+            android:summary="SqAN will capture all data going to IP addresses that start with 169.x.x.x, 224.x.x.x, 225.x.x.x, 226.x.x.x or 239.x.x.x and forward them in the mesh."
             android:defaultValue="true"/>
 
         <CheckBoxPreference
@@ -75,6 +75,11 @@
             android:title="Forward Connected IPs"
             android:summary="Allow VPN to forward any connected IP device."
             android:defaultValue="true"/>
+
+        <Preference
+            android:key="vpnfwdsettings"
+            android:title="Forwarded addresses"
+            android:summary="Addresses captured and forwarded by the VPN." />
 
         <CheckBoxPreference
             android:key="vpnautoadd"

@@ -14,6 +14,8 @@ public class VpnForwardValue {
 
     public VpnForwardValue(byte index) { this.index = index; }
 
+    public VpnForwardValue() { index = 0b00000000; }
+
     public boolean isForwarded() { return index != NOT_FORWARDED; }
 
     public byte getForwardIndex() { return index; }
@@ -21,4 +23,6 @@ public class VpnForwardValue {
     public int getAddress() { return ipv4Address; }
 
     public void setIndex(byte index) { this.index = index; }
+
+    public void setAddress(int ip) { this.ipv4Address = ip; }
 }

@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-//apply plugin: 'com.github.dcendents.android-maven'
 
 android {
     compileSdkVersion 28
@@ -20,7 +19,6 @@ android {
     productFlavors {
         full {
             dimension "version"
-            //buildConfigField "String", "SQANDR_VERSION", "01"
         }
     }
     aaptOptions { //for SqANDR binary injection

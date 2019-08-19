@@ -580,6 +580,8 @@ public class SqAnDevice {
         return null;
     }
 
+    public ArrayList<VpnForwardValue> getIpForwardAddresses() { return forwarding; }
+
     private void sortForwarding() {
         if ((forwarding == null) || (forwarding.size() < 2))
             return;
@@ -598,7 +600,7 @@ public class SqAnDevice {
         }
     }
 
-    private byte getNextFowardingIndex() {
+    public byte getNextFowardingIndex() {
         if (forwarding == null)
             return 0;
         sortForwarding();

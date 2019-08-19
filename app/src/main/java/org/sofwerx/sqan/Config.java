@@ -36,6 +36,7 @@ public class Config {
     private final static String PREFS_SAVED_TEAM = "savedteam";
     public final static String PREFS_VPN_MODE = "vpnmode";
     public final static String PREFS_VPN_MULTICAST = "multicast";
+    public final static String PREFS_VPN_EDIT_FORWARDS = "vpnfwdsettings";
     public final static String PREFS_IGNORE_0_0_0_0 = "no0000";
     public final static String PREFS_LARGE_DATA_WIFI_ONLY = "bigpipesonly";
     private final static String PREFS_VPN_LANDING_PAGE = "vpn404";
@@ -172,17 +173,21 @@ public class Config {
             return;
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
-        JSONArray array = new JSONArray();
-        for (VpnForwardValue value:values) {
-            try {
-                JSONObject obj = new JSONObject();
-                obj.put("trueip", value.getAddress());
-                obj.put("fwdas",(int)value.getForwardIndex());
-            } catch (JSONException e) {
-                Log.d(TAG,"Unable to save VPN forwarding IPs: "+e.getMessage());
+        if (values.isEmpty())
+            edit.remove(PREFS_VPN_FORWARDED_IPS);
+        else {
+            JSONArray array = new JSONArray();
+            for (VpnForwardValue value : values) {
+                try {
+                    JSONObject obj = new JSONObject();
+                    obj.put("trueip", value.getAddress());
+                    obj.put("fwdas", (int) value.getForwardIndex());
+                } catch (JSONException e) {
+                    Log.d(TAG, "Unable to save VPN forwarding IPs: " + e.getMessage());
+                }
             }
+            edit.putString(PREFS_VPN_FORWARDED_IPS, array.toString());
         }
-        edit.putString(PREFS_VPN_FORWARDED_IPS,array.toString());
         edit.apply();
     }
 

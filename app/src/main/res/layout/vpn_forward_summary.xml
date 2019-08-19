@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/vpnFwdLabelIp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Forward:"
+        app:layout_constraintBottom_toBottomOf="@+id/vpnFwdEditIp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <EditText
+        android:id="@+id/vpnFwdEditIp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:digits="0123456789."
+        android:hint="IP address"
+        android:inputType="number|numberDecimal"
+        app:layout_constraintEnd_toStartOf="@+id/vpnFwdWarning"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/vpnFwdLabelIp"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/vpnFwdWarning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:src="@drawable/ic_warning"
+        android:tint="@color/yellow"
+        app:layout_constraintEnd_toStartOf="@+id/vpnFwdDel"
+        app:layout_constraintStart_toEndOf="@+id/vpnFwdEditIp"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/vpnFwdDel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_menu_delete"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/vpnFwdLabelResolved"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Forwarded as: "
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/vpnFwdResolved"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="---"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@+id/vpnFwdDel"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/vpnFwdLabelResolved"
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

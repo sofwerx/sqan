@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <org.sofwerx.sqan.ui.VpnForwardList
+        android:id="@+id/dVpnFwdList"
+        android:layout_width="wrap_content"
+        android:layout_height="250dp" />
+
+    <Button
+        android:id="@+id/dVpnFwdAdd"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableStart="@drawable/ic_network"
+        android:text="Add IP address" />
+
+    <Button
+        android:id="@+id/dVpnFwdDone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Done" />
+</LinearLayout>

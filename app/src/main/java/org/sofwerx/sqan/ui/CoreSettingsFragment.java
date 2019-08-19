@@ -38,5 +38,12 @@ public class CoreSettingsFragment extends PreferenceFragment {
                 SdrConfigDialog.show(getActivity());
                 return true;
             });
+
+        Preference vpnForwardIps = findPreference(Config.PREFS_VPN_EDIT_FORWARDS);
+        if (vpnForwardIps != null)
+            vpnForwardIps.setOnPreferenceClickListener(preference -> {
+                VpnFwdDialog.show(getActivity());
+                return true;
+            });
     }
 }
