@@ -40,6 +40,22 @@ public class SqAnVpnConnection implements Runnable {
         void onEstablish(ParcelFileDescriptor tunInterface);
     }
 
+    /**
+     * TODO
+     *
+     * VPN forwarding of non-SqAN IPs has been partially implemented but development
+     * against this requirement has been paused as there was no priority requirement
+     * identified that necessitates it. The implementation included creating a series
+     * of 169.x.x.x IP addresses for each device on SqAN that would serve as the SqAN
+     * facing IP address and was mapped to the IP address of device on a non-SqAN
+     * network connected to this device. Methods were built to extract and change IPV4
+     * header information to support routing across SqAN, but the underlying requirement
+     * to change UDP and TCP packets as well was not completed. Any resumed implementation
+     * of forwarding packets would likely need to implement some port assignments as
+     * well as modifying UDP and TCP headers.
+     *
+     */
+
     public SqAnVpnConnection(final VpnService service, final int connectionId) {
         vpnService = service;
         sqAnService = SqAnService.getInstance();
@@ -105,6 +121,8 @@ public class SqAnVpnConnection implements Runnable {
                         if (outgoing != null) {
                             NetUtil.PacketType type = NetUtil.getPacketType(rawBytes);
                             byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
+                            int srcPort = NetUtil.getSourcePort(rawBytes);
+                            int destPort = NetUtil.getDestinationPort(rawBytes);
                             if (destinationIp != SqAnDevice.BROADCAST_IP) {
                                 if (device == null) {
                                     Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
@@ -113,7 +131,7 @@ public class SqAnVpnConnection implements Runnable {
                                     int port = NetUtil.getPort(rawBytes);
                                     Log.d(getTag(),"Port "+port+" found for forwarding...");
                                 }*/
-                                    Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ", " + type.name() + ") being sent to " + device.getLabel());
+                                    Log.d(getTag(), "VpnPacket (DSCP " + NetUtil.getDscpType(dscp).name() + ", " + type.name() + ") being sent to " + device.getLabel()+", src port "+srcPort+", dest port "+destPort);
                                     outgoing.setDestination(device.getUUID());
                                 }
                             }

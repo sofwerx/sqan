@@ -47,11 +47,32 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
+        android:id="@+id/vpnFwdLabelPort"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Port:"
+        app:layout_constraintBottom_toBottomOf="@+id/vpnFwdEditPort"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp"
+        android:visibility="gone"/>
+
+    <EditText
+        android:id="@+id/vpnFwdEditPort"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:digits="0123456789"
+        android:hint="80"
+        android:inputType="number"
+        app:layout_constraintStart_toStartOf="@+id/vpnFwdEditIp"
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp"
+        android:visibility="gone"/>
+
+    <TextView
         android:id="@+id/vpnFwdLabelResolved"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Forwarded as: "
-        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp"
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditPort"
         app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
@@ -63,6 +84,6 @@
         app:layout_constraintEnd_toStartOf="@+id/vpnFwdDel"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toEndOf="@+id/vpnFwdLabelResolved"
-        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditIp" />
+        app:layout_constraintTop_toBottomOf="@+id/vpnFwdEditPort" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

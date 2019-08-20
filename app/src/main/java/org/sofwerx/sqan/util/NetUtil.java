@@ -399,7 +399,7 @@ public class NetUtil {
         return ihl * 4;
     }
 
-    public static int getPort(byte[] packet) {
+    public static int getSourcePort(byte[] packet) {
         int port = -1;
         if (packet != null) {
             int offset = getHeaderLength(packet);
@@ -407,9 +407,24 @@ public class NetUtil {
                 byte[] intbytes = new byte[4];
                 intbytes[0] = (byte)0;
                 intbytes[1] = (byte)0;
-                //FIXME this isn't right
                 intbytes[2] = packet[offset];
                 intbytes[3] = packet[offset+1];
+                port = byteArrayToInt(intbytes);
+            }
+        }
+        return port;
+    }
+
+    public static int getDestinationPort(byte[] packet) {
+        int port = -1;
+        if (packet != null) {
+            int offset = getHeaderLength(packet);
+            if ((offset > 0) && (offset < packet.length)) {
+                byte[] intbytes = new byte[4];
+                intbytes[0] = (byte)0;
+                intbytes[1] = (byte)0;
+                intbytes[2] = packet[offset+2];
+                intbytes[3] = packet[offset+3];
                 port = byteArrayToInt(intbytes);
             }
         }

@@ -85,6 +85,7 @@ public class Config {
         SqAnDevice.remove(thisDevice); //dont list this device in the list of other devices
         thisDevice.setUuidExtended(uuidExtended);
         thisDevice.setCallsign(callsign);
+        loadVpnForwardingIps(context);
         String rawTeam = prefs.getString(PREFS_SAVED_TEAM,null);
         if (rawTeam != null) {
             try {
@@ -148,8 +149,13 @@ public class Config {
                     JSONObject obj = array.getJSONObject(i);
                     int trueIp = obj.optInt("trueip",0);
                     int forwaredAs = obj.optInt("fwdas",0);
-                    if ((trueIp !=0 ) && (forwaredAs != 0))
-                        thisDevice.addVpnForwardValue(new VpnForwardValue((byte)(forwaredAs&0xFF),trueIp));
+                    if (trueIp !=0 ) {
+                        if (out == null)
+                            out = new ArrayList<>();
+                        VpnForwardValue value = new VpnForwardValue((byte) (forwaredAs & 0xFF), trueIp);
+                        out.add(value);
+                        thisDevice.addVpnForwardValue(value);
+                    }
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -182,6 +188,7 @@ public class Config {
                     JSONObject obj = new JSONObject();
                     obj.put("trueip", value.getAddress());
                     obj.put("fwdas", (int) value.getForwardIndex());
+                    array.put(obj);
                 } catch (JSONException e) {
                     Log.d(TAG, "Unable to save VPN forwarding IPs: " + e.getMessage());
                 }
@@ -218,7 +225,10 @@ public class Config {
         return vpnMode;
     }
 
-    public static boolean isVpnForwardIps() { return vpnForward; }
+    public static boolean isVpnForwardIps() {
+        //return vpnForward;
+        return false; //TODO disabled for now
+    }
 
     public static boolean isVpnAutoAdd() { return vpnAutoAdd; }
 
