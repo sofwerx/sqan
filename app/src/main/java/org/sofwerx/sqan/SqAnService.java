@@ -40,6 +40,7 @@ import org.sofwerx.sqan.receivers.PowerReceiver;
 import org.sofwerx.sqan.util.CommsLog;
 import org.sofwerx.sqan.util.NetUtil;
 import org.sofwerx.sqan.vpn.SqAnVpnService;
+import org.sofwerx.sqandr.util.ContinuityGapSAR;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -698,11 +699,11 @@ public class SqAnService extends Service implements LocationService.LocationUpda
         return false;
     }
 
-    public void handleHighNoise() {
+    public void handleHighNoise(float snr) {
         if (System.currentTimeMillis() > nextNoiseNotificationWindow) {
             nextNoiseNotificationWindow = System.currentTimeMillis() + TIME_BETWEEN_NOISE_NOTIFICATIONS;
             if (listener != null)
-                listener.onHighNoise();
+                listener.onHighNoise(snr);
             notifyStatusChange("SqAN is receiving an unusually large amount of corrupted data. Check connections and RF environment.");
         }
     }

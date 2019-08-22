@@ -783,9 +783,9 @@ public class MainActivity extends AppCompatActivity implements SqAnStatusListene
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(final float snr) {
         Log.d(TAG,"onHighNoise()");
-        runOnUiThread(() -> updatePeripheralStatus("SqAN is receiving large amounts of corrupted data. Check connections and RF environment.",false,true));
+        runOnUiThread(() -> updatePeripheralStatus("SqAN is receiving large amounts of corrupted data (SNR = "+String.format("%.02f", snr)+"). Check connections and RF environment.",false,true));
     }
 
     @Override

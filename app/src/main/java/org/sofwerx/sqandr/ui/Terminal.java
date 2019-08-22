@@ -158,7 +158,7 @@ public class Terminal extends LinearLayout implements DataConnectionListener {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         //ignore
     }
 }

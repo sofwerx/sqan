@@ -1,22 +1,17 @@
 package org.sofwerx.sqandr;
 
-import org.sofwerx.notdroid.app.Activity;
 import android.app.PendingIntent;
-//import org.sofwerx.notdroid.content.BroadcastReceiver;
 import org.sofwerx.notdroid.content.Context;
 import org.sofwerx.notdroid.content.Intent;
-import org.sofwerx.notdroid.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
-//import org.sofwerx.notdroid.widget.Toast;
 
 import androidx.annotation.NonNull;
 
 import org.sofwerx.sqan.Config;
-import org.sofwerx.sqan.ManetOps;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqan.manet.common.Status;
 import org.sofwerx.sqan.manet.sdr.SdrManet;
@@ -25,14 +20,9 @@ import org.sofwerx.sqandr.sdr.AbstractSdr;
 import org.sofwerx.sqandr.sdr.DataConnectionListener;
 import org.sofwerx.sqandr.sdr.SdrException;
 import org.sofwerx.sqandr.sdr.UsbStorage;
-import org.sofwerx.sqandr.sdr.sar.Segment;
-import org.sofwerx.sqandr.sdr.sar.Segmenter;
 import org.sofwerx.sqandr.serial.SerialConnection;
 import org.sofwerx.sqandr.util.PermissionsHelper;
-import org.sofwerx.sqandr.util.StringUtils;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -437,9 +427,9 @@ public class SqANDRService implements DataConnectionListener {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         Log.d(TAG,"onHighNoise()");
         if (listener != null)
-            listener.onHighNoise();
+            listener.onHighNoise(snr);
     }
 }

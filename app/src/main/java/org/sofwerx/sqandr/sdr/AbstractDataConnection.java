@@ -6,6 +6,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqan.listeners.PeripheralStatusListener;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.util.ContinuityGapSAR;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.SdrUtils;
 import org.sofwerx.sqandr.util.StringUtils;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class AbstractDataConnection {
     private final static String TAG = Config.TAG+".DataCon";
+    protected final static boolean USE_GAP_STRATEGY = true; //used to counter a periodic bit inversion believed to be caused by minor clock differences in SDRs. Restructures the output to include a doubling method and some headers that compensate for periodic data gaps
     private final static long TIME_BETWEEN_STALE_SEGMENTATION_CHECKS = 500l;
     protected DataConnectionListener listener;
     public abstract boolean isActive();
@@ -35,6 +37,7 @@ public abstract class AbstractDataConnection {
     private int lastHeaderBufferIndex = 0; //used to rewind the buffer a bit when a header turns out to produce an invalid packet
     private final static long TIME_CONGESTION_IS_RECENT = 1000l * 5l; //time in ms to consider any congestion marker as recent
 
+    protected ContinuityGapSAR gapSar = new ContinuityGapSAR();
     private int goodData = 0;
     private int badData = 0;
     private final static int ACCEPTABLE_BAD_TO_GOOD = 8;
@@ -66,7 +69,10 @@ public abstract class AbstractDataConnection {
         //Log.d(TAG,"handleRawDatalinkInput is processing "+raw.length+"b");
         if (dataBuffer == null)
             dataBuffer = new WriteableInputStream();
-        dataBuffer.write(raw);
+        if (USE_GAP_STRATEGY && (gapSar != null))
+            dataBuffer.write(gapSar.parse(raw));
+        else
+            dataBuffer.write(raw);
         //Log.d(TAG,raw.length+"b added to dataBuffer");
         if (readThread == null) {
             readThread = new Thread() {
@@ -147,6 +153,10 @@ public abstract class AbstractDataConnection {
             readThread.interrupt();
             readThread = null;
         }
+        if (gapSar != null) {
+            gapSar.close();;
+            gapSar = null;
+        }
     }
 
     private PartialHeaderData readPartialHeader() throws IOException {
@@ -162,7 +172,7 @@ public abstract class AbstractDataConnection {
             header[1] = header[2];
             header[2] = (byte)dataBuffer.read();
             if (Segment.isQuickValidCheck(header)) {
-                Log.d(TAG,"readPartialHeader() validity test passed");
+                //Log.d(TAG,"readPartialHeader() validity test passed");
                 size = header[2] & 0xFF; //needed to convert signed byte into unsigned int
                 lastHeaderBufferIndex = dataBuffer.getReadPosition();
                 return new PartialHeaderData(size,false);
@@ -297,7 +307,7 @@ public abstract class AbstractDataConnection {
             } else {
                 badData++;
                 dataBuffer.rewindReadPosition(lastHeaderBufferIndex);
-                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+", size "+headerData.size+" b) and was dropped invalid data was: "+StringUtils.toHex(headerData.toBytes())+StringUtils.toHex(rest));
+                Log.d(TAG,"readPacketData produced invalid Segment (Seg "+segment.getIndex()+", Packet ID "+segment.getPacketId()+", size "+headerData.size+"b) and was dropped invalid data was: "+StringUtils.toHex(headerData.toBytes())+StringUtils.toHex(rest));
                 checkDataRatio();
             }
         } catch (IOException e) {
@@ -324,8 +334,12 @@ public abstract class AbstractDataConnection {
             Log.w(TAG,"High ratio of corrupted packets received");
             //badData = 0;
             //goodData = 0;
-            if (peripheralStatusListener != null)
-                peripheralStatusListener.onHighNoise();
+            if (peripheralStatusListener != null) {
+                if (badData == 0f) //this should not happen
+                    peripheralStatusListener.onHighNoise(1f);
+                else
+                    peripheralStatusListener.onHighNoise(((float)goodData)/((float)badData));
+            }
         }
     }
 

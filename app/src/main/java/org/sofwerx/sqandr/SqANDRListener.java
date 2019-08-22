@@ -6,5 +6,5 @@ public interface SqANDRListener {
     void onSdrMessage(String message);
     void onPacketReceived(byte[] data);
     void onPacketDropped();
-    void onHighNoise();
+    void onHighNoise(float snr);
 }

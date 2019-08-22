@@ -39,7 +39,7 @@ public class PlutoSDR extends AbstractSdr {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         //ignore
     }
 

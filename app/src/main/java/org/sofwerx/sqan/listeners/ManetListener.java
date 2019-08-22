@@ -55,5 +55,5 @@ public interface ManetListener {
 
     void onPacketDropped();
 
-    void onHighNoise();
+    void onHighNoise(float snr);
 }

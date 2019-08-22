@@ -39,5 +39,5 @@ public interface SqAnStatusListener {
      */
     void onConflict(SqAnDevice conflictingDevice);
 
-    void onHighNoise();
+    void onHighNoise(float snr);
 }

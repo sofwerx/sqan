@@ -119,7 +119,7 @@ public class HackRfSDR extends AbstractSdr {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         //ignore
     }
 }

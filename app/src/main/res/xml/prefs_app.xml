@@ -86,7 +86,7 @@
             android:dependency="vpnfwd"
             android:title="Auto forward IPs"
             android:summary="Allow VPN to automatically start forwarding any device that broadcasts or tries to hit a SqAN IP address."
-            android:defaultValue="true"/> -->
+            android:defaultValue="true"/>-->
 
         <CheckBoxPreference
             android:key="multicast"

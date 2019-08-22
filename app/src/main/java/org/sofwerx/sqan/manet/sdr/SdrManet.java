@@ -260,10 +260,10 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         Log.d(TAG,"onHighNoise()");
         if (listener != null)
-            listener.onHighNoise();
+            listener.onHighNoise(snr);
     }
 
     @Override

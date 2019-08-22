@@ -505,10 +505,10 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(final float snr) {
         Log.d(TAG,"onHighNoise");
         if (handler != null) {
-            handler.post(() -> sqAnService.handleHighNoise());
+            handler.post(() -> sqAnService.handleHighNoise(snr));
         }
     }
 

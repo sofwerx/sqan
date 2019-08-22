@@ -36,7 +36,7 @@ public class LimeSDR extends AbstractSdr {
     }
 
     @Override
-    public void onHighNoise() {
+    public void onHighNoise(float snr) {
         //ignore
     }
 }

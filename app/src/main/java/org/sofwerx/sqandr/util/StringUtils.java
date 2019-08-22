@@ -191,14 +191,21 @@ public class StringUtils {
                 + Character.digit(b, 16));
     }
 
-    public static byte[] toByteArray(String s) {
-        if (s == null)
+    /**
+     * Turns a hex string into a byte array
+     * @param hex
+     * @return
+     */
+    public static byte[] toByteArray(String hex) {
+        if (hex == null)
             return null;
-        int len = s.length();
+        int len = hex.length();
+        if ((len % 2) != 0)
+            len--;
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i+1), 16));
         }
         return data;
     }

@@ -26,6 +26,7 @@ import org.sofwerx.sqan.Config;
 import org.sofwerx.sqandr.sdr.SdrConfig;
 import org.sofwerx.sqandr.sdr.sar.Segment;
 import org.sofwerx.sqandr.sdr.sar.Segmenter;
+import org.sofwerx.sqandr.util.ContinuityGapSAR;
 import org.sofwerx.sqandr.util.Crypto;
 import org.sofwerx.sqandr.util.Loader;
 import org.sofwerx.sqandr.util.SqANDRLoaderListener;
@@ -48,11 +49,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static int RX_BUFFER_SIZE = 17284;
     private final static int TX_BUFFER_SIZE = 17284;
     private final static int PERCENT_OF_LAST_AMPLITUDE = 5;
-    private final static int MESSAGE_REPEAT = 4;
+    private final static int MESSAGE_REPEAT = 1;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
     private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat "+MESSAGE_REPEAT+" -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -perLast "+PERCENT_OF_LAST_AMPLITUDE+" -noHeader";
-    private final static int MAX_BYTES_PER_SEND = 252;
+    private final static int MAX_BYTES_PER_SEND = AbstractDataConnection.USE_GAP_STRATEGY?220:252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
     private final static long DELAY_BEFORE_BLIND_LOGIN = 1000l * 5l;
@@ -282,6 +283,10 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             }
             connection = null;
         }
+        if (gapSar == null) {
+            gapSar.close();
+            gapSar = null;
+        }
     }
 
     public boolean isActive() {
@@ -309,6 +314,11 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                 if (USE_BIN_USB_IN) {
                     byte[] outgoingBytes = segment.toBytes();
                     Log.d(TAG,"Outgoing (burst, standalone): *"+StringUtils.toHex(outgoingBytes));
+
+                    //FIXME for testing
+                    //outgoingBytes = StringUtils.toByteArray("00112233445566778899AABBCCDDEEFFFFEEDDCCBBAA9988776655443322110000112233445566778899AABBCCDDEEFFFFEEDDCCBBAA99887766554433221100");
+                    //FIXME for testing
+
                     write(toSerialLinkBinFormat(outgoingBytes));
                 } else
                     write(toSerialLinkFormat(segment.toBytes()));
@@ -430,6 +440,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         if (data == null)
             return null;
         byte[] out;
+        if (USE_GAP_STRATEGY && (gapSar != null)) {
+            data = gapSar.formatForOutput(data);
+        }
         int values = 0;
         serialFormatBuf.clear();
 
@@ -459,7 +472,9 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
             return null;
         out = new byte[values];
         serialFormatBuf.get(out);
+
         Log.d(TAG,"Outgoing(serialFormatBuf): "+StringUtils.toHex(out));
+
         return out;
     }
 
@@ -724,7 +739,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             else {
                                 if (USE_ESC_BYTES) {
                                     byte[] processData = separateEscapedCharacters(data);
-                                    Log.d(TAG, "From SDR: " + StringUtils.toHex(processData));
+                                    if (data.length > 10) //FIXME for testing
+                                        Log.d(TAG, "From SDR: " + StringUtils.toHex(processData));
                                     handleRawDatalinkInput(processData);
                                 } else {
                                     Log.d(TAG, "From SDR: " + StringUtils.toHex(data));

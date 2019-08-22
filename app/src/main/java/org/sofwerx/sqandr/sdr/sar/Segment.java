@@ -22,8 +22,8 @@ import java.nio.ByteBuffer;
  */
 public class Segment {
     private final static String TAG = Config.TAG+".Seg";
-    private final static int ABS_MAX_LENGTH_FOR_SEGMENT = 236; //Serial line output limit when headers, etc are added
-    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 16; //Not to exceed ABS_MAX_LENGTH_FOR_SEGMENT, can't be below 49 adn retain VPN capability //TODO tune this number
+    private final static int ABS_MAX_LENGTH_FOR_SEGMENT = 216; //Serial line output limit when headers, etc are added
+    public final static int MAX_LENGTH_BEFORE_SEGMENTING = 128; //Not to exceed ABS_MAX_LENGTH_FOR_SEGMENT, can't be below 49 adn retain VPN capability //TODO tune this number
     public final static byte[] HEADER_MARKER = {(byte)0b01100110,(byte)0b10011001};
     public final static byte[] INVERSE_HEADER_MARKER = {(byte)0b10011001,(byte)0b01100110};
     private final static byte FINAL_SEGMENT_FLAG = (byte)0b10000000;
