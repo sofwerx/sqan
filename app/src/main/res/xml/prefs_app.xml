@@ -142,6 +142,12 @@
             android:title="Log"
             android:summary="Produce a log file for detailed analysis of mesh behavior"
             android:defaultValue="true"/>
+
+        <CheckBoxPreference
+            android:key="silent"
+            android:title="SDR Silent"
+            android:summary="Switches SqAN to silent/listen only mode when using an SDR"
+            android:defaultValue="false"/>
     </PreferenceCategory>
 
 </PreferenceScreen>

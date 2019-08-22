@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqAnDevice {
-    private final static int FIRST_VALID_UUID = 1645000000; //no SqAN device should have a UUID below this
+    private final static int FIRST_VALID_UUID = 1540000000; //no SqAN device should have a UUID below this
+    //private final static int VALID_UUID_UPPER_BOUNDS = (int)(System.currentTimeMillis()/1000l)+2000000;
+    private final static int VALID_UUID_UPPER_BOUNDS = (int)(System.currentTimeMillis()/1000l)+80000000;
     private static final long TIME_TO_CONSIDER_HOP_COUNT_STALE = 1000l * 60l;
     public final static long TIME_TO_STALE = 1000l * 60l;
     //private final static long TIME_TO_REMOVE_STALE = TIME_TO_STALE * 2l;
@@ -80,7 +82,7 @@ public class SqAnDevice {
     private ArrayList<VpnForwardValue> forwarding;
 
     public static boolean isValidUuid(int origin) {
-        return (origin > FIRST_VALID_UUID) && (origin < UuidUtil.getNewUUID());
+        return (origin > FIRST_VALID_UUID) && (origin < VALID_UUID_UPPER_BOUNDS);
     }
     //private boolean awareServer = false;
     //private Inet6Address ipv6 = null;

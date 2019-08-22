@@ -47,6 +47,7 @@ public class Config {
     public final static String PREFS_WRITE_LOG = "log";
     public final static String PREFS_WARN_INCOMPLETE = "incomplete";
     public final static String PREFS_SDR_SETTINGS = "sdrsettings";
+    public final static String PREFS_SDR_LISTEN_ONLY = "silent";
     private final static String DEFAULT_PASSCODE = "SwxTest";
     private static boolean debugMode = false;
     private static boolean allowIpcComms = true;
@@ -61,6 +62,7 @@ public class Config {
     private static boolean warnIncomplete = true;
     private static boolean ignore0000 = true;
     private static boolean largeDataWiFiOnly = true;
+    private static boolean silent = false;
     private static int mtuSize = 1500;
     private static SqAnDevice thisDevice = null;
     private static ArrayList<SavedTeammate> savedTeammates;
@@ -212,6 +214,7 @@ public class Config {
         writeLog = prefs.getBoolean(PREFS_WRITE_LOG,true);
         warnIncomplete = prefs.getBoolean(PREFS_WARN_INCOMPLETE,true);
         ignore0000 = prefs.getBoolean(PREFS_IGNORE_0_0_0_0,true);
+        silent = prefs.getBoolean(PREFS_SDR_LISTEN_ONLY,false);
         largeDataWiFiOnly = prefs.getBoolean(PREFS_LARGE_DATA_WIFI_ONLY,true);
         try {
             mtuSize = Integer.parseInt(prefs.getString(PREFS_VPN_MTU, "1500"));
@@ -511,5 +514,6 @@ public class Config {
     public static boolean isLargeDataWiFiOnly() { return largeDataWiFiOnly; }
     public static boolean isMulticastEnabled() { return multicast; }
     public static int getMtuSize() { return mtuSize; }
+    public static boolean isListenOnyMode() { return silent; }
     //public static boolean portForwardingEnabled() { return true; /*TODO*/}
 }

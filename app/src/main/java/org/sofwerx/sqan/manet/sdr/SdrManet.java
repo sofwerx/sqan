@@ -119,6 +119,8 @@ public class SdrManet extends AbstractManet implements SqANDRListener {
     public void burst(final AbstractPacket packet) throws ManetException {
         if (packet == null)
             return;
+        if (Config.isListenOnyMode())
+            return;
         if (packet.getOrigin() != Config.getThisDevice().getUUID()) {
             if (packet.getCurrentHopCount() > MAX_HOP_COUNT) {
                 Log.d(TAG,"Packet dropped - exceeded max hop count.");

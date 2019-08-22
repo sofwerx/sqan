@@ -13,7 +13,6 @@ import org.sofwerx.sqandr.util.StringUtils;
 import org.sofwerx.sqandr.util.WriteableInputStream;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -154,7 +153,7 @@ public abstract class AbstractDataConnection {
             readThread = null;
         }
         if (gapSar != null) {
-            gapSar.close();;
+            gapSar.close();
             gapSar = null;
         }
     }

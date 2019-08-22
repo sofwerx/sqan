@@ -66,6 +66,8 @@ public class SettingsActivity extends Activity {
             dialog.show();
         } else if (Config.PREFS_VPN_FORWARD.equalsIgnoreCase(key)) {
             Config.recheckPreferences(this);
+        } else if (Config.PREFS_SDR_LISTEN_ONLY.equalsIgnoreCase(key)) {
+            Config.recheckPreferences(this);
         } else if (Config.PREFS_VPN_AUTO_ADD.equalsIgnoreCase(key)) {
             Config.recheckPreferences(this);
         } else if (Config.PREFS_VPN_MTU.equalsIgnoreCase(key)) {

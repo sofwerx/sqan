@@ -14,9 +14,9 @@ import java.nio.ByteBuffer;
 public class ContinuityGapSAR {
     private final static String TAG = Config.TAG+".Cont";
     private final static int CHUNK_SIZE = 16;
-    private final static int REQUIRED_MATCHING_DATA = CHUNK_SIZE / 2;
+    private final static int REQUIRED_MATCHING_DATA = CHUNK_SIZE / 4;
     private final static int CHUNK_SIZE_WITH_MARKER = CHUNK_SIZE + 1;
-    private ByteBuffer formatBuf = ByteBuffer.allocate(1024);
+    private static ByteBuffer formatBuf;
     private ByteBuffer outBuf = ByteBuffer.allocate(1024);
     private ByteBuffer processBuf = ByteBuffer.allocate(1024);
     private final static byte[] MARKER_BYTES = {0b00000001,0b00000010};
@@ -26,37 +26,116 @@ public class ContinuityGapSAR {
     public static void test() {
         ContinuityGapSAR gap = new ContinuityGapSAR();
         byte[] original = StringUtils.toByteArray("0100112233445566778899aabbccddeeff0100112233445566778899aabbccddeeff02ffeeddccbbaa9988776655443322110002ffeeddccbbaa99887766554433221100");
-        byte[] proc = gap.formatForOutput(original);
+        byte[] proc = formatForOutput(original);
         Log.d(TAG,"Formatted: "+StringUtils.toHex(proc));
         proc = StringUtils.toByteArray("1122110100112233445566778899aabbccddeeff0100112233445566778899aabbccddeeff02ffeeddccbbaa9988776655443322110002ffeeddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         byte[] result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
         proc = StringUtils.toByteArray("0100112233445566778899aabbccddeefe112233445566778899aabbccddeeff02ffeeddccbbaa9988776655443322110002ffeeddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
         proc = StringUtils.toByteArray("0100112233445566778899aabbccddeeff0100112233445566778899aabbccddeeff02ffeeddccbbaa998877665544332211ddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
+        proc = StringUtils.toByteArray("aabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabbaabbaabbaabb11221122aabbaabb11221122aabbaabb");
+        Log.d(TAG,"Input: "+StringUtils.toHex(proc));
+        result = gap.parse(proc);
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
         proc = StringUtils.toByteArray("0100112233445566778899aabbccddeefe112233445566778899aabbccddeeff02ffeeddccbbaa9988776655443322110002ffeeddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
         proc = StringUtils.toByteArray("0100112233445566778899aabbccddeeff0100112233445566778899aabbccddeeff02ffeeddccbbaa998877665544332211ddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+
         proc = StringUtils.toByteArray("0100112233445566778899aabbccddeeff0100112233445566778899aabbccddeeff02ffeeddccbbaa998877665544332211ddccbbaa99887766554433221100");
         Log.d(TAG,"Input: "+StringUtils.toHex(proc));
         result = gap.parse(proc);
-        Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
+        if (result == null)
+            Log.d(TAG,"Parsed: NULL");
+        else
+            Log.d(TAG,"Parsed: "+StringUtils.toHex(result));
         Log.d(TAG,"Complete");
     }
 
     public void close() {
-        //TODO
+        formatBuf = null;
     }
 
     /**
@@ -64,10 +143,12 @@ public class ContinuityGapSAR {
      * @param data
      * @return
      */
-    public byte[] formatForOutput(byte[] data) {
+    public static byte[] formatForOutput(byte[] data) {
         if (data == null)
             return null;
         int makerIndex = 0;
+        if (formatBuf == null)
+            formatBuf = ByteBuffer.allocate(1024);
         formatBuf.clear();
         int max = data.length / CHUNK_SIZE;
         if (data.length % CHUNK_SIZE > 0)
@@ -107,18 +188,16 @@ public class ContinuityGapSAR {
     public byte[] parse(byte[] gapData) {
         if (gapData == null)
             return null;
-        //try {
+        try {
             byte[] chunkA = new byte[CHUNK_SIZE];
             byte[] chunkB = new byte[CHUNK_SIZE];
             outBuf.clear();
             processBuf.put(gapData);
             processBuf.flip();
-            int index = 0;
             byte firstMarker;
             byte nextMarker;
-            //final int limit = processBuf.limit() - CHUNK_SIZE + 1; //the size remaining needed to have a complete chunk of data
             final int limit = processBuf.limit() - CHUNK_SIZE - 1; //the size remaining needed to have a complete chunk of data
-            index = processBuf.position();
+            int index = processBuf.position();
             while (index < limit)  {
                 firstMarker = processBuf.get();
                 index++;
@@ -127,6 +206,7 @@ public class ContinuityGapSAR {
                     //Log.d(TAG,"First marker (pos = "+(index-1)+"): "+new String(StringUtils.toHex(firstMarker))+" next marker at pos "+(index + CHUNK_SIZE)+" = "+new String(StringUtils.toHex(nextMarker)));
                     if (isMarkerByte(nextMarker)) { //this is a good block of data
                         processBuf.get(chunkA);
+                        //Log.d(TAG,"Recovered "+StringUtils.toHex(chunkA));
                         outBuf.put(chunkA); //saving the data to the output
                         readSyncEstablished = true;
                         if (nextMarker == firstMarker) { //this is the first of chunk of two chunks for the same data, so we skip over the second chunk
@@ -135,63 +215,72 @@ public class ContinuityGapSAR {
                                 index = processBuf.limit();
                             processBuf.position(index);
                         } //otherwise, we leave the processBuf pointer at the header of the second chunk
-                    } else if (readSyncEstablished) { //there is some problem with the data in this area but read sync has already been established so we'll try to reconstruct the data
-                        readSyncEstablished = false; //read sync is only used once after a failed header line-up; after that, we need to look for a sync again
+                    } else {
+                        if (readSyncEstablished) {
+                            //there is some problem with the data in this area but read sync has
+                            //already been established so we'll try to reconstruct the data
+                            //Log.d(TAG,"1st true, 2nd false, readSync true");
 
-                        //first thing that needs to happen is we need to find the header that occurs
-                        //after these two chunks
-                        final int minAcceptable = index + CHUNK_SIZE;
-                        int endMarkerIndex = index + CHUNK_SIZE + CHUNK_SIZE_WITH_MARKER;
-                        if (endMarkerIndex >= processBuf.limit()) {
-                            endMarkerIndex = processBuf.limit();
-                        } else {
-                            boolean keepSearching = true;
-                            while (keepSearching && (endMarkerIndex > minAcceptable)) {
-                                nextMarker = processBuf.get(endMarkerIndex);
-                                if (isMarkerByte(processBuf.get(endMarkerIndex))) {
-                                    if (nextMarker != firstMarker) //only consider this if the possible end marker is different from the start marker for this series of chunks (i.e. the next marker after a set of chunks should never have the same marker value as the chunks)
-                                        keepSearching = false;
-                                } else
-                                    endMarkerIndex--;
-                            }
-                        }
+                            //read sync is only used once after a failed header line-up; after
+                            //that, we need to look for a sync again
+                            readSyncEstablished = false;
 
-                        if (endMarkerIndex > minAcceptable) { //the end was found or we are at the end of the buffer so we need to compare these two arrays and try to see what value should have been present
-                            processBuf.get(chunkA);
-                            int offset = endMarkerIndex-CHUNK_SIZE;
-                            processBuf.position(offset);
-                            processBuf.get(chunkB);
-                            nextMarker = processBuf.get(endMarkerIndex - CHUNK_SIZE - 1);
-                            if (nextMarker == firstMarker) { //chunkB occurs right after the correct marker header and contains the expected number of bytes so is likely valid
-                                Log.d(TAG,"Recovered "+StringUtils.toHex(chunkB)+" by comparing "+ StringUtils.toHex(chunkA)+" and "+ StringUtils.toHex(chunkB) +" and just relying on the second chunk");
-                                outBuf.put(chunkB);
+                            //first thing that needs to happen is we need to find the header that
+                            //occurs after these two chunks
+                            final int minAcceptable = index + CHUNK_SIZE;
+                            int endMarkerIndex = index + CHUNK_SIZE + CHUNK_SIZE_WITH_MARKER;
+                            if (endMarkerIndex >= processBuf.limit()) { //only look to the buffer end
+                                endMarkerIndex = processBuf.limit();
                             } else {
-                                byte[] fusedValue = getFusedValue(chunkA, chunkB);
-                                if (fusedValue != null) {
-                                    Log.d(TAG, "Recovered " + StringUtils.toHex(fusedValue) + " by merging " + StringUtils.toHex(chunkA) + " and " + StringUtils.toHex(chunkB) + " and added it to the output");
-                                    outBuf.put(fusedValue);
-                                    processBuf.position(endMarkerIndex);
+                                boolean keepSearching = true;
+                                while (keepSearching && (endMarkerIndex > minAcceptable)) {
+                                    nextMarker = processBuf.get(endMarkerIndex);
+                                    if (isMarkerByte(nextMarker))
+                                        keepSearching = false; //looks like we found the start of the next chunk
+                                    else
+                                        endMarkerIndex--;
                                 }
                             }
-                        } else
-                            processBuf.position(index+1);
+
+                            if (endMarkerIndex > minAcceptable) { //the end was found or we are at the end of the buffer so we need to compare these two arrays and try to see what value should have been present
+                                processBuf.get(chunkA);
+                                int offset = endMarkerIndex - CHUNK_SIZE;
+                                processBuf.position(offset);
+                                processBuf.get(chunkB);
+                                nextMarker = processBuf.get(endMarkerIndex - CHUNK_SIZE - 1);
+                                if (nextMarker == firstMarker) { //chunkB occurs right after the correct marker header and contains the expected number of bytes so is likely valid
+                                    //Log.d(TAG, "Recovered " + StringUtils.toHex(chunkB) + " by comparing " + StringUtils.toHex(chunkA) + " and " + StringUtils.toHex(chunkB) + " and just relying on the second chunk");
+                                    outBuf.put(chunkB);
+                                } else {
+                                    byte[] fusedValue = getFusedValue(chunkA, chunkB);
+                                    if (fusedValue != null) {
+                                        outBuf.put(fusedValue);
+                                        processBuf.position(endMarkerIndex);
+                                    }
+                                }
+                            } else
+                                processBuf.position(index + 1);
+                        }
                     }
                 }
                 index = processBuf.position();
             }
-        //} catch (BufferOverflowException | BufferUnderflowException | IndexOutOfBoundsException e) {
-        //    Log.w(TAG,"The "+gapData.length+"b formatted data could not be processed as it exceeds the max size of the buffer - adjust the buffer size and look to see if the buffer is draining properly. "+e.getClass().getSimpleName()+": "+e.getMessage());
-        //}
-        if ((processBuf.limit() - processBuf.position()) > CHUNK_SIZE_WITH_MARKER) //only carry over up to the size of one chunk
+        } catch (BufferOverflowException | BufferUnderflowException | IndexOutOfBoundsException e) {
+            Log.e(TAG,"The "+gapData.length+"b formatted data could not be processed as it exceeds the max size of the buffer - adjust the buffer size and look to see if the buffer is draining properly. "+e.getClass().getSimpleName()+": "+e.getMessage());
+        }
+        if ((processBuf.limit() - processBuf.position()) > CHUNK_SIZE_WITH_MARKER) { //only carry over up to the size of one chunk
+            //Log.d(TAG,"More data present (pos == "+processBuf.position()+", limit == "+processBuf.limit()+") than just a chunk, updating position");
             processBuf.position(processBuf.limit() - CHUNK_SIZE_WITH_MARKER);
+        }
         processBuf.compact();
         if (outBuf.position() > 0) {
             byte[] out = new byte[outBuf.position()];
             outBuf.flip();
             outBuf.get(out);
             return out;
-        } else
+        } else {
             return null;
+        }
     }
 
     /**
@@ -206,7 +295,11 @@ public class ContinuityGapSAR {
             Log.e(TAG,"getFusedValue called on two arrays that are not comparable.. This should never happen. Both must be non-null and the same length.");
             return null;
         }
-        Log.d(TAG,"Trying to reconstruct the original value from "+StringUtils.toHex(a)+" and "+StringUtils.toHex(b)+" ...");
+        byte[] fused = new byte[a.length];
+        for (int i=0;i<a.length;i++) {
+            fused[i] = a[i];
+        }
+        //Log.d(TAG,"Trying to reconstruct the original value from "+StringUtils.toHex(a)+" and "+StringUtils.toHex(b)+" ...");
         int matchInRow = 0; //streak of matching characters
         int i=b.length-1;
         while (i > 0) {
@@ -216,15 +309,16 @@ public class ContinuityGapSAR {
                 if (matchInRow >= REQUIRED_MATCHING_DATA)
                     break;
                 matchInRow = 0;
-                a[i] = b[i];
+                fused[i] = b[i];
             }
             i--;
         }
         if (matchInRow < REQUIRED_MATCHING_DATA) { //no commonality found
-            Log.d(TAG,StringUtils.toHex(a)+" and "+StringUtils.toHex(b)+" only had "+matchInRow+" out of "+REQUIRED_MATCHING_DATA+" required common bytes in the middle so the two are not likely originating from the same data");
+            //Log.d(TAG,StringUtils.toHex(a)+" and "+StringUtils.toHex(b)+" only had "+matchInRow+" out of "+REQUIRED_MATCHING_DATA+" required common bytes in the middle so the two are not likely originating from the same data");
             return null;
         }
-        return a;
+        //Log.d(TAG, "Recovered " + StringUtils.toHex(fused) + " by merging " + StringUtils.toHex(a) + " and " + StringUtils.toHex(b));
+        return fused;
     }
 
     private boolean isMarkerByte(byte value) {

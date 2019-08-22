@@ -21,8 +21,9 @@ public class UuidUtil {
     };
 
     public static int getNewUUID() {
-        int uuid = (int)System.currentTimeMillis(); //drop the 1st 8 bits of the current time
-        return Math.abs(uuid);
+        //int uuid = (int)(System.currentTimeMillis()/1000l); //drop the 1st 8 bits of the current time
+        //return Math.abs(uuid);
+        return (int)(System.currentTimeMillis()/1000l);
     }
 
     public static String getNewExtendedUUID() {

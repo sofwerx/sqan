@@ -45,14 +45,15 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
     private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
-    private final static float SAMPLE_RATE = 3.2f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming data
+    private final static float SAMPLE_RATE = 3.2f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming mdeia
+    //private final static float SAMPLE_RATE = 1.0f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming media
     private final static int RX_BUFFER_SIZE = 17284;
     private final static int TX_BUFFER_SIZE = 17284;
     private final static int PERCENT_OF_LAST_AMPLITUDE = 5;
-    private final static int MESSAGE_REPEAT = 1;
+    private final static int MESSAGE_REPEAT = 2;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
-    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat "+MESSAGE_REPEAT+" -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -perLast "+PERCENT_OF_LAST_AMPLITUDE+" -noHeader";
+    private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat "+MESSAGE_REPEAT+" -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -perLast "+PERCENT_OF_LAST_AMPLITUDE+" -noHeader"+((SAMPLE_RATE<3.2f)?" -fir":"");
     private final static int MAX_BYTES_PER_SEND = AbstractDataConnection.USE_GAP_STRATEGY?220:252;
     private final static int SERIAL_TIMEOUT = 100;
     private final static long DELAY_FOR_LOGIN_WRITE = 500l;
@@ -103,7 +104,7 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     enum LoginStatus { NEED_CHECK_LOGIN_STATUS,CHECKING_LOGGED_IN,WAITING_USERNAME, WAITING_PASSWORD, WAITING_CONFIRMATION, ERROR, LOGGED_IN }
     enum SdrAppStatus { OFF, CHECKING_FOR_UPDATE, INSTALL_NEEDED,INSTALLING, NEED_START, STARTING, RUNNING, ERROR }
 
-    private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*2);
+    private ByteBuffer serialFormatBuf = ByteBuffer.allocate(MAX_BYTES_PER_SEND*4);
 	private SignalProcessor signalProcessor;
 	private long lastCycleTime = Long.MAX_VALUE;
 
@@ -293,8 +294,6 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         return (port != null);
     }
 
-    private final static boolean TESTING_LISTEN_ONLY = false; //FIXME for testing purposes only
-
     /**
      * Burst adds any wrapping needed to communicate the data and then conducts
      * a write
@@ -440,9 +439,8 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
         if (data == null)
             return null;
         byte[] out;
-        if (USE_GAP_STRATEGY && (gapSar != null)) {
-            data = gapSar.formatForOutput(data);
-        }
+        if (USE_GAP_STRATEGY && (gapSar != null))
+            data = ContinuityGapSAR.formatForOutput(data);
         int values = 0;
         serialFormatBuf.clear();
 
