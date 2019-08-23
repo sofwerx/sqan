@@ -44,13 +44,13 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
     private final static boolean USE_LEAN_MODE = false; //TODO in development, Lean mode - sqandr provides raw data and uses the most efficient data structure; binIn,binOut, and tx/rx buffer sizes are set by SqANDR
     private final static boolean USE_BIN_USB_IN = true; //send binary input to Pluto
     private final static boolean USE_BIN_USB_OUT = true; //use binary output from Pluto
-    private final static boolean PROCESS_ON_PLUTO = true; //true == singles processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
+    private final static boolean PROCESS_ON_PLUTO = true; //true == signals processed on Pluto and bytes provided as output; false == raw IQ values provided by Pluto
     private final static float SAMPLE_RATE = 3.2f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming mdeia
     //private final static float SAMPLE_RATE = 1.0f; //MiS/s - must be between 6.0 and 0.6 inclusive. 0.7 is min that will support streaming media
     private final static int RX_BUFFER_SIZE = 17284;
     private final static int TX_BUFFER_SIZE = 17284;
     private final static int PERCENT_OF_LAST_AMPLITUDE = 5;
-    private final static int MESSAGE_REPEAT = 2;
+    private final static int MESSAGE_REPEAT = 1;
     private final static long MAX_CYCLE_TIME = (long) (1f/(SAMPLE_RATE * 1000f/RX_BUFFER_SIZE))+2l; //what is the max number of ms between cycles before data is lost
 
     private final static String OPTIMAL_FLAGS = "-txSize "+TX_BUFFER_SIZE+" -rxSize "+RX_BUFFER_SIZE+" -messageRepeat "+MESSAGE_REPEAT+" -rxsrate "+SAMPLE_RATE+" -txsrate "+SAMPLE_RATE+" -txbandwidth 2.3 -rxbandwidth 2.3 -perLast "+PERCENT_OF_LAST_AMPLITUDE+" -noHeader"+((SAMPLE_RATE<3.2f)?" -fir":"");
@@ -735,13 +735,12 @@ public class SerialConnection extends AbstractDataConnection implements SerialIn
                             if (isEcho)
                                 Log.d(TAG, "From SDR (echo): " + StringUtils.toHex(data));
                             else {
+                                if (data.length > 10) //FIXME for testing
+                                    Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
                                 if (USE_ESC_BYTES) {
                                     byte[] processData = separateEscapedCharacters(data);
-                                    if (data.length > 10) //FIXME for testing
-                                        Log.d(TAG, "From SDR: " + StringUtils.toHex(processData));
                                     handleRawDatalinkInput(processData);
                                 } else {
-                                    Log.d(TAG, "From SDR: " + StringUtils.toHex(data));
                                     handleRawDatalinkInput(data);
                                 }
                             }

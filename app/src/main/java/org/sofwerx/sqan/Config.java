@@ -229,8 +229,8 @@ public class Config {
     }
 
     public static boolean isVpnForwardIps() {
-        //return vpnForward;
-        return false; //TODO disabled for now
+        //return vpnForward; //TODO uncomment this to enable VpnIpForwarding
+        return false; //TODO comment this out if the above line is uncommented
     }
 
     public static boolean isVpnAutoAdd() { return vpnAutoAdd; }

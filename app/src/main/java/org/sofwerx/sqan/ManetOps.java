@@ -73,38 +73,35 @@ public class ManetOps implements ManetListener, IpcBroadcastTransceiver.IpcBroad
                 int manetType = 0;
                 try {
                     manetType = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(sqAnService).getString(Config.PREFS_MANET_ENGINE,"4"));
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException ignore) {
                 }
+                wifiManet = null;
+                btManet = null;
+                sdrManet = null;
                 switch (manetType) {
                     case 1:
                         wifiManet = new NearbyConnectionsManet(handler,sqAnService,ManetOps.this);
-                        btManet = null;
-                        sdrManet = null;
+                        //sdrManet = new SdrManet(handler,sqAnService,ManetOps.this);  //TODO uncomment this to enable SDR for Nearby Connections
                         break;
 
                     case 2:
                         wifiManet = new WiFiAwareManetV2(handler,sqAnService,ManetOps.this);
-                        //TODO btManet = new BtManetV2(handler,sqAnService,manetOps);
-                        btManet = null; //TODO
-                        sdrManet = null;
+                        //btManet = new BtManetV2(handler,sqAnService,manetOps); //TODO uncomment this to enable bluetooth for WiFi Aware
+                        //sdrManet = new SdrManet(handler,sqAnService,ManetOps.this); //TODO uncomment this to enable SDR for WiFi Aware
                         break;
 
                     case 3:
                         wifiManet = new WiFiDirectManet(handler,sqAnService,ManetOps.this);
-                        //TODO btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
-                        btManet = null; //TODO
-                        sdrManet = null;
+                        //btManet = new BtManetV2(handler,sqAnService,ManetOps.this); //TODO uncomment this to enable bluetooth for WiFi Direct
+                        //sdrManet = new SdrManet(handler,sqAnService,ManetOps.this); //TODO uncomment this to enable SDR for WiFi Direct
                         break;
 
                     case 4:
-                        wifiManet = null;
                         btManet = new BtManetV2(handler,sqAnService,ManetOps.this);
-                        sdrManet = null;
+                        //sdrManet = new SdrManet(handler,sqAnService,ManetOps.this); //TODO uncomment this to enable SDR for Bluetooth
                         break;
 
                     case 5:
-                        wifiManet = null;
-                        btManet = null;
                         sdrManet = new SdrManet(handler,sqAnService,ManetOps.this);
                         break;
 

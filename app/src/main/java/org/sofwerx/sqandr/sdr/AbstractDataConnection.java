@@ -319,7 +319,7 @@ public abstract class AbstractDataConnection {
      * Checks to see if the ration of good packets to bad packets is acceptable
      */
     private void checkDataRatio() {
-        Log.d(TAG,"Ratio of bad data to good, "+badData+":"+goodData);
+        Log.d(TAG,"Signal to Noise ratio "+goodData+":"+badData);
         if ((badData == 0) && (goodData == 0))
             return;
         boolean problem = false;
