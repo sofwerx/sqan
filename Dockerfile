@@ -3,7 +3,7 @@ FROM openjdk:8-jdk-stretch
 ENV sdk_version=sdk-tools-linux-4333796.zip
 ENV ANDROID_HOME=/android
 ENV appdir=/sqan
-ENV testdir=/sqan/testing
+ENV testdir=/sqan/testing/sqan
 
 RUN apt-get update
 RUN apt-get install -y wget git unzip
