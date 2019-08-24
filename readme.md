@@ -5,7 +5,7 @@ SqAN is an experimental effort to provide a Mobile Ad-hoc NETwork (MANET) in sup
 
 #### [Compiled APK (Android app installer)](https://github.com/sofwerx/sqan/releases/)
 
-![SCREENSHOT1 ](art/screenshots/a.png "SCREENSHOT1 ") ![SCREENSHOT2 ](art/screenshots/b.jpg "SCREENSHOT2 ")
+![SCREENSHOT1 ](art/screenshots/a.png "SCREENSHOT1 ")   ![SCREENSHOT2 ](art/screenshots/b.jpg "SCREENSHOT2 ")
 
 _**SqAN is experimental and under active development!**_
 
@@ -42,7 +42,7 @@ Performance:
  - latency tends to be around 300ms, but a large portion of the connections so far appear to be utilizing access via a shared connection to the same WiFi router
  - high bandwidth traffic (like video) lags and becomes increasingly buffered over time
  - at or above 3 devices, the Nearby Connections mesh fragments or otherwise becomes unstable
-_** Nearby Connections is not a recommended MANET approach **_
+_**Nearby Connections is not a recommended MANET approach**_
 
 ### WiFi Aware approach
 
@@ -51,7 +51,7 @@ WiFi Aware connections begin by simultaneously advertising and discovering. Mesh
 Performance:
  - like Nearby Connections, high bandwidth traffic lags and becomes increasingly buffered over time
  - Due to poor P2P performance, connectivity with more than 2 devices not heavily tested
-_** WiFi Aware is not a recommended MANET approach **_
+_**WiFi Aware is not a recommended MANET approach**_
 
 ### WiFi Direct approach
 
@@ -64,12 +64,12 @@ Performance:
  - Stability problems appear to be mostly addressed
  - Mesh reforms automatically
  - All connected devices must be within the same WiFi Direct network (i.e. there is one hub and many spokes). Spokes communicate with each other relatively seemlessly but are still dependant on connection to the same hub (which may be reassigned over time)
-_** WiFi Direct is the highest performing mesh so far for high bandwidth applications**_
+_**WiFi Direct is the highest performing mesh so far for high bandwidth applications**_
 
 
 ### Augmenting WiFi Aware and Direct
 
-Since only Nearby Connections organically uses both WiFi and Bluetooth, a separate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled. **To enable Bluetooth and WiFi simultaneously** in the ManetOps class constructor, find the lines that say _"//TODO uncomment this to enable bluetooth"_.
+Since only Nearby Connections organically uses both WiFi and Bluetooth, a separate Bluetooth capability has been built out for WiFi Aware and WiFi Direct meshes. The intent of this Bluetooth connectivity is to provide another, sometimes redundant mesh to enhance overall up time and to help bridge information between meshes when the WiFi Hub/Spoke models have to (either due to proximity or size) form multiple Hub/Spoke clusters. Currently, as both WiFi Aware and WiFi Direct are in testing, the Bluetooth mesh normally assigned to support these two approaches has been disabled. **To enable Bluetooth and WiFi simultaneously** in the _ManetOps_ class constructor, find the lines that say _"//TODO uncomment this to enable bluetooth"_.
 
 
 ### Bluetooth
@@ -79,7 +79,7 @@ Bluetooth mesh is available as a separate, stand-alone options as well and SqAN 
 Performance:
  - After initial pairing process, Bluetooth based mesh appears to form relatively quickly, self heal consistently and maintain connectivity at distances in excess of 50m in open terrain
  - Some lower end and older devices occasionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
-_** Bluetooth mesh is the highest performing mesh so far for lower bandwidth, lower energy usage, multi-hop applications **_
+_**Bluetooth mesh is the highest performing mesh so far for lower bandwidth, lower energy usage, multi-hop applications**_
 
 
 ### Software Defined Radio
@@ -93,9 +93,9 @@ SDR performance relies heavily on a number of factors, most of which are adjusta
  - **AbstractDataConnection.USE_GAP_STRATEGY** indicates that a custom form of forward error correction should be used. This increases the size of a single packet, but also substantially increases the fidelity of packets. This flag is recommended, especially wih Pluto SDRs as some devices experience a bit inversion that appears to happen every 400 to 600 bits and is believed to be related to clock differences. SqANDR as-is relies on packet headers but not a timing signal, this option also adds a timing signal.
  - **Segment.MAX_LENGTH_BEFORE_SEGMENTING** allows the Segmenting And Reassembly engine to decide where packets should be split to support transport across the system. This can be as low as 1 and as high as 216 but should be **at least above 49** if packets from the VPN are being sent across the network. Many smaller segments sent multiple times increase the chance that a complete sequence of all segments will be reconstructed into a packet, but adds the expense of more header data which effectively slows down the overall data throughput.
 
-SDR performance requires tuning the the specific set-up in use. Three main indicators are available in Logcat when trying to tune to a specific hardware set-up. The first is an indicator warning about the cycle time. If the SDR is not able to cycle fast enough to process data in real time, a warning will appear with the lag between the required and actual time. When an SDR (like the generally low powered Pluto) is unable to cycle fast enough, the device in effect ends up listening for a fraction of the actual time leading to periodic gaps where traffic is dropped. Adjusting the sample rate is one of the most direct ways to effect cycle time (lower sample rate equals fewer samples to process in a given time but also lower data throughput). The second indicator is a warning from the SerialConnection whenever it is sending data faster than the SDR is able to process it. When this happens, the SDR will start to lag behind real time and often drop packets. Switching the SDR to BIN_IN mode provides the greatest speed available for the Pluto SDR. The third indicator is the signal to noise ratio (SNR). The SNR will be regularly updated in logcat (with a "signal" being any packet that is received successfully, even if it is a duplicate, and "noise" being any packet that is partially received but corrupt to the point of being unrecoverable. SqANDR includes both a forward error correction mechanism (COntinuityGapSAR) as well as a SAR mechanism (Segment) that both allow multiple incomplete copies of data to be fused into one valid packet. When the SNR is significantly off, the user will also receive a visible warning message about high levels of data corruption and noise.
+SDR performance requires tuning the the specific set-up in use. Three main indicators are available in Logcat when trying to tune to a specific hardware set-up. The first is an indicator warning about the cycle time. If the SDR is not able to cycle fast enough to process data in real time, a warning will appear with the lag between the required and actual time. When an SDR (like the generally low powered Pluto) is unable to cycle fast enough, the device in effect ends up listening for a fraction of the actual time leading to periodic gaps where traffic is dropped. Adjusting the sample rate is one of the most direct ways to effect cycle time (lower sample rate equals fewer samples to process in a given time but also lower data throughput). The second indicator is a warning from the SerialConnection whenever it is sending data faster than the SDR is able to process it. When this happens, the SDR will start to lag behind real time and often drop packets. Switching the SDR to BIN_IN mode provides the greatest speed available for the Pluto SDR. The third indicator is the signal to noise ratio (SNR). The SNR will be regularly updated in logcat (with a "signal" being any packet that is received successfully, even if it is a duplicate, and "noise" being any packet that is partially received but corrupt to the point of being unrecoverable. SqANDR includes both a forward error correction mechanism (ContinuityGapSAR) as well as a SAR mechanism (Segment) that both allow multiple incomplete copies of data to be fused into one valid packet. When the SNR is significantly off, the user will also receive a visible warning message about high levels of data corruption and noise.
 
-SDR exists as a stand-alone mesh. However, SDR can be enabled with other meshes. **To enable SDR and other meshes simultaneously** in the ManetOps class constructor, find the lines that say _"//TODO uncomment this to enable SDR"_. SDR will handle any traffic, to include VPN data, available to other SqAN mesh approaches and will route traffic between meshes based on connectivity.  
+SDR exists as a stand-alone mesh. However, SDR can be enabled with other meshes. **To enable SDR and other meshes simultaneously** in the _ManetOps_ class constructor, find the lines that say _"//TODO uncomment this to enable SDR"_. SDR will handle any traffic, to include VPN data, available to other SqAN mesh approaches and will route traffic between meshes based on connectivity.  
 
 
 ### WiFiManager
@@ -119,18 +119,18 @@ A second SqANDR Test app found in the Testing folder is intended primarily to ai
 
 Although SqAN is intended primarily to intercept and re-route TCP/IP traffic, SqAN can be used via Interprocess Communication (IPC) to send data from apps specifically for transmission via SqAN. To use IPC to send data over SqAN:
  - copy the _org.sofwerx.sqan.ipc.IpcBroadcastTransceiver_ into the app you want to communicate with SqAN (SqAN relies on Broadcasts to communicate with other apps).
- - inside your app, call IpcBroadcastTransceiver.register() to listen for messages from SqAN. Your app's IpcBroadcastTransceiver.IpcBroadcastListener will be notified when data is received from SqAN.
- - when the app needs to broadcast something over SqAN, call IpcBroadcastTransceiver.broadcast() and pass your data. SqAN passes byte arrays so you will need to marshal/unmarshal your data on the sending and receiving ends.
- - call IpcBroadcastTransceiver.unregister() when your app no longer needs to receive messages from SqAN.
+ - inside your app, call _IpcBroadcastTransceiver.register()_ to listen for messages from SqAN. Your app's IpcBroadcastTransceiver.IpcBroadcastListener will be notified when data is received from SqAN.
+ - when the app needs to broadcast something over SqAN, call _IpcBroadcastTransceiver.broadcast()_ and pass your data. SqAN passes byte arrays so you will need to marshal/unmarshal your data on the sending and receiving ends.
+ - call _IpcBroadcastTransceiver.unregister()_ when your app no longer needs to receive messages from SqAN.
 
-Only the IpcBroadcastTransceiver is needed to communicate with SqAN, but it may also help to include the classes in the org.sofwerx.sqan.manet.common.packet package. Classes in this package provide additional capabilities (like designating a channel for the communications) that may be helpful. However, outside apps are not allowed to send "admin" type packets (such as a ping or heartbeat) so broadcasts using these will be ignored by SqAN.
+Only the _IpcBroadcastTransceiver_ is needed to communicate with SqAN, but it may also help to include the classes in the _org.sofwerx.sqan.manet.common.packet_ package. Classes in this package provide additional capabilities (like designating a channel for the communications) that may be helpful. However, outside apps are not allowed to send "admin" type packets (such as a ping or heartbeat) so broadcasts using these will be ignored by SqAN.
  
 The SOFWERX Swe-Library project (which provides for the ability to send SOS-T compliant sensor messages over TCP/IP connections) also organically supports SqAN IPC connectivity. To use this library, visit (https://github.com/sofwerx/swe-android).
  
  
 ## Sending data via TCP/IP
  
-SqAN includes a VPN capability. This capability has been marginally tested with both text and high bandwidth traffic (like video) and appears stable and performant. The VPN feature allows SqAN to route any TCP/IP traffic to another SqAN node as long as that traffic is within the forwarded IP block 169.x.x.x and also includes multicast capability for IP addresses in the 224.x.x.x, 225.x.x.x, 226.x.x.x and 239.x.x.x blocks. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN, so the IPV4 of any connected SqAN device can be found remotely.
+SqAN includes a VPN capability. This capability has been marginally tested with both text and high bandwidth traffic (like video) and appears stable and performant. The VPN feature allows SqAN to route any TCP/IP traffic to another SqAN node as long as that traffic is within the forwarded IP block _169.x.x.x_ and also includes multicast capability for IP addresses in the _224.x.x.x_, _225.x.x.x_, _226.x.x.x_ and _239.x.x.x_ blocks. To use the VPN capabilty, ensure VPN is set to enabled in SqAN settings and look for the SqAN device's IPV4 hosting address that is displayed at the bottom of the About screen. SqAN device IPV4 addresses are also shared across SqAN, so the IPV4 of any connected SqAN device can be found remotely.
 
 SqAN also provides a web server and hosts a page at the SqAN device's _169.254.x.x_ IP address for testing connections. If you application requires accessing web traffic, it is recommended that you disable the "Host a VPN page" setting.
 
@@ -160,9 +160,9 @@ These are the current steps to make an outside (i.e. non-Android) device work wi
  
 To connect, an outside bluetooth device must be able to pair and generate and retain a long term key (LTK) ideally through Numeric Comparison pairing method. The outside device must be able to advertise and discover on command in order to initially set-up connections, but will be expected to operate without advertising or discovering.
  
-At this point SqAN relies solely on Bluetooth Security Level 3 to handle all pairing and Encryption in the Bluetooth Security Manager. This is implemented on the Android side through BluetoothSockets being formed from createRfcommSocketToServiceRecord calls rather than createInsecureRfcommSocketToServiceRecord calls. SqAN may someday fall back to these insecure RFC calls but that is not currently planned with the given encryption scheme.
+At this point SqAN relies solely on Bluetooth Security Level 3 to handle all pairing and Encryption in the Bluetooth Security Manager. This is implemented on the Android side through BluetoothSockets being formed from _createRfcommSocketToServiceRecord_ calls rather than _createInsecureRfcommSocketToServiceRecord_ calls. SqAN may someday fall back to these insecure RFC calls but that is not currently planned with the given encryption scheme.
  
-SqAN has a provisional stub for authentication and encryption handled and is based on an architecture that is fairly resiliant to flooding so later security measures can be implemented without protocol changes. That being said, the current approach which does not rely on export restricted code within SqAN relies heavily on the user not taking the affirative action to pair with a device they do not trust.
+SqAN has a provisional stub for authentication and encryption handled and is based on an architecture that is fairly resilient to flooding so later security measures can be implemented without protocol changes. That being said, the current approach which does not rely on export restricted code within SqAN relies heavily on the user not taking the affirative action to pair with a device they do not trust.
 
 ### A note on Aware MANET security:
 
