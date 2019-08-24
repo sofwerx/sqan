@@ -6,8 +6,8 @@ android {
         applicationId "org.sofwerx.sqan"
         minSdkVersion 24
         targetSdkVersion 28
-        versionCode 10
-        versionName "0.5.1"
+        versionCode 11
+        versionName "0.5.2"
     }
     buildTypes {
         release {
