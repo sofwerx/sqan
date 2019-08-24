@@ -49,9 +49,12 @@ RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n 
 RUN chmod og+x ./gradlew
 RUN ./gradlew build
 
-#WORKDIR ${testdir}
-RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' ${testdir}/build.gradle
-RUN chmod og+x ${testdir}/gradlew
-RUN ${testdir}/gradlew build
+WORKDIR ${testdir}
+RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' build.gradle
+RUN chmod og+x ./gradlew
+RUN ./gradlew build
+#RUN sed -i -e 's/^android {/android {\n lintOptions {\n    abortOnError false\n  }/' ${testdir}/build.gradle
+#RUN chmod og+x ${testdir}/gradlew
+#RUN ${testdir}/gradlew build
 
 CMD sleep 3600

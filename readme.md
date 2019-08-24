@@ -5,10 +5,12 @@ SqAN is an experimental effort to provide a Mobile Ad-hoc NETwork (MANET) in sup
 
 #### [Compiled APK (Android app installer)](https://github.com/sofwerx/sqan/releases/)
 
-![SCREENSHOT ](art/screenshots/v0.1/Screenshot_20190321-135225_SqAN_Test.jpg "SCREENSHOT ")
+![SCREENSHOT1 ](art/screenshots/a.png "SCREENSHOT1 ") ![SCREENSHOT2 ](art/screenshots/b.jpg "SCREENSHOT2 ")
 
 _**SqAN is experimental and under active development!**_
+
 ![WARNING! ](art/caution_geek.png "WARNING! ")
+
 * **No backward compatibility** is guaranteed
 * No packet structure, saved file, or even IPC interface that works today is guaranteed to work the same way tomorrow
 * Documentation and example project(s) in this repo may lag behind current code
