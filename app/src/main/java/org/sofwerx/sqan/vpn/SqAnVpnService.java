@@ -23,9 +23,11 @@ import org.sofwerx.sqan.manet.common.VpnForwardValue;
 import org.sofwerx.sqan.ui.SettingsActivity;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.NetUtil;
+import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,6 +75,7 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
                     byte[] destBytes = NetUtil.intToByteArray(dest);
                     int srcPort = NetUtil.getSourcePort(data);
                     int destPort = NetUtil.getDestinationPort(data);
+
                     if (dest != thisDeviceIp) {
                         VpnForwardValue forward = thisDevice.getIpForwardAddress(destBytes[1]);
                         if (forward != null) {
@@ -82,6 +85,15 @@ public class SqAnVpnService extends VpnService implements Handler.Callback {
                             SqAnVpnConnection.swapIpInPayload(data,destBytes,actualDest);
                         }
                     }
+                } else {
+                    //FIXME for testing
+                    int dest = NetUtil.getDestinationIpFromIpPacket(data);
+                    int destPort = NetUtil.getDestinationPort(data);
+                    String ipAdd = AddressUtil.intToIpv4String(dest);
+                    String port = Integer.toString(destPort);
+                    Log.d(TAG,"VpnPkt in from SqAN ("+ipAdd+":"+port+"): "+new String(data,StandardCharsets.US_ASCII));
+                    Log.d(TAG,"VpnPkt in from SqAN ("+ipAdd+":"+port+"): "+StringUtils.toHex(data));
+                    //FIXME for testing
                 }
                 out.write(data);
             } catch (IOException e) {

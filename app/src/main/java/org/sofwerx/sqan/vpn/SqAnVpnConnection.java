@@ -13,17 +13,18 @@ import org.sofwerx.sqan.manet.common.packet.PacketHeader;
 import org.sofwerx.sqan.manet.common.packet.VpnPacket;
 import org.sofwerx.sqan.util.AddressUtil;
 import org.sofwerx.sqan.util.NetUtil;
+import org.sofwerx.sqandr.util.StringUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqAnVpnConnection implements Runnable {
     private final static String TAG = Config.TAG+".Vpn";
-    //private final static int MTU_SIZE = 1500;
     private static final int SIZE_TO_ROUTE_WIFI_ONLY = 256; //byte size to be considered too large and should be sent over broad pipes only
     private static final int MAX_PACKET_SIZE = Short.MAX_VALUE; //Max packet size cannot exceed MTU constraint of Short
     private static final long IDLE_INTERVAL_MS = TimeUnit.MILLISECONDS.toMillis(100);
@@ -98,6 +99,7 @@ public class SqAnVpnConnection implements Runnable {
                     packet.get(rawBytes);
                     VpnPacket outgoing = new VpnPacket(new PacketHeader(thisDevice.getUUID()));
                     int destinationIp = NetUtil.getDestinationIpFromIpPacket(rawBytes);
+
                     SqAnDevice device = SqAnDevice.findByIpv4IP(destinationIp);
                     if (!Config.isIgnoringPacketsTo0000() || (destinationIp != 0)) {
                         if (Config.isVpnForwardIps()) {
@@ -123,9 +125,17 @@ public class SqAnVpnConnection implements Runnable {
                             byte dscp = NetUtil.getDscpFromIpPacket(rawBytes); //TODO for future routing decisions
                             int srcPort = NetUtil.getSourcePort(rawBytes);
                             int destPort = NetUtil.getDestinationPort(rawBytes);
+
+                            //FIXME for testing
+                            String ipAdd = AddressUtil.intToIpv4String(destinationIp);
+                            String port = Integer.toString(destPort);
+                            Log.d(TAG,"VpnPkt out to SqAN ("+ipAdd+":"+port+"): "+new String(rawBytes,StandardCharsets.US_ASCII));
+                            Log.d(TAG,"VpnPkt out to SqAN ("+ipAdd+":"+port+"): "+StringUtils.toHex(rawBytes));
+                            //FIXME for testing
+
                             if (destinationIp != SqAnDevice.BROADCAST_IP) {
                                 if (device == null) {
-                                    Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp) + ") that I do not recognize - broadcasting this message to all devices");
+                                    Log.d(getTag(), "VpnPacket destined for an IP address (" + AddressUtil.intToIpv4String(destinationIp)+ ":" + destPort + ") that I do not recognize - broadcasting this message to all devices");
                                 } else {
                                 /*if (Config.portForwardingEnabled()) {
                                     int port = NetUtil.getPort(rawBytes);

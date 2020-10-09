@@ -370,7 +370,7 @@ public class SqAnService extends Service implements LocationService.LocationUpda
      * @return true == attempting to send; false = unable to send (MANET not ready)
      */
     public boolean burst(final AbstractPacket packet, final TransportPreference preferredTransport) {
-        if ((packet == null) || !StatusHelper.isActive(manetOps.getStatus())) {
+        if ((packet == null) || (manetOps == null) || !StatusHelper.isActive(manetOps.getStatus())) {
             Log.d(Config.TAG, "Unable to burst packet: " + ((packet == null) ? "null packet" : "MANET is not active"));
             return false;
         }

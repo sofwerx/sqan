@@ -42,6 +42,7 @@ Performance:
  - latency tends to be around 300ms, but a large portion of the connections so far appear to be utilizing access via a shared connection to the same WiFi router
  - high bandwidth traffic (like video) lags and becomes increasingly buffered over time
  - at or above 3 devices, the Nearby Connections mesh fragments or otherwise becomes unstable
+
 _**Nearby Connections is not a recommended MANET approach**_
 
 ### WiFi Aware approach
@@ -51,6 +52,7 @@ WiFi Aware connections begin by simultaneously advertising and discovering. Mesh
 Performance:
  - like Nearby Connections, high bandwidth traffic lags and becomes increasingly buffered over time
  - Due to poor P2P performance, connectivity with more than 2 devices not heavily tested
+ 
 _**WiFi Aware is not a recommended MANET approach**_
 
 ### WiFi Direct approach
@@ -64,6 +66,7 @@ Performance:
  - Stability problems appear to be mostly addressed
  - Mesh reforms automatically
  - All connected devices must be within the same WiFi Direct network (i.e. there is one hub and many spokes). Spokes communicate with each other relatively seemlessly but are still dependant on connection to the same hub (which may be reassigned over time)
+ 
 _**WiFi Direct is the highest performing mesh so far for high bandwidth applications**_
 
 
@@ -79,6 +82,7 @@ Bluetooth mesh is available as a separate, stand-alone options as well and SqAN 
 Performance:
  - After initial pairing process, Bluetooth based mesh appears to form relatively quickly, self heal consistently and maintain connectivity at distances in excess of 50m in open terrain
  - Some lower end and older devices occasionally need to be restarted after a period of use in order to access any bluetooth connection but this problem appears to extend beyond the Bluetooth mesh itself
+ 
 _**Bluetooth mesh is the highest performing mesh so far for lower bandwidth, lower energy usage, multi-hop applications**_
 
 
@@ -88,7 +92,7 @@ _**[WARNING: prolonged use of some SDRs without adequate heat management may cau
 SqANDR was a support library that has is absorbed into SqAN to extend SqAN across SDRs. Currently only PlutoSDRs or any *nix SDR with AD9361 agile transceiver family of devices supporting libiio. SqANDR is under active development with the latest on-SDR code provided in the "pluto" directory.
 
 SDR performance relies heavily on a number of factors, most of which are adjustable from within the SerialConnection and AbstractDataConnection classes. Here are some key settings:
- - **Mega Samples per Second** (MiS/s), listed as SerialConnection.SAMPLE_RATE can be **between 0.6 and 6.0** inclusive. Any sampling rate below 3.2 MiS/s requires on Pluto filtering, which is automatically included when launching SqANDR. Note: SDRs provided with dedicated power (rather than just the USB power from the attached Android) appear to have improved filter performance. Also of note, any sampling rate under 0.8 MiS/s is insufficiently fast to stream media
+ - **Mega Samples per Second** (MiS/s), listed as SerialConnection.SAMPLE_RATE can be **between 0.6 and 6.0** inclusive. Any sampling rate below 3.2 MiS/s requires on Pluto filtering, which is automatically included when launching SqANDR. With the current scheme, Pluto's typically struggle to process in real time for any sampling rate higher than 2.1 MiS/s. Note: SDRs provided with dedicated power (rather than just the USB power from the attached Android) appear to have improved filter performance. Also of note, any sampling rate under 0.8 MiS/s is insufficiently fast to stream media
  - **SerialConnection.MESSAGE_REPEAT** defines how many times a given message will be sent during a single transmission window. Higher values equal greater chance the message will be properly received and is limited based on how many messages can fit within the _SerialConnection.TX_BUFFER_SIZE_. Any messages above the buffer size will be ignored.
  - **AbstractDataConnection.USE_GAP_STRATEGY** indicates that a custom form of forward error correction should be used. This increases the size of a single packet, but also substantially increases the fidelity of packets. This flag is recommended, especially wih Pluto SDRs as some devices experience a bit inversion that appears to happen every 400 to 600 bits and is believed to be related to clock differences. SqANDR as-is relies on packet headers but not a timing signal, this option also adds a timing signal.
  - **Segment.MAX_LENGTH_BEFORE_SEGMENTING** allows the Segmenting And Reassembly engine to decide where packets should be split to support transport across the system. This can be as low as 1 and as high as 216 but should be **at least above 49** if packets from the VPN are being sent across the network. Many smaller segments sent multiple times increase the chance that a complete sequence of all segments will be reconstructed into a packet, but adds the expense of more header data which effectively slows down the overall data throughput.
